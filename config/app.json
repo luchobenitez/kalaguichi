@@ -1,0 +1,9 @@
+{
+  "mode": "synthetic-demo",
+  "public_key_acknowledged": true,
+  "manifest": "datos_padron/manifest.json",
+  "key_source": {
+    "type": "same-origin-demo-file",
+    "path": "config/clave-demo.txt"
+  }
+}
