@@ -408,8 +408,10 @@ function crearMapaBase(id, etiqueta) {
     return { lienzo, barrios: porNombre, filtro: `url(#brillo-${id})` };
 }
 
-function crearMapaMesas() {
-    const mapa = crearMapaBase('mapa', 'Mapa de Asunción con las zonas municipales y un punto por mesa alrededor de cada local de votación');
+// Mapa con las zonas municipales y un punto por mesa alrededor de cada local. Lo usan el mapa de mesas y el de
+// voto cruzado de «Intendente vs Junta»; alElegir recibe la clave del local tocado.
+function crearMapaConMesas(id, etiqueta, alElegir) {
+    const mapa = crearMapaBase(id, etiqueta);
     const zonas = svg('g', { class: 'mapa__zonas' });
     const rotulos = svg('g', { class: 'mapa__rotulos' });
     for (const z of datos.geo.zonas_municipales) {
@@ -436,7 +438,8 @@ function crearMapaMesas() {
         if (!porLocal.has(f.clave)) porLocal.set(f.clave, []);
         porLocal.get(f.clave).push(f);
     }
-    datos.puntos = [];
+    mapa.puntos = [];
+    mapa.radioLocal = new Map();
     for (const [clave, filas] of porLocal) {
         const info = datos.infoLocal.get(clave);
         filas.forEach((f, k) => {
@@ -449,9 +452,10 @@ function crearMapaMesas() {
             punto.dataset.zona = f.zona;
             punto.dataset.zm = f.zonaMunicipal ?? '';
             puntos.append(punto);
-            datos.puntos.push(punto);
+            mapa.puntos.push(punto);
         });
         const radio = Math.max(120, ESPIRAL_M * Math.sqrt(filas.length) + PUNTO_M + 40);
+        mapa.radioLocal.set(clave, radio);
         // Modo Zona TSJE: el halo lleva el color de la zona y los puntos conservan el de su lista.
         const halo = svg('circle', { cx: info.x, cy: info.y, r: radio, class: 'mapa__halo', fill: COLORES_ZONA[info.zona], stroke: COLORES_ZONA[info.zona] });
         halo.dataset.zona = info.zona;
@@ -461,12 +465,18 @@ function crearMapaMesas() {
         toque.dataset.local = clave;
         toques.append(titulo(toque, `${info.nombre} · ${filas.length} mesas · zona TSJE ${info.zona_nombre}`));
     }
-    mapa.lienzo.append(zonas, rotulos, halos, puntos, toques);
+    mapa.lienzo.append(zonas, rotulos, halos, puntos, toques, svg('g', { class: 'mapa__ranking' }));
     mapa.lienzo.addEventListener('click', (evento) => {
         const local = evento.target.closest('[data-local]')?.dataset.local;
-        if (local) seleccionarLocal(local);
+        if (local) alElegir(local);
     });
-    datos.mapas.mesas = mapa;
+    return mapa;
+}
+
+function crearMapaMesas() {
+    datos.mapas.mesas = crearMapaConMesas('mapa', 'Mapa de Asunción con las zonas municipales y un punto por mesa alrededor de cada local de votación',
+        seleccionarLocal);
+    datos.puntos = datos.mapas.mesas.puntos;
 }
 
 function encuadre() {
@@ -1209,7 +1219,7 @@ async function iniciar() {
         const [resumen, mesas, locales, geo, cand, ipm] = await Promise.all(
             ['resumen.json', 'mesas.json', 'locales.json', 'geo.json', 'candidaturas.json', 'indicadores_barrios.json'].map(cargar));
         datos = construirModelo(resumen, mesas, locales, geo, cand, ipm);
-        datos.ivj = crearIntendenteJunta(datos);
+        datos.ivj = crearIntendenteJunta(datos, { crearMapa: crearMapaConMesas, mezclar, cuantiles, opacidadPaso });
         renderFijos();
         crearMapaMesas();
         eventos();

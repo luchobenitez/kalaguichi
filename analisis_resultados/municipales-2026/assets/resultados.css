@@ -267,6 +267,90 @@ html[data-theme="dark"] .ivj__valor.es-positiva {
     margin-top: .5rem;
 }
 
+/* Mapa de voto cruzado: locales numerados, ranking y mesas del local elegido. */
+.mapa__anillo {
+    cursor: pointer;
+    fill: none;
+    stroke: #f8fafc;
+    stroke-width: 26;
+}
+
+.mapa__puesto {
+    fill: #f8fafc;
+    font-size: 320px;
+    font-weight: 800;
+    paint-order: stroke;
+    stroke: rgba(4, 7, 13, .85);
+    stroke-width: 60px;
+    pointer-events: none;
+}
+
+.leyenda .leyenda__titulo {
+    font-weight: 800;
+    color: var(--text);
+}
+
+.leyenda__anillo .leyenda__muestra {
+    border: 2px solid var(--text-soft);
+    background: transparent;
+}
+
+.leyenda__contorno .leyenda__muestra {
+    border: 2px dashed rgba(253, 186, 116, .9);
+    border-radius: 3px;
+}
+
+.ranking {
+    margin-top: 1rem;
+}
+
+.ranking h3 {
+    margin: 0 0 .5rem;
+    font-size: .9375rem;
+    font-weight: 800;
+}
+
+.ranking ol {
+    display: grid;
+    gap: .125rem;
+    margin: 0;
+    padding-left: 1.5rem;
+}
+
+.ranking__boton {
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    gap: .75rem;
+    width: 100%;
+    padding: .25rem .375rem;
+    border-radius: .5rem;
+    background: transparent;
+    color: var(--text-soft);
+    font-size: .8125rem;
+    text-align: left;
+}
+
+.ranking__boton:hover {
+    background: var(--surface-soft);
+}
+
+.ranking__boton:focus-visible {
+    outline: 3px solid var(--orange-500);
+    outline-offset: 2px;
+}
+
+.ranking__valor {
+    color: #dc2626;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+html[data-theme="dark"] .ranking__valor {
+    color: #f87171;
+}
+
 .vista__lateral .leyenda {
     margin-top: 0;
 }
