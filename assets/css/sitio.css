@@ -260,6 +260,15 @@ a.section-card:hover .section-card__cta svg {
     padding-left: 1.25rem;
 }
 
+/* Tamaño de toque: en pantallas táctiles los enlaces del menú miden al menos 44 px de alto. */
+@media (pointer: coarse) {
+    .site-nav a {
+        display: inline-flex;
+        align-items: center;
+        min-height: 44px;
+    }
+}
+
 @media (min-width: 640px) {
     .portal {
         padding: 3rem 1.5rem 3.5rem;

@@ -1,5 +1,17 @@
 /* Visor de resultados TREP 2026. Usa los tokens de padron.css y los componentes de sitio.css. */
 
+/* La barra fija de celular y tablet necesita que el contenedor de la página no sea un contenedor de desplazamiento:
+   overflow: clip recorta los brillos de fondo igual que hidden (que queda como respaldo). El encabezado del sitio
+   sigue sin quedar fijo, como hasta ahora en esta página. */
+.app-shell {
+    overflow: hidden;
+    overflow: clip;
+}
+
+.site-header {
+    position: relative;
+}
+
 .resultados {
     gap: 1.25rem;
 }
@@ -52,6 +64,7 @@
 
 .selector-cargo button:focus-visible,
 .segmentos button:focus-visible,
+.ficha__cerrar:focus-visible,
 .pestanas button:focus-visible,
 .boton-secundario:focus-visible,
 .boton-tabla:focus-visible,
@@ -133,6 +146,25 @@ html[data-theme="dark"] .panel__eyebrow {
 .panel--totales__cuerpo {
     display: grid;
     gap: 1.25rem;
+}
+
+.panel__acciones {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .5rem;
+}
+
+/* Aviso de «Copiar enlace» (o el enlace mismo, si no se pudo copiar). */
+.aviso-enlace {
+    color: var(--text-muted);
+    font-size: .8125rem;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+}
+
+.aviso-enlace:empty {
+    display: none;
 }
 
 /* Pestañas de gráficos: una vista por vez, desplazables en pantallas angostas. */
@@ -263,6 +295,40 @@ html[data-theme="dark"] .ivj__valor.es-positiva {
     display: block;
 }
 
+/* Celular: selector Lista 1 / Alianza para «Ambos» y paso entre los 20 más negativos y todos los locales. */
+.ivj__movil {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem;
+}
+
+.ivj__movil[hidden],
+.ivj__movil [hidden] {
+    display: none;
+}
+
+.ivj__movil .segmentos,
+.ivj__movil .boton-secundario {
+    flex: 1 1 100%;
+}
+
+.ivj__movil .segmentos {
+    display: flex;
+}
+
+.ivj__movil .segmentos button {
+    flex: 1 1 0;
+}
+
+/* Gráficos para la descarga en celular: se dibujan fuera de la pantalla con el ancho de escritorio. */
+.ivj__exportacion {
+    position: fixed;
+    top: 0;
+    left: -10000px;
+    width: 40rem;
+    pointer-events: none;
+}
+
 .panel--ivj .vista__titulo {
     margin-top: .5rem;
 }
@@ -271,18 +337,22 @@ html[data-theme="dark"] .ivj__valor.es-positiva {
 .mapa__anillo {
     cursor: pointer;
     fill: none;
-    stroke: #f8fafc;
-    stroke-width: 26;
+    stroke: var(--text);
+    stroke-width: calc(26px / var(--zoom-raiz, 1));
 }
 
 .mapa__puesto {
-    fill: #f8fafc;
+    fill: var(--text);
     font-size: 320px;
     font-weight: 800;
     paint-order: stroke;
-    stroke: rgba(4, 7, 13, .85);
+    stroke: rgba(255, 255, 255, .85);
     stroke-width: 60px;
     pointer-events: none;
+}
+
+html[data-theme="dark"] .mapa__puesto {
+    stroke: rgba(4, 7, 13, .85);
 }
 
 .leyenda .leyenda__titulo {
@@ -295,9 +365,15 @@ html[data-theme="dark"] .ivj__valor.es-positiva {
     background: transparent;
 }
 
-.leyenda__contorno .leyenda__muestra {
-    border: 2px dashed rgba(253, 186, 116, .9);
+.leyenda__contorno .leyenda__muestra,
+.leyenda .leyenda__muestra--zona {
+    border: 2px dashed rgba(234, 88, 12, .85);
     border-radius: 3px;
+}
+
+html[data-theme="dark"] .leyenda__contorno .leyenda__muestra,
+html[data-theme="dark"] .leyenda__muestra--zona {
+    border-color: rgba(253, 186, 116, .9);
 }
 
 .ranking {
@@ -526,9 +602,15 @@ html[data-theme="dark"] .ranking__valor {
     font-weight: 600;
 }
 
+/* Los selectores no se salen de su tarjeta aunque alguna opción sea larga. */
+.campo-select {
+    max-width: 100%;
+}
+
 .campo-select select,
 .campo-buscar input {
     min-width: 0;
+    max-width: 100%;
     padding: .5rem .75rem;
     border: 1px solid var(--border-strong);
     border-radius: .75rem;
@@ -537,36 +619,185 @@ html[data-theme="dark"] .ranking__valor {
     font: inherit;
 }
 
+/* Mapas sin fondo propio: el de la tarjeta queda a la vista. Líneas, rótulos y selección cambian con el tema;
+   los valores del tema oscuro son los de antes, cuando el mapa tenía fondo oscuro. */
 .mapa {
+    position: relative;
     overflow: hidden;
     border-radius: 1.25rem;
-    background: radial-gradient(circle at 50% 40%, #0b1220 0%, #04070d 70%);
+    background: transparent;
     aspect-ratio: 15602 / 17879;
     max-height: 72vh;
 }
 
+/* Vista normal: un dedo desplaza la página y el pellizco es del navegador; sin zoom por doble toque del navegador,
+   que lo hace el mapa. En pantalla completa el mapa maneja todos los gestos. */
 .mapa__svg {
     display: block;
     width: 100%;
     height: 100%;
+    touch-action: manipulation;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+/* Botones superpuestos: zoom (+, −, encuadre) a la derecha y «Ampliar mapa» a la izquierda. */
+.mapa__controles {
+    position: absolute;
+    top: .625rem;
+    right: .625rem;
+    z-index: 2;
+    display: grid;
+    gap: .375rem;
+}
+
+.mapa__boton {
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: .375rem;
+    min-width: 2.25rem;
+    height: 2.25rem;
+    padding: 0 .75rem;
+    border: 1px solid var(--border-strong);
+    border-radius: .75rem;
+    background: var(--surface-solid);
+    color: var(--text-soft);
+    font-size: .8125rem;
+    font-weight: 700;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, .12);
+}
+
+.mapa__boton:hover {
+    border-color: rgba(249, 115, 22, .5);
+    color: var(--orange-600);
+}
+
+.mapa__boton:focus-visible {
+    outline: 3px solid var(--orange-500);
+    outline-offset: 2px;
+}
+
+.mapa__boton svg {
+    width: 1.125rem;
+    height: 1.125rem;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 2;
+}
+
+.mapa__boton--icono {
+    width: 2.25rem;
+    padding: 0;
+}
+
+.mapa__ampliar {
+    position: absolute;
+    top: .625rem;
+    left: .625rem;
+    z-index: 2;
+}
+
+/* Pantalla completa: el mapa ocupa toda la ventana sobre un fondo opaco; la leyenda queda superpuesta y plegable. */
+.mapa--pantalla {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    aspect-ratio: auto;
+    max-height: none;
+    border-radius: 0;
+    background: var(--surface-solid);
+}
+
+.mapa--pantalla .mapa__svg {
+    touch-action: none;
+}
+
+.mapa--pantalla .mapa__controles {
+    top: max(.75rem, env(safe-area-inset-top));
+    right: max(.75rem, env(safe-area-inset-right));
+}
+
+.mapa--pantalla .mapa__ampliar {
+    top: max(.75rem, env(safe-area-inset-top));
+    left: max(.75rem, env(safe-area-inset-left));
+}
+
+/* La página queda quieta detrás del mapa; el contenido principal pasa por encima del encabezado y del pie. */
+html.es-mapa-pantalla,
+html.es-mapa-pantalla body {
+    overflow: hidden;
+}
+
+html.es-mapa-pantalla .portal {
+    z-index: 60;
+}
+
+.mapa__leyenda {
+    position: absolute;
+    bottom: max(.75rem, env(safe-area-inset-bottom));
+    left: max(.75rem, env(safe-area-inset-left));
+    z-index: 2;
+    max-width: min(22rem, calc(100% - 1.5rem));
+    max-height: 45vh;
+    overflow: auto;
+    overscroll-behavior: contain;
+    padding: .625rem .875rem;
+    border: 1px solid var(--border-strong);
+    border-radius: 1rem;
+    background: var(--surface-solid);
+    color: var(--text);
+    box-shadow: var(--card-shadow);
+}
+
+.mapa__leyenda[hidden] {
+    display: none;
+}
+
+.mapa__leyenda summary {
+    cursor: pointer;
+    font-size: .8125rem;
+    font-weight: 800;
+}
+
+.mapa__leyenda .leyenda {
+    flex-direction: column;
+    margin-top: .5rem;
 }
 
 .mapa__rio {
+    fill: rgba(56, 189, 248, .14);
+    stroke: rgba(56, 189, 248, .55);
+    stroke-width: calc(8px / var(--zoom-raiz, 1));
+}
+
+html[data-theme="dark"] .mapa__rio {
     fill: rgba(56, 189, 248, .09);
     stroke: rgba(56, 189, 248, .28);
-    stroke-width: 8;
 }
 
 .mapa__distrito {
+    fill: rgba(15, 23, 42, .02);
+    stroke: rgba(15, 23, 42, .5);
+    stroke-width: calc(22px / var(--zoom-raiz, 1));
+}
+
+html[data-theme="dark"] .mapa__distrito {
     fill: rgba(255, 255, 255, .025);
     stroke: rgba(255, 255, 255, .45);
-    stroke-width: 22;
 }
 
 /* Sin atributo fill: barrio de contexto. Con fill: coroplético (el color lo pone el visor). */
 .mapa__barrio {
+    stroke: rgba(15, 23, 42, .13);
+    stroke-width: calc(9px / var(--zoom-raiz, 1));
+}
+
+html[data-theme="dark"] .mapa__barrio {
     stroke: rgba(255, 255, 255, .11);
-    stroke-width: 9;
 }
 
 .mapa__barrio:not([fill]) {
@@ -574,57 +805,88 @@ html[data-theme="dark"] .ranking__valor {
 }
 
 .mapa__barrio:not([fill]):hover {
+    fill: rgba(15, 23, 42, .04);
+}
+
+html[data-theme="dark"] .mapa__barrio:not([fill]):hover {
     fill: rgba(255, 255, 255, .05);
 }
 
-.mapa__barrio[fill] {
+/* Entre barrios coloreados, la línea es del color de la superficie: se ve como una separación. */
+html .mapa__barrio[fill] {
     cursor: pointer;
-    stroke: rgba(4, 7, 13, .75);
-    stroke-width: 12;
+    stroke: var(--surface-solid);
+    stroke-width: calc(12px / var(--zoom-raiz, 1));
 }
 
-.mapa__barrio[fill]:hover {
+html .mapa__barrio[fill]:hover {
+    stroke: rgba(15, 23, 42, .7);
+    stroke-width: calc(22px / var(--zoom-raiz, 1));
+}
+
+html[data-theme="dark"] .mapa__barrio[fill]:hover {
     stroke: rgba(255, 255, 255, .75);
-    stroke-width: 22;
 }
 
-.mapa__barrio.es-seleccion {
-    stroke: #ffffff;
-    stroke-width: 34;
+html .mapa__barrio.es-seleccion,
+html .mapa__barrio.es-seleccion:hover {
+    stroke: var(--text);
+    stroke-width: calc(34px / var(--zoom-raiz, 1));
 }
 
 /* Zonas municipales oficiales: contorno y rótulo por debajo de los puntos de mesa. */
 .mapa__zona {
     fill: none;
-    stroke: rgba(253, 186, 116, .62);
-    stroke-width: 20;
-    stroke-dasharray: 90 55;
+    stroke: rgba(234, 88, 12, .62);
+    stroke-width: calc(20px / var(--zoom-raiz, 1));
+    stroke-dasharray: calc(90px / var(--zoom-raiz, 1)) calc(55px / var(--zoom-raiz, 1));
     stroke-linejoin: round;
 }
 
-.mapa__zona.es-seleccion {
-    stroke: #fdba74;
-    stroke-width: 42;
+html[data-theme="dark"] .mapa__zona {
+    stroke: rgba(253, 186, 116, .62);
+}
+
+html .mapa__zona.es-seleccion {
+    stroke: var(--orange-600);
+    stroke-width: calc(42px / var(--zoom-raiz, 1));
     stroke-dasharray: none;
 }
 
-.mapa__zona.es-atenuado {
+html[data-theme="dark"] .mapa__zona.es-seleccion {
+    stroke: #fdba74;
+}
+
+html .mapa__zona.es-atenuado {
+    stroke: rgba(234, 88, 12, .2);
+}
+
+html[data-theme="dark"] .mapa__zona.es-atenuado {
     stroke: rgba(253, 186, 116, .22);
 }
 
 .mapa__rotulo {
-    fill: rgba(255, 255, 255, .62);
+    fill: rgba(15, 23, 42, .62);
     font-size: 400px;
     font-weight: 800;
     letter-spacing: 18px;
     paint-order: stroke;
-    stroke: rgba(4, 7, 13, .8);
+    stroke: rgba(255, 255, 255, .85);
     stroke-width: 70px;
     stroke-linejoin: round;
     pointer-events: none;
 }
 
-.mapa__rotulo.es-atenuado {
+html[data-theme="dark"] .mapa__rotulo {
+    fill: rgba(255, 255, 255, .62);
+    stroke: rgba(4, 7, 13, .8);
+}
+
+html .mapa__rotulo.es-atenuado {
+    fill: rgba(15, 23, 42, .22);
+}
+
+html[data-theme="dark"] .mapa__rotulo.es-atenuado {
     fill: rgba(255, 255, 255, .22);
 }
 
@@ -633,17 +895,17 @@ html[data-theme="dark"] .ranking__valor {
     cursor: pointer;
     fill-opacity: .92;
     stroke: rgba(255, 255, 255, .85);
-    stroke-width: 14;
+    stroke-width: calc(14px / var(--zoom-raiz, 1));
 }
 
 .mapa__local:hover {
-    stroke: #ffffff;
-    stroke-width: 26;
+    stroke: var(--text);
+    stroke-width: calc(26px / var(--zoom-raiz, 1));
 }
 
 .mapa__local.es-seleccion {
-    stroke: #ffffff;
-    stroke-width: 36;
+    stroke: var(--text);
+    stroke-width: calc(36px / var(--zoom-raiz, 1));
 }
 
 .mapa__mesa {
@@ -656,8 +918,8 @@ html[data-theme="dark"] .ranking__valor {
 }
 
 .mapa__mesa.es-seleccion {
-    stroke: #ffffff;
-    stroke-width: 10;
+    stroke: var(--text);
+    stroke-width: calc(10px / var(--zoom-raiz, 1));
     opacity: 1;
 }
 
@@ -666,25 +928,46 @@ html[data-theme="dark"] .ranking__valor {
     fill: transparent;
 }
 
+/* Rótulos de zona y números de los locales: conservan su tamaño en pantalla al acercar el mapa. */
+.mapa__rotulo,
+.mapa__puesto {
+    transform-box: fill-box;
+    transform-origin: center;
+    transform: scale(calc(1 / var(--zoom, 1)));
+}
+
+/* Mientras se arrastra o se usa la rueda, sin el brillo de los puntos: el mapa se mueve con fluidez. */
+.es-moviendo .mapa__puntos {
+    filter: none;
+}
+
 /* Halo de zona TSJE por local: solo en el modo Zona TSJE; los puntos conservan el color de su lista. */
 .mapa__halo {
     display: none;
-    fill-opacity: .16;
+    fill-opacity: .18;
     stroke-opacity: .95;
-    stroke-width: 18;
+    stroke-width: calc(18px / var(--zoom-raiz, 1));
     pointer-events: none;
+}
+
+html[data-theme="dark"] .mapa__halo {
+    fill-opacity: .16;
 }
 
 .es-modo-zona .mapa__halo {
     display: inline;
 }
 
-.mapa__halo.es-atenuado {
+html .mapa__halo.es-atenuado {
     fill-opacity: .04;
     stroke-opacity: .18;
 }
 
 .mapa__toque:hover {
+    fill: rgba(15, 23, 42, .05);
+}
+
+html[data-theme="dark"] .mapa__toque:hover {
     fill: rgba(255, 255, 255, .06);
 }
 
@@ -715,9 +998,17 @@ html[data-theme="dark"] .ranking__valor {
     background: #9ca3af;
 }
 
-.leyenda__muestra--zona {
-    border: 2px dashed rgba(253, 186, 116, .9);
-    border-radius: 3px;
+/* Formas de los símbolos (daltonismo): las mismas que los puntos del mapa. */
+.leyenda .leyenda__muestra--rombo,
+.ficha .leyenda__muestra--rombo {
+    border-radius: 1px;
+    transform: rotate(45deg) scale(.82);
+}
+
+.leyenda .leyenda__muestra--cuadrado,
+.ficha .leyenda__muestra--cuadrado {
+    border-radius: 2px;
+    transform: scale(.9);
 }
 
 .leyenda__muestra--halo {
@@ -730,9 +1021,10 @@ html[data-theme="dark"] .ranking__valor {
     box-shadow: 0 0 0 1px rgba(15, 23, 42, .35);
 }
 
+/* El mismo gris tenue que paleta().sinDatos en resultados.js: 18 % del texto suave sobre la superficie. */
 .leyenda__muestra--vacio {
     border: 1px solid var(--border-strong);
-    background: #273244;
+    background: color-mix(in srgb, var(--text-muted) 18%, var(--surface-solid));
 }
 
 .leyenda--escala .leyenda__muestra {
@@ -938,9 +1230,11 @@ html[data-theme="dark"] .ranking__valor {
     border-radius: 1rem;
 }
 
+/* Bordes separados (con espacio cero): con bordes colapsados, los de las celdas fijas no acompañan al desplazamiento. */
 .tabla {
     width: 100%;
-    border-collapse: collapse;
+    border-collapse: separate;
+    border-spacing: 0;
     font-size: .8125rem;
     font-variant-numeric: tabular-nums;
 }
@@ -973,8 +1267,34 @@ html[data-theme="dark"] .ranking__valor {
 .tabla thead th {
     position: sticky;
     top: 0;
+    z-index: 2;
+    background: var(--surface-solid);
+}
+
+/* Primera columna fija al desplazar la tabla a lo ancho; la celda de la esquina queda por encima de todo. */
+.tabla tbody th {
+    position: sticky;
+    left: 0;
     z-index: 1;
     background: var(--surface-solid);
+}
+
+.tabla thead th:first-child {
+    left: 0;
+    z-index: 3;
+}
+
+/* La fila elegida conserva su tono también en la celda fija, que es opaca. */
+.tabla tr.es-seleccion th {
+    background: color-mix(in srgb, var(--orange-500) 10%, var(--surface-solid));
+}
+
+/* Desvanecido en el borde derecho mientras haya más columnas o pestañas a la derecha (desplazables.js pone es-fin).
+   --barra es el ancho de la barra vertical, que queda sin desvanecer. */
+.tabla-scroll:not(.es-fin),
+.pestanas:not(.es-fin) {
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - var(--barra, 0px) - 3rem), transparent calc(100% - var(--barra, 0px)), #000 calc(100% - var(--barra, 0px)));
+    mask-image: linear-gradient(to right, #000 calc(100% - var(--barra, 0px) - 3rem), transparent calc(100% - var(--barra, 0px)), #000 calc(100% - var(--barra, 0px)));
 }
 
 .tabla thead th:first-child,
@@ -1016,12 +1336,24 @@ html[data-theme="dark"] .boton-tabla {
 }
 
 .info-card .info-card__estado {
+    display: block;
     margin: 0 0 .375rem;
+    line-height: 1.65;
     color: var(--text-muted);
     font-size: .6875rem;
     font-weight: 800;
     letter-spacing: .1em;
     text-transform: uppercase;
+}
+
+/* Secciones plegables (resultados.js): en escritorio abiertas y sin marcador, como un título más. */
+.plegable > summary {
+    display: block;
+    list-style: none;
+}
+
+.plegable > summary::-webkit-details-marker {
+    display: none;
 }
 
 .fuentes__lista {
@@ -1040,6 +1372,222 @@ html[data-theme="dark"] .boton-tabla {
     color: var(--text-soft);
     font-size: .875rem;
     line-height: 1.6;
+}
+
+/* Ficha inferior del local o barrio tocado: celular, tablet y mapa en pantalla completa (lo decide resultados.js). */
+.ficha {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 70;
+    display: grid;
+    gap: .875rem;
+    max-height: min(62vh, 34rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 1rem max(1rem, env(safe-area-inset-right)) calc(1rem + env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
+    border: 1px solid var(--border-strong);
+    border-bottom: 0;
+    border-radius: 1.25rem 1.25rem 0 0;
+    background: var(--surface-solid);
+    color: var(--text);
+    box-shadow: var(--card-shadow);
+    animation: ficha-entrar .2s ease-out;
+}
+
+.ficha[hidden] {
+    display: none;
+}
+
+@keyframes ficha-entrar {
+    from {
+        transform: translateY(1.5rem);
+        opacity: 0;
+    }
+}
+
+.ficha__cabecera {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: .75rem;
+}
+
+.ficha__encabezado {
+    min-width: 0;
+}
+
+.ficha__eyebrow {
+    margin: 0 0 .25rem;
+    color: var(--orange-600);
+    font-size: .6875rem;
+    font-weight: 700;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+}
+
+html[data-theme="dark"] .ficha__eyebrow {
+    color: var(--orange-400);
+}
+
+.ficha__titulo {
+    margin: 0;
+    font-size: 1.0625rem;
+    font-weight: 800;
+    line-height: 1.3;
+    overflow-wrap: anywhere;
+}
+
+.ficha__meta {
+    margin: .25rem 0 0;
+    color: var(--text-muted);
+    font-size: .8125rem;
+    line-height: 1.45;
+}
+
+.ficha__cerrar {
+    cursor: pointer;
+    flex: 0 0 auto;
+    padding: .5rem .875rem;
+    border: 1px solid var(--border-strong);
+    border-radius: .875rem;
+    background: transparent;
+    color: var(--text-soft);
+    font-weight: 700;
+}
+
+.ficha__datos {
+    display: grid;
+    gap: .875rem;
+}
+
+.ficha__listas {
+    display: grid;
+    gap: .375rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.ficha__lista {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: .5rem;
+    font-size: .875rem;
+}
+
+.ficha__nombre {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ficha__votos {
+    color: var(--text-soft);
+    font-variant-numeric: tabular-nums;
+}
+
+.ficha__pct {
+    min-width: 3.75rem;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+}
+
+.ficha__resumen {
+    display: grid;
+    gap: .625rem;
+    margin: 0;
+}
+
+.ficha__resumen dt {
+    color: var(--text-muted);
+    font-size: .6875rem;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+}
+
+.ficha__resumen dd {
+    margin: .125rem 0 0;
+    font-size: .875rem;
+    line-height: 1.45;
+    font-variant-numeric: tabular-nums;
+}
+
+.ficha .es-negativa {
+    color: #dc2626;
+}
+
+.ficha .es-positiva {
+    color: #15803d;
+}
+
+html[data-theme="dark"] .ficha .es-negativa {
+    color: #f87171;
+}
+
+html[data-theme="dark"] .ficha .es-positiva {
+    color: #4ade80;
+}
+
+.ficha__acciones {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem;
+}
+
+@media (min-width: 640px) {
+    .ficha {
+        right: auto;
+        left: 50%;
+        width: min(34rem, calc(100% - 2rem));
+        translate: -50% 0;
+    }
+}
+
+/* Celular y tablet: selector de cargo de ancho completo, con las tres opciones del mismo tamaño en una fila, y barra
+   fija: el selector queda pegado arriba en toda la página y las pestañas de gráficos debajo de él mientras se ven los
+   gráficos. El fondo sólido (y una franja del color de la página alrededor) evita que el contenido se vea por detrás. */
+@media (max-width: 899px) {
+    .selector-cargo {
+        position: sticky;
+        top: 0;
+        z-index: 40;
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        width: 100%;
+        border-radius: 1rem;
+        background: var(--surface-solid);
+    }
+
+    .selector-cargo::before {
+        content: "";
+        position: absolute;
+        z-index: -1;
+        inset: -.5rem -1.5rem 0;
+        background: var(--page-bg);
+    }
+
+    .selector-cargo button {
+        border-radius: .75rem;
+        line-height: 1.2;
+        text-align: center;
+    }
+
+    .pestanas {
+        position: sticky;
+        top: var(--alto-barra, 3.5rem);
+        z-index: 30;
+        background: var(--surface-solid);
+    }
+
+    /* Destinos de «Ver detalle» y de los saltos internos: no quedan tapados por la barra fija. */
+    .resultados [id] {
+        scroll-margin-top: calc(var(--alto-barra, 3.5rem) + .75rem);
+    }
 }
 
 @media (min-width: 900px) {
@@ -1089,11 +1637,222 @@ html[data-theme="dark"] .boton-tabla {
     .campo-buscar input {
         width: 100%;
     }
+
+    /* Héroe compacto: el primer resultado y el mapa aparecen antes. */
+    .resultados > .portal-hero {
+        padding: 1.125rem 1rem;
+        border-radius: 1.5rem;
+    }
+
+    .resultados > .portal-hero h1 {
+        margin-top: .75rem;
+        font-size: 1.5rem;
+    }
+
+    .resultados .portal-hero__lead {
+        margin-top: .5rem;
+        font-size: .875rem;
+        line-height: 1.375rem;
+    }
+
+    /* Panel de resultados algo más compacto y barra del mapa más baja: el mapa empieza antes. */
+    .lista-resultados {
+        gap: .75rem;
+    }
+
+    .participacion,
+    .diferencia {
+        padding: .75rem .875rem;
+    }
+
+    .otros-votos {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: .5rem .75rem;
+        margin-top: 1rem;
+    }
+
+    .pestanas {
+        margin-bottom: .75rem;
+    }
+
+    .panel__barra {
+        gap: .5rem;
+        margin-bottom: .75rem;
+    }
+
+    .resultados .official-badge {
+        padding: .375rem .75rem;
+        font-size: .6875rem;
+        letter-spacing: .12em;
+    }
+
+    .resultados .aviso-trep {
+        margin-top: .625rem;
+        font-size: .8125rem;
+    }
+
+    /* Secciones plegadas: el título indica con una flecha que se abre al tocarlo. */
+    .plegable > summary {
+        cursor: pointer;
+        position: relative;
+        padding-right: 1.75rem;
+    }
+
+    .plegable > summary::after {
+        content: "";
+        position: absolute;
+        top: 50%;
+        right: .25rem;
+        width: .5rem;
+        height: .5rem;
+        border-right: 2px solid var(--text-muted);
+        border-bottom: 2px solid var(--text-muted);
+        transform: translateY(-75%) rotate(45deg);
+    }
+
+    .plegable[open] > summary::after {
+        transform: translateY(-25%) rotate(-135deg);
+    }
+
+    .info-card.plegable h2 {
+        margin-bottom: 0;
+    }
+
+    .info-card.plegable[open] h2 {
+        margin-bottom: .75rem;
+    }
+
+    /* Leyendas compactas, justo debajo del mapa: se ven junto con él sin desplazarse. */
+    .vista__lateral .leyenda {
+        gap: .25rem .875rem;
+        margin-top: 0;
+        font-size: .75rem;
+    }
+
+    .vista__cuerpo {
+        gap: .625rem;
+    }
+
+    /* Selectores a todo el ancho de la tarjeta, con el rótulo en un renglón. */
+    .campo-select {
+        width: 100%;
+        white-space: nowrap;
+    }
+
+    .campo-select select {
+        flex: 1 1 auto;
+        width: 100%;
+    }
+
+    .campo-buscar {
+        white-space: nowrap;
+    }
+
+    /* Intendente vs Junta: un control por renglón; los segmentos con botones de igual ancho y las descargas lado a lado. */
+    .ivj__controles {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .ivj__controles .segmentos {
+        display: flex;
+        flex-wrap: nowrap;
+    }
+
+    .ivj__controles .segmentos button {
+        flex: 1 1 0;
+        min-width: 0;
+        padding-right: .5rem;
+        padding-left: .5rem;
+    }
+
+    .ivj__acciones {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    /* Tablas: menos desplazamiento anidado y el nombre en hasta dos renglones junto a la primera columna numérica. */
+    .tabla-scroll {
+        max-height: 70vh;
+    }
+
+    .tabla-scroll--detalle {
+        max-height: 18rem;
+    }
+
+    .tabla tbody th {
+        min-width: 7.5rem;
+        max-width: 9.5rem;
+        white-space: normal;
+    }
+
+    /* Las demás columnas de texto (barrio, tramo) también se angostan para que entren columnas numéricas. */
+    .tabla td.tabla__texto {
+        min-width: 6rem;
+        max-width: 8rem;
+        white-space: normal;
+        overflow-wrap: anywhere;
+    }
+
+    .tabla__nombre {
+        display: -webkit-box;
+        overflow: hidden;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+        line-clamp: 2;
+        overflow-wrap: anywhere;
+    }
+}
+
+/* Tamaño de toque: en pantallas táctiles (celular y tablet) ningún control mide menos de 44 px de alto. */
+@media (pointer: coarse) {
+    .selector-cargo button,
+    .segmentos button,
+    .pestanas button,
+    .campo-select select,
+    .campo-buscar input,
+    .boton-secundario,
+    .boton-tabla,
+    .tabla__orden,
+    .ranking__boton,
+    .ficha__cerrar,
+    .mapa__boton {
+        min-height: 44px;
+    }
+
+    .mapa__boton--icono {
+        width: 44px;
+    }
+
+    .mapa__leyenda summary {
+        display: flex;
+        align-items: center;
+        min-height: 44px;
+    }
+
+    .tabla__orden {
+        display: inline-flex;
+        align-items: center;
+    }
+
+    .ranking__boton {
+        align-items: center;
+    }
+
+    /* El alto lo da el botón de orden: sin relleno vertical, el encabezado no crece de más. */
+    .tabla thead th {
+        padding-top: 0;
+        padding-bottom: 0;
+    }
 }
 
 @media (prefers-reduced-motion: reduce) {
     .barra__relleno,
     .mapa__mesa {
         transition: none;
+    }
+
+    .ficha {
+        animation: none;
     }
 }

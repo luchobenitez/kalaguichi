@@ -5,6 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="description" content="Kalaguichi.com: resultados preliminares del TREP de las municipales 2026 en Asunción, por mesa, local, barrio y zona.">
     <meta name="robots" content="noindex, nofollow">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Kalaguichi.com">
+    <meta property="og:locale" content="es_PY">
+    <meta property="og:title" content="Municipales 2026 en Asunción: resultados del TREP mesa por mesa">
+    <meta property="og:description" content="Resultados preliminares del TREP por mesa, local, barrio y zona: mapas, tablas, participación e Intendente vs Junta. No reemplazan al cómputo oficial.">
+    <meta property="og:url" content="https://luchobenitez.github.io/kalaguichi/analisis_resultados/municipales-2026/">
+    <meta property="og:image" content="https://luchobenitez.github.io/kalaguichi/assets/img/og-municipales-2026.png">
+    <meta property="og:image:type" content="image/png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="Logo de Kalaguichi.com y mapa de Asunción con un punto por mesa, con el título Resultados del TREP mesa por mesa.">
+    <meta name="twitter:card" content="summary_large_image">
     <meta name="referrer" content="no-referrer">
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; connect-src 'self'; style-src 'self'; img-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
     <link rel="icon" href="../../assets/img/kalaguichi-isotipo.svg" type="image/svg+xml">
@@ -83,9 +95,10 @@
         <p class="error-carga" id="errorCarga" role="alert" hidden></p>
 
         <div class="selector-cargo" role="tablist" aria-label="Cargo">
-            <button type="button" role="tab" id="cargo-1" data-cargo="1" aria-selected="true">Intendencia</button>
-            <button type="button" role="tab" id="cargo-2" data-cargo="2" aria-selected="false">Junta Municipal</button>
-            <button type="button" role="tab" id="cargo-c" data-cargo="c" aria-selected="false"
+            <button type="button" role="tab" id="cargo-1" data-cargo="1" aria-selected="true" aria-controls="panelTotales panelGraficos">Intendencia</button>
+            <button type="button" role="tab" id="cargo-2" data-cargo="2" aria-selected="false" tabindex="-1"
+                    aria-controls="panelTotales panelBancas panelGraficos">Junta Municipal</button>
+            <button type="button" role="tab" id="cargo-c" data-cargo="c" aria-selected="false" tabindex="-1" aria-controls="panelIvj"
                     title="Diferencia por local entre los votos del Intendente y los de su Junta Municipal">Intendente vs Junta</button>
         </div>
 
@@ -141,6 +154,13 @@
             </div>
             <div class="ivj__mesas" id="mesasIvj" hidden></div>
             <h3 class="vista__titulo">Diferencia por local</h3>
+            <div class="ivj__movil" id="ivjMovil" hidden>
+                <div class="segmentos" role="group" aria-label="Grupo del gráfico" id="ivjAmbos" hidden>
+                    <button type="button" data-ivj-ambos="L1" aria-pressed="true">Lista 1</button>
+                    <button type="button" data-ivj-ambos="AL" aria-pressed="false">Alianza</button>
+                </div>
+                <button type="button" class="boton-secundario" id="ivjTodos" aria-pressed="false" aria-controls="graficosIvj">Ver todos los locales</button>
+            </div>
             <div class="ivj__graficos" id="graficosIvj"></div>
             <ul class="leyenda" id="leyendaIvj"></ul>
             <h3 class="vista__titulo">Locales por tramo de diferencia (%)</h3>
@@ -164,7 +184,11 @@
                     <h2 id="tituloTotales">Asunción</h2>
                     <p class="panel__meta" id="metaTotales"></p>
                 </div>
-                <button type="button" class="boton-secundario" id="limpiarSeleccion" hidden>Ver toda Asunción</button>
+                <div class="panel__acciones">
+                    <button type="button" class="boton-secundario" id="limpiarSeleccion" hidden>Ver toda Asunción</button>
+                    <button type="button" class="boton-secundario" id="copiarEnlace">Copiar enlace</button>
+                    <span class="aviso-enlace" id="avisoEnlace" role="status" aria-live="polite"></span>
+                </div>
             </div>
             <div class="panel--totales__cuerpo">
                 <div class="lista-resultados" id="listaResultados" aria-live="polite"></div>
@@ -194,12 +218,12 @@
             <h2 class="visualmente-oculto" id="tituloGraficos">Gráficos y tablas</h2>
             <div class="pestanas" role="tablist" aria-label="Gráficos" id="pestanas">
                 <button type="button" role="tab" data-vista="mapa" aria-selected="true" aria-controls="vista-mapa">Mapa de mesas</button>
-                <button type="button" role="tab" data-vista="barrios" aria-selected="false" aria-controls="vista-barrios">Asunción por barrio</button>
-                <button type="button" role="tab" data-vista="listas" aria-selected="false" aria-controls="vista-listas">Votos por lista</button>
-                <button type="button" role="tab" data-vista="participacion" aria-selected="false" aria-controls="vista-participacion">Participación</button>
-                <button type="button" role="tab" data-vista="ipm" aria-selected="false" aria-controls="vista-ipm">Pobreza multidimensional</button>
-                <button type="button" role="tab" data-vista="margen" aria-selected="false" aria-controls="vista-margen">Margen</button>
-                <button type="button" role="tab" data-vista="tablas" aria-selected="false" aria-controls="vista-tablas">Tablas</button>
+                <button type="button" role="tab" data-vista="barrios" aria-selected="false" tabindex="-1" aria-controls="vista-barrios">Asunción por barrio</button>
+                <button type="button" role="tab" data-vista="listas" aria-selected="false" tabindex="-1" aria-controls="vista-listas">Votos por lista</button>
+                <button type="button" role="tab" data-vista="participacion" aria-selected="false" tabindex="-1" aria-controls="vista-participacion">Participación</button>
+                <button type="button" role="tab" data-vista="ipm" aria-selected="false" tabindex="-1" aria-controls="vista-ipm">Pobreza multidimensional</button>
+                <button type="button" role="tab" data-vista="margen" aria-selected="false" tabindex="-1" aria-controls="vista-margen">Margen</button>
+                <button type="button" role="tab" data-vista="tablas" aria-selected="false" tabindex="-1" aria-controls="vista-tablas">Tablas</button>
             </div>
 
             <div class="vista" role="tabpanel" id="vista-mapa" aria-label="Mapa de mesas">
@@ -322,8 +346,10 @@
         <section class="info-grid" aria-label="Vistas no disponibles" id="noDisponible"></section>
 
         <section class="panel" aria-labelledby="tituloFuentes">
-            <h2 id="tituloFuentes">Fuentes y método</h2>
-            <div class="fuentes" id="fuentes"></div>
+            <details class="plegable" open>
+                <summary><h2 id="tituloFuentes">Fuentes y método</h2></summary>
+                <div class="fuentes" id="fuentes"></div>
+            </details>
         </section>
     </main>
 
@@ -331,6 +357,23 @@
         <p>© <span id="currentYear"></span> Kalaguichi.com · Iniciativa independiente, no vinculada al TSJE.</p>
         <p>Los resultados del TREP son preliminares y no reemplazan al cómputo oficial.</p>
     </footer>
+</div>
+
+<div class="ficha" id="ficha" role="dialog" aria-modal="false" aria-labelledby="fichaTitulo" hidden>
+    <div class="ficha__cabecera">
+        <div class="ficha__encabezado" aria-live="polite">
+            <p class="ficha__eyebrow" id="fichaEyebrow"></p>
+            <h2 class="ficha__titulo" id="fichaTitulo"></h2>
+            <p class="ficha__meta" id="fichaMeta"></p>
+        </div>
+        <button type="button" class="ficha__cerrar" id="fichaCerrar">Cerrar</button>
+    </div>
+    <div class="ficha__cuerpo" id="fichaCuerpo"></div>
+    <div class="ficha__acciones">
+        <button type="button" class="boton-secundario" id="fichaDetalle">Ver detalle</button>
+        <button type="button" class="boton-secundario" id="fichaEnlace">Copiar enlace</button>
+        <span class="aviso-enlace" id="fichaAviso" role="status" aria-live="polite"></span>
+    </div>
 </div>
 </body>
 </html>

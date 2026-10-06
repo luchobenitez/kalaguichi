@@ -2,6 +2,9 @@
 // Sin dependencias ni HTML desde datos: el texto se asigna con textContent y los estilos por CSSOM.
 // La sección «Intendente vs Junta» vive en su propio módulo y carga Chart.js solo al abrirse.
 import { crearIntendenteJunta } from './intendente_junta.js';
+import { crearFicha } from './ficha.js';
+import { vigilarDesplazables } from './desplazables.js';
+import { habilitarZoom, agregarControles, salirDePantallaCompleta } from './zoom_mapa.js';
 const SVG = 'http://www.w3.org/2000/svg';
 // Comparación pedida por el usuario para el margen: Camilo Pérez (ANR) frente a Soledad Núñez (AJA).
 const MARGEN = { cargo: '1', positivo: 'ANR', negativo: 'AJA' };
@@ -12,15 +15,37 @@ const COLORES_ZONA = { 1: '#f97316', 2: '#22d3ee', 3: '#a78bfa', 4: '#facc15', 5
 const PARTICIPACION_COLOR = '#f97316';
 // IPM: tono ámbar, distinto de los colores de las listas que llevan los locales encima.
 const IPM_COLOR = '#fbbf24';
-// Los mapas coropléticos mezclan el color con el fondo del mapa: la leyenda muestra el mismo tono en ambos temas.
-const FONDO_MAPA = [11, 18, 32];
-const SIN_DATOS = '#273244';
+// Daltonismo: además del color, la forma distingue las listas en los puntos y en sus leyendas. Rojo y verde (ANR y la
+// Alianza: AJA en Intendencia, AUA en Junta) son los que más se confunden; las demás listas van en cuadrado.
+const FORMAS = { ANR: 'circulo', AJA: 'rombo', AUA: 'rombo' };
+const formaDe = (item) => FORMAS[item?.sigla] ?? 'cuadrado';
+// Símbolo de igual área que un círculo de radio r, como trazado SVG.
+function simbolo(x, y, r, forma) {
+    const n = (v) => Math.round(v * 10) / 10;
+    if (forma === 'rombo') {
+        const s = r * 1.2533;
+        return `M${n(x)} ${n(y - s)}L${n(x + s)} ${n(y)}L${n(x)} ${n(y + s)}L${n(x - s)} ${n(y)}Z`;
+    }
+    if (forma === 'cuadrado') {
+        const h = r * 0.8862;
+        return `M${n(x - h)} ${n(y - h)}h${n(2 * h)}v${n(2 * h)}h${n(-2 * h)}Z`;
+    }
+    return `M${n(x - r)} ${n(y)}a${n(r)} ${n(r)} 0 1 0 ${n(2 * r)} 0a${n(r)} ${n(r)} 0 1 0 ${n(-2 * r)} 0Z`;
+}
 const fmt = new Intl.NumberFormat('es-PY');
 const pct = new Intl.NumberFormat('es-PY', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 const pct2 = new Intl.NumberFormat('es-PY', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 const $ = (id) => document.getElementById(id);
 const base = new URL('./', document.baseURI);
+// Celular y tablet (y un mapa en pantalla completa): tocar un local o un barrio abre la ficha inferior en lugar de
+// desplazar la página hasta el panel de resultados. En escritorio se conserva el desplazamiento.
+const PANTALLA_ANGOSTA = matchMedia('(max-width: 899px)');
+// Celular: las tarjetas «No disponible» y «Fuentes y método» empiezan plegadas (en escritorio siguen abiertas).
+const PANTALLA_CHICA = matchMedia('(max-width: 640px)');
+const usarFicha = () => PANTALLA_ANGOSTA.matches || Boolean(document.querySelector('.mapa--pantalla'));
+const movimiento = () => (matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth');
+let ficha;
 
 function el(tag, clase, texto) {
     const nodo = document.createElement(tag);
@@ -39,6 +64,14 @@ function svg(tag, atributos = {}) {
     return nodo;
 }
 
+// Encabezado de fila: el nombre va en un span para poder cortarlo en dos renglones en pantallas angostas.
+function celdaNombre(texto, clase) {
+    const th = el('th', clase);
+    th.scope = 'row';
+    th.append(el('span', 'tabla__nombre', texto));
+    return th;
+}
+
 function titulo(nodo, texto) {
     const t = svg('title');
     t.textContent = texto;
@@ -52,6 +85,7 @@ async function cargar(nombre) {
     return respuesta.json();
 }
 
+const VISTAS = ['mapa', 'barrios', 'listas', 'participacion', 'ipm', 'margen', 'tablas'];
 const estado = { cargo: '1', zona: null, zonaMunicipal: null, local: null, barrio: null, vista: 'mapa', colorMapa: 'lista',
                  lista: { 1: null, 2: null }, medida: 'pct', ipm: 'H', tabla: 'local', unidad: 'mesa', binHistograma: null,
                  orden: null, filtro: '' };
@@ -405,7 +439,18 @@ function crearMapaBase(id, etiqueta) {
     }
     lienzo.append(barrios);
     $(id).replaceChildren(lienzo);
-    return { lienzo, barrios: porNombre, filtro: `url(#brillo-${id})` };
+    // Zoom: parte del encuadre que fija el visor (zona elegida o todo el distrito) y «reiniciar» vuelve a él.
+    const mapa = { lienzo, barrios: porNombre, filtro: `url(#brillo-${id})`, marco: datos.geo.viewBox, marcoTexto: datos.geo.viewBox.join(' ') };
+    mapa.zoom = habilitarZoom(lienzo, () => mapa.marco);
+    mapa.fijarMarco = (marco) => {
+        const texto = marco.join(' ');
+        if (texto === mapa.marcoTexto) return;
+        mapa.marco = marco;
+        mapa.marcoTexto = texto;
+        mapa.zoom.reiniciar();
+    };
+    agregarControles($(id), mapa.zoom, () => [...($(id).closest('.vista__cuerpo')?.querySelectorAll('.vista__lateral .leyenda') ?? [])]);
+    return mapa;
 }
 
 // Mapa con las zonas municipales y un punto por mesa alrededor de cada local. Lo usan el mapa de mesas y el de
@@ -440,13 +485,24 @@ function crearMapaConMesas(id, etiqueta, alElegir) {
     }
     mapa.puntos = [];
     mapa.radioLocal = new Map();
+    mapa.radio = PUNTO_M;
+    // Cada punto es un trazado: círculo, rombo o cuadrado (formaPunto), con el radio del zoom actual.
+    const lugar = new Map();
+    mapa.formaPunto = (punto, forma) => {
+        if (punto.dataset.forma === forma) return;
+        punto.dataset.forma = forma;
+        const [x, y] = lugar.get(punto);
+        punto.setAttribute('d', simbolo(x, y, mapa.radio, forma));
+    };
     for (const [clave, filas] of porLocal) {
         const info = datos.infoLocal.get(clave);
         filas.forEach((f, k) => {
             const angulo = k * 2.399963;
             const radio = ESPIRAL_M * Math.sqrt(k + 0.5);
-            const punto = svg('circle', { cx: Math.round(info.x + radio * Math.cos(angulo)), cy: Math.round(info.y + radio * Math.sin(angulo)),
-                r: PUNTO_M, class: 'mapa__mesa' });
+            const x = Math.round(info.x + radio * Math.cos(angulo)), y = Math.round(info.y + radio * Math.sin(angulo));
+            const punto = svg('path', { d: simbolo(x, y, PUNTO_M, 'circulo'), class: 'mapa__mesa' });
+            lugar.set(punto, [x, y]);
+            punto.dataset.forma = 'circulo';
             punto.dataset.i = f.i;
             punto.dataset.local = clave;
             punto.dataset.zona = f.zona;
@@ -466,9 +522,20 @@ function crearMapaConMesas(id, etiqueta, alElegir) {
         toques.append(titulo(toque, `${info.nombre} · ${filas.length} mesas · zona TSJE ${info.zona_nombre}`));
     }
     mapa.lienzo.append(zonas, rotulos, halos, puntos, toques, svg('g', { class: 'mapa__ranking' }));
+    // Al acercar, el radio de los puntos de mesa crece menos que el mapa: se separan y se distinguen.
+    mapa.lienzo.addEventListener('zoommapa', (evento) => {
+        const r = Math.round((10 * PUNTO_M) / Math.sqrt(evento.detail.factor)) / 10;
+        if (r === mapa.radio) return;
+        mapa.radio = r;
+        mapa.lienzo.dataset.radioPunto = String(r);
+        for (const punto of mapa.puntos) {
+            const [x, y] = lugar.get(punto);
+            punto.setAttribute('d', simbolo(x, y, r, punto.dataset.forma));
+        }
+    });
     mapa.lienzo.addEventListener('click', (evento) => {
         const local = evento.target.closest('[data-local]')?.dataset.local;
-        if (local) alElegir(local);
+        if (local) alElegir(local, mapa.lienzo);
     });
     return mapa;
 }
@@ -506,9 +573,10 @@ function encuadre() {
     return [Math.round(x0), Math.round(y0), Math.round(x1 - x0), Math.round(y1 - y0)];
 }
 
-function itemLeyenda(color, texto, extra) {
+// forma: la del símbolo en el mapa (círculo por omisión); el nombre de la lista siempre va en el texto.
+function itemLeyenda(color, texto, extra, forma) {
     const li = el('li');
-    const muestra = el('span', `leyenda__muestra${extra ? ` ${extra}` : ''}`);
+    const muestra = el('span', `leyenda__muestra${extra ? ` ${extra}` : ''}${forma && forma !== 'circulo' ? ` leyenda__muestra--${forma}` : ''}`);
     if (color) muestra.style.background = color;
     li.append(muestra, el('span', null, texto));
     return li;
@@ -529,6 +597,7 @@ function renderMapaMesas() {
         const clave = j === null ? 'empate' : `lista-${j}`;
         const visible = visibleEn(punto);
         punto.setAttribute('fill', j === null ? '#9ca3af' : colorDe(j));
+        datos.mapas.mesas.formaPunto(punto, j === null ? 'circulo' : formaDe(datos.listas[estado.cargo][j]));
         punto.classList.toggle('es-seleccion', punto.dataset.local === estado.local);
         punto.classList.toggle('es-atenuado', !visible);
         if (visible) {
@@ -546,9 +615,9 @@ function renderMapaMesas() {
         nodo.classList.toggle('es-seleccion', Number(nodo.dataset.zonaMunicipal) === estado.zonaMunicipal);
         nodo.classList.toggle('es-atenuado', estado.zonaMunicipal !== null && Number(nodo.dataset.zonaMunicipal) !== estado.zonaMunicipal);
     }
-    datos.mapas.mesas.lienzo.setAttribute('viewBox', encuadre().join(' '));
+    datos.mapas.mesas.fijarMarco(encuadre());
     datos.listas[estado.cargo].forEach((item, j) => {
-        if (conteo.get(`lista-${j}`)) leyenda.append(itemLeyenda(item.color, `${item.sigla}: ${fmt.format(conteo.get(`lista-${j}`))} mesas`));
+        if (conteo.get(`lista-${j}`)) leyenda.append(itemLeyenda(item.color, `${item.sigla}: ${fmt.format(conteo.get(`lista-${j}`))} mesas`, null, formaDe(item)));
     });
     if (conteo.get('empate')) leyenda.append(itemLeyenda(null, `Empate: ${fmt.format(conteo.get('empate'))} mesas`, 'leyenda__muestra--empate'));
     if (estado.colorMapa === 'zona') {
@@ -562,7 +631,7 @@ function renderMapaMesas() {
         }
     }
     leyenda.append(itemLeyenda(null, 'Contorno: zonas municipales oficiales', 'leyenda__muestra--zona'));
-    $('notaMapa').textContent = 'Cada punto es una mesa, con el color de la lista más votada, dibujada alrededor de su local de votación: los puntos ' +
+    $('notaMapa').textContent = 'Cada punto es una mesa, con el color y la forma de la lista más votada (ver la leyenda), dibujada alrededor de su local de votación: los puntos ' +
         'se separan para que se vean y no indican una ubicación propia. ' +
         (estado.colorMapa === 'zona' ? 'El halo de cada local indica su zona electoral del TSJE. ' : '') +
         'Los contornos rotulados son las 6 zonas municipales oficiales (Municipalidad de Asunción), que no coinciden con las 6 zonas ' +
@@ -580,10 +649,30 @@ function agregadosBarrio() {
     return new Map([...porBarrio].map(([b, idx]) => [b, sumar(idx, estado.cargo)]));
 }
 
+// Los mapas no tienen fondo propio: se dibujan sobre la tarjeta. Los coropléticos mezclan el color con la superficie
+// del tema activo (claro u oscuro) y la leyenda usa el mismo tono; al cambiar el tema se vuelven a pintar.
+const aRgb = (hex) => {
+    const n = parseInt(hex.trim().slice(1), 16);
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+};
+const aHex = (canales) => `#${canales.map((v) => Math.round(v).toString(16).padStart(2, '0')).join('')}`;
+let paletaTema = null;
+
+function paleta() {
+    const tema = document.documentElement.dataset.theme;
+    if (paletaTema?.tema === tema) return paletaTema;
+    const css = getComputedStyle(document.documentElement);
+    const leer = (nombre, defecto) => aRgb(css.getPropertyValue(nombre).trim() || defecto);
+    const fondo = leer('--surface-solid', '#ffffff');
+    const suave = leer('--text-muted', '#64748b');
+    // Barrio sin dato: gris tenue del tema, el mismo que .leyenda__muestra--vacio en resultados.css.
+    paletaTema = { tema, fondo, sinDatos: aHex(fondo.map((v, k) => v + 0.18 * (suave[k] - v))) };
+    return paletaTema;
+}
+
 function mezclar(hex, alfa) {
-    const n = parseInt(hex.slice(1), 16);
-    const canales = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
-    return `#${canales.map((v, k) => Math.round(FONDO_MAPA[k] + alfa * (v - FONDO_MAPA[k])).toString(16).padStart(2, '0')).join('')}`;
+    const { fondo } = paleta();
+    return aHex(aRgb(hex).map((v, k) => fondo[k] + alfa * (v - fondo[k])));
 }
 
 function escala(valores, pasos = 5) {
@@ -614,14 +703,14 @@ function prepararMapaBarrios(clave, id, etiqueta) {
     const mapa = crearMapaBase(id, etiqueta);
     mapa.lienzo.addEventListener('click', (evento) => {
         const barrio = evento.target.closest('[data-barrio]')?.dataset.barrio;
-        if (barrio && datos.agregados?.has(barrio)) seleccionarBarrio(barrio);
+        if (barrio && datos.agregados?.has(barrio)) seleccionarBarrio(barrio, mapa.lienzo);
     });
     datos.mapas[clave] = mapa;
     return mapa;
 }
 
 function pintarBarrio(path, nombre, color, opacidad, texto) {
-    path.setAttribute('fill', color ? mezclar(color, opacidad) : SIN_DATOS);
+    path.setAttribute('fill', color ? mezclar(color, opacidad) : paleta().sinDatos);
     path.classList.toggle('es-seleccion', nombre === estado.barrio);
     path.replaceChildren();
     titulo(path, texto);
@@ -652,7 +741,7 @@ function renderMapaBarrios() {
     const leyenda = $('leyendaBarrios');
     leyenda.replaceChildren();
     datos.listas[estado.cargo].forEach((item, j) => {
-        if (conteo.get(j)) leyenda.append(itemLeyenda(item.color, `${item.sigla}: ${cantidad(conteo.get(j), 'barrio', 'barrios')}`));
+        if (conteo.get(j)) leyenda.append(itemLeyenda(item.color, `${item.sigla}: ${cantidad(conteo.get(j), 'barrio', 'barrios')}`, null, formaDe(item)));
     });
     if (conteo.get('empate')) leyenda.append(itemLeyenda(null, `Empate: ${cantidad(conteo.get('empate'), 'barrio', 'barrios')}`, 'leyenda__muestra--empate'));
     leyenda.append(itemLeyenda(null, `Sin locales de votación: ${cantidad(mapa.barrios.size - datos.agregados.size, 'barrio', 'barrios')}`, 'leyenda__muestra--vacio'));
@@ -737,16 +826,26 @@ function prepararLocalesIpm(mapa) {
     const ordenados = [...porLocal].map(([clave, indices]) => ({ clave, indices, info: datos.infoLocal.get(clave) }))
         .sort((a, b) => b.info.electores - a.info.electores);
     const capa = svg('g', { class: 'mapa__locales' });
+    mapa.raizZoom = 1;
     mapa.locales = ordenados.map((l) => {
-        const nodo = svg('circle', { cx: l.info.x, cy: l.info.y, r: Math.round(50 + 2.4 * Math.sqrt(l.info.electores)), class: 'mapa__local' });
+        const r = Math.round(50 + 2.4 * Math.sqrt(l.info.electores));
+        const nodo = svg('path', { d: simbolo(l.info.x, l.info.y, r, 'circulo'), class: 'mapa__local' });
         nodo.dataset.local = l.clave;
         capa.append(nodo);
-        return { ...l, nodo };
+        return { ...l, nodo, r, forma: 'circulo' };
     });
+    mapa.dibujarLocal = (l) => {
+        l.nodo.dataset.forma = l.forma;
+        l.nodo.setAttribute('d', simbolo(l.info.x, l.info.y, l.r / mapa.raizZoom, l.forma));
+    };
     mapa.lienzo.append(capa);
+    mapa.lienzo.addEventListener('zoommapa', (evento) => {
+        mapa.raizZoom = Math.sqrt(evento.detail.factor);
+        for (const l of mapa.locales) mapa.dibujarLocal(l);
+    });
     mapa.lienzo.addEventListener('click', (evento) => {
         const local = evento.target.closest('[data-local]')?.dataset.local;
-        if (local) seleccionarLocal(local);
+        if (local) seleccionarLocal(local, mapa.lienzo);
     });
 }
 
@@ -786,6 +885,11 @@ function renderMapaIpm() {
         const total = sumar(l.indices, estado.cargo);
         const j = ganador(total.votos);
         l.nodo.setAttribute('fill', j === null ? '#9ca3af' : colorDe(j));
+        const forma = j === null ? 'circulo' : formaDe(datos.listas[estado.cargo][j]);
+        if (forma !== l.forma) {
+            l.forma = forma;
+            mapa.dibujarLocal(l);
+        }
         l.nodo.classList.toggle('es-seleccion', l.clave === estado.local);
         ganados.set(j ?? 'empate', (ganados.get(j ?? 'empate') ?? 0) + 1);
         const delBarrio = datos.ipmPor.get(datos.barrioPor.get(l.info.barrio)?.clave);
@@ -798,11 +902,11 @@ function renderMapaIpm() {
     const leyendaLocales = $('leyendaIpmLocales');
     leyendaLocales.replaceChildren();
     datos.listas[estado.cargo].forEach((item, j) => {
-        if (ganados.get(j)) leyendaLocales.append(itemLeyenda(item.color, `Locales con ${item.sigla} más votada: ${fmt.format(ganados.get(j))}`, 'leyenda__muestra--local'));
+        if (ganados.get(j)) leyendaLocales.append(itemLeyenda(item.color, `Locales con ${item.sigla} más votada: ${fmt.format(ganados.get(j))}`, 'leyenda__muestra--local', formaDe(item)));
     });
     if (ganados.get('empate')) leyendaLocales.append(itemLeyenda(null, `Locales con empate: ${fmt.format(ganados.get('empate'))}`, 'leyenda__muestra--empate'));
     $('notaIpm').textContent = `${ind.nombre}: ${ind.descripcion} Barrios en quintiles, cinco grupos con casi la misma cantidad de barrios ` +
-        `(INE, Censo 2022). Círculos: los ${fmt.format(mapa.locales.length)} locales de votación, con el color de la lista más votada en ` +
+        `(INE, Censo 2022). Símbolos: los ${fmt.format(mapa.locales.length)} locales de votación, con el color y la forma de la lista más votada en ` +
         `${estado.cargo === '1' ? 'Intendencia' : 'Junta Municipal'} y tamaño según sus electores. Es una comparación entre agregados: no muestra ` +
         'cómo votaron las personas en situación de pobreza ni ningún otro grupo, y el barrio del local no es necesariamente el de residencia de sus electores.';
 }
@@ -863,9 +967,7 @@ function renderDetalleHistograma() {
     const cuerpo = tabla.createTBody();
     for (const { u, m } of filas) {
         const tr = el('tr');
-        const nombre = el('th', null, u.nombre);
-        nombre.scope = 'row';
-        tr.append(nombre);
+        tr.append(celdaNombre(u.nombre));
         if (h.unidad !== 'barrio') tr.append(el('td', 'tabla__texto', u.barrio ?? '—'));
         tr.append(el('td', null, `${m > 0 ? '+' : ''}${pct.format(m)}`), el('td', null, fmt.format(u.total.emitidos)), el('td', null, fmt.format(u.total.mesas)));
         cuerpo.append(tr);
@@ -1024,9 +1126,7 @@ function renderTabla() {
             else if (col.id === 'participacion') texto = v === -Infinity ? '—' : `${pct.format(v)} %`;
             else if (typeof v === 'number') texto = fmt.format(v);
             // Solo el nombre de la unidad encabeza la fila; las demás columnas de texto se alinean a la izquierda.
-            const celda = el(col.id === 'nombre' ? 'th' : 'td', col.texto ? 'tabla__texto' : null, texto);
-            if (col.id === 'nombre') celda.scope = 'row';
-            fila.append(celda);
+            fila.append(col.id === 'nombre' ? celdaNombre(texto, 'tabla__texto') : el('td', col.texto ? 'tabla__texto' : null, texto));
         }
         if (estado.tabla === 'local') {
             const celda = el('td');
@@ -1046,29 +1146,125 @@ function renderTabla() {
         (estado.tabla === 'zona_municipal' ? ' Zona municipal según la ubicación del local.' : '');
 }
 
-function renderVista() {
-    for (const boton of document.querySelectorAll('#pestanas [data-vista]')) {
-        const activa = boton.dataset.vista === estado.vista;
+// Pestañas (selector de cargo y gráficos): solo la elegida entra en el orden de tabulación.
+function marcarPestanas(lista, esActiva) {
+    for (const boton of lista.querySelectorAll('[role="tab"]')) {
+        const activa = esActiva(boton);
         boton.setAttribute('aria-selected', String(activa));
-        $(`vista-${boton.dataset.vista}`).hidden = !activa;
+        boton.tabIndex = activa ? 0 : -1;
     }
+}
+
+// Flechas izquierda y derecha, Inicio y Fin mueven el foco entre pestañas y las eligen (activación automática).
+function pestanasConTeclado(lista) {
+    lista.addEventListener('keydown', (evento) => {
+        const actual = evento.target.closest('[role="tab"]');
+        if (!actual) return;
+        const todas = [...lista.querySelectorAll('[role="tab"]')];
+        const k = todas.indexOf(actual);
+        const destino = { ArrowRight: (k + 1) % todas.length, ArrowLeft: (k - 1 + todas.length) % todas.length, Home: 0, End: todas.length - 1 }[evento.key];
+        if (destino === undefined) return;
+        evento.preventDefault();
+        todas[destino].focus();
+        todas[destino].click();
+    });
+}
+
+function renderVista() {
+    marcarPestanas($('pestanas'), (boton) => boton.dataset.vista === estado.vista);
+    for (const boton of document.querySelectorAll('#pestanas [data-vista]')) $(`vista-${boton.dataset.vista}`).hidden = boton.dataset.vista !== estado.vista;
     const render = { mapa: renderMapaMesas, barrios: renderMapaBarrios, listas: renderMapaListas, participacion: renderMapaParticipacion,
                      ipm: renderMapaIpm, margen: renderHistograma, tablas: renderTabla }[estado.vista];
     render();
+    actualizarEnlace();
+}
+
+// --- Enlace compartible: el estado va en el hash (#cargo=1&vista=mapa&local=…) -------------------------
+
+let enlaceListo = false;  // La carga no escribe el hash: la dirección queda limpia hasta el primer cambio.
+
+function parametrosEnlace() {
+    const p = new URLSearchParams({ cargo: estado.cargo });
+    if (estado.cargo === 'c') {
+        const ivj = datos.ivj.estadoEnlace();
+        p.set('grupo', ivj.grupo);
+        p.set('metrica', ivj.metrica);
+        p.set('grafico', ivj.grafico);
+        if (ivj.local) p.set('local', ivj.local);
+    } else {
+        p.set('vista', estado.vista);
+        if (estado.local) p.set('local', estado.local);
+        else if (estado.barrio) p.set('barrio', estado.barrio);
+    }
+    if (estado.zonaMunicipal !== null) p.set('zona_municipal', String(estado.zonaMunicipal));
+    else if (estado.zona !== null) p.set('zona', String(estado.zona));
+    return p;
+}
+
+// Sin entradas nuevas en el historial: cada cambio reemplaza la dirección actual.
+function actualizarEnlace() {
+    if (!enlaceListo) return;
+    const hash = `#${parametrosEnlace()}`;
+    if (hash !== location.hash) history.replaceState(null, '', `${location.pathname}${location.search}${hash}`);
+}
+
+// Aplica el hash al estado; los valores que no existen en los datos se ignoran y quedan los de omisión.
+function leerEnlace() {
+    const p = new URLSearchParams(location.hash.slice(1));
+    const de = (objeto, clave) => (clave !== null && /^\d+$/.test(clave) && Object.hasOwn(objeto, clave) ? Number(clave) : null);
+    estado.cargo = ['1', '2', 'c'].includes(p.get('cargo')) ? p.get('cargo') : '1';
+    estado.vista = VISTAS.includes(p.get('vista')) ? p.get('vista') : 'mapa';
+    estado.zonaMunicipal = de(datos.resumen.zonas_municipales, p.get('zona_municipal'));
+    estado.zona = estado.zonaMunicipal === null ? de(datos.resumen.zonas, p.get('zona')) : null;
+    const local = p.get('local'), barrio = p.get('barrio');
+    estado.local = estado.cargo !== 'c' && local && datos.infoLocal.has(local) ? local : null;
+    estado.barrio = estado.cargo !== 'c' && !estado.local && barrio && datos.filas.some((f) => f.barrio === barrio) ? barrio : null;
+    estado.orden = null;
+    estado.binHistograma = null;
+    $('filtroZona').value = estado.zonaMunicipal !== null ? `m${estado.zonaMunicipal}` : estado.zona !== null ? `t${estado.zona}` : '';
+    datos.ivj.aplicarEnlace({ grupo: p.get('grupo'), metrica: p.get('metrica'), grafico: p.get('grafico'), local: estado.cargo === 'c' ? local : null });
+}
+
+// «Copiar enlace»: con el menú de compartir del sistema si existe; si no, al portapapeles. Si nada funciona, se
+// muestra el enlace para copiarlo a mano.
+async function compartirEnlace(aviso) {
+    const enlace = `${location.origin}${location.pathname}${location.search}#${parametrosEnlace()}`;
+    const avisar = (texto) => {
+        aviso.textContent = texto;
+        clearTimeout(aviso.espera);
+        if (texto) aviso.espera = setTimeout(() => { aviso.textContent = ''; }, 6000);
+    };
+    if (navigator.share) {
+        try {
+            await navigator.share({ title: document.title, url: enlace });
+            return;
+        } catch (error) {
+            if (error?.name === 'AbortError') return;
+        }
+    }
+    try {
+        await navigator.clipboard.writeText(enlace);
+        avisar('Enlace copiado');
+    } catch {
+        avisar(`Copiá este enlace: ${enlace}`);
+    }
 }
 
 function renderTodo() {
-    for (const boton of document.querySelectorAll('[data-cargo]')) boton.setAttribute('aria-selected', String(boton.dataset.cargo === estado.cargo));
+    marcarPestanas(document.querySelector('.selector-cargo'), (boton) => boton.dataset.cargo === estado.cargo);
     // «Intendente vs Junta» reemplaza al panel de resultado y a los gráficos mientras está elegida.
     const intendenteJunta = estado.cargo === 'c';
     $('panelIvj').hidden = !intendenteJunta;
     $('panelTotales').hidden = intendenteJunta;
     $('panelGraficos').hidden = intendenteJunta;
     if (intendenteJunta) {
+        if (ficha.abierta() && ficha.propietario() !== 'ivj') ficha.cerrar({ devolverFoco: false });
         renderBancas();
         datos.ivj.render();
+        actualizarEnlace();
         return;
     }
+    if (ficha.abierta() && ficha.propietario() !== 'visor') ficha.cerrar({ devolverFoco: false });
     for (const boton of document.querySelectorAll('[data-tabla]')) boton.setAttribute('aria-pressed', String(boton.dataset.tabla === estado.tabla));
     for (const boton of document.querySelectorAll('[data-unidad]')) boton.setAttribute('aria-pressed', String(boton.dataset.unidad === estado.unidad));
     for (const boton of document.querySelectorAll('[data-color]')) boton.setAttribute('aria-pressed', String(boton.dataset.color === estado.colorMapa));
@@ -1076,20 +1272,112 @@ function renderTodo() {
     renderTotales();
     renderBancas();
     renderVista();
+    // Con la ficha abierta, un cambio de cargo o de filtro la actualiza; sin local ni barrio elegido, se cierra.
+    if (ficha.abierta()) mostrarFicha();
 }
 
-function seleccionarLocal(clave) {
-    estado.local = clave;
-    estado.barrio = null;
-    renderTodo();
-    $('tituloTotales').scrollIntoView({ block: 'nearest', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+// --- Ficha inferior del local o barrio elegido --------------------------------------------------
+
+function contenidoFicha() {
+    const cargo = datos.resumen.cargos[estado.cargo].nombre;
+    const zonaMunicipal = (n) => `Zona municipal ${n} (${datos.resumen.zonas_municipales[n]})`;
+    let indices, contenido;
+    if (estado.local) {
+        const info = datos.infoLocal.get(estado.local);
+        indices = mesasDe((f) => f.clave === estado.local);
+        contenido = { eyebrow: `Local de votación · ${cargo}`, titulo: info.nombre,
+            meta: [info.barrio ? `Barrio ${info.barrio}` : null, `Zona TSJE ${info.zona} (${info.zona_nombre})`,
+                info.zona_municipal === null || info.zona_municipal === undefined ? null : zonaMunicipal(info.zona_municipal),
+                cantidad(indices.length, 'mesa', 'mesas')].filter(Boolean).join(' · ') };
+    } else if (estado.barrio) {
+        const locales = [...datos.infoLocal.values()].filter((x) => x.barrio === estado.barrio);
+        indices = mesasDe((f) => f.barrio === estado.barrio);
+        const unicos = (valores) => [...new Set(valores.filter((v) => v !== null && v !== undefined))].sort((a, b) => a - b);
+        const tsje = unicos(locales.map((x) => x.zona)), municipales = unicos(locales.map((x) => x.zona_municipal));
+        contenido = { eyebrow: `Barrio · ${cargo}`, titulo: estado.barrio,
+            meta: [cantidad(locales.length, 'local', 'locales'), cantidad(indices.length, 'mesa', 'mesas'),
+                `${tsje.length === 1 ? 'Zona TSJE' : 'Zonas TSJE'} ${tsje.join(', ')}`,
+                municipales.length === 1 ? zonaMunicipal(municipales[0]) : municipales.length ? `Zonas municipales ${municipales.join(', ')}` : null]
+                .filter(Boolean).join(' · ') };
+    } else {
+        return null;
+    }
+    const total = sumar(indices, estado.cargo);
+    const listas = datos.listas[estado.cargo];
+    const orden = total.votos.map((v, j) => j).sort((a, b) => total.votos[b] - total.votos[a]);
+    const cuerpo = el('div', 'ficha__datos');
+    const ul = el('ul', 'ficha__listas');
+    for (const j of orden) {
+        const item = listas[j];
+        const li = el('li', 'ficha__lista');
+        li.dataset.lista = item.num;
+        const forma = formaDe(item);
+        const muestra = el('span', `leyenda__muestra${forma !== 'circulo' ? ` leyenda__muestra--${forma}` : ''}`);
+        muestra.style.background = item.color;
+        li.append(muestra, el('span', 'ficha__nombre', estado.cargo === '1' ? `${item.sigla} · ${item.nombre}` : `${item.sigla} · lista ${item.num}`),
+            el('span', 'ficha__votos', fmt.format(total.votos[j])),
+            el('span', 'ficha__pct', `${total.listas ? pct.format((100 * total.votos[j]) / total.listas) : '0,0'} %`));
+        ul.append(li);
+    }
+    const dl = el('dl', 'ficha__resumen');
+    const dato = (termino, valor) => {
+        const grupo = el('div');
+        grupo.append(el('dt', null, termino), el('dd', null, valor));
+        dl.append(grupo);
+    };
+    const p = participacion(total);
+    if (p !== null) dato('Participación', `${pct.format(p)} % · ${fmt.format(total.emitidos)} de ${fmt.format(total.electores)} electores`);
+    if (orden.length > 1 && total.listas) {
+        const [a, b] = orden;
+        const votos = total.votos[a] - total.votos[b];
+        dato('Diferencia entre las dos primeras', `${listas[a].sigla} sobre ${listas[b].sigla}: ${fmt.format(votos)} votos · ` +
+            `${pct.format((100 * votos) / total.listas)} puntos`);
+    }
+    cuerpo.append(ul, dl);
+    return { ...contenido, cuerpo, detalle: () => {
+        salirDePantallaCompleta();
+        $('tituloTotales').scrollIntoView({ block: 'start', behavior: movimiento() });
+    } };
 }
 
-function seleccionarBarrio(nombre) {
-    estado.barrio = nombre;
-    estado.local = null;
-    renderTodo();
-    $('tituloTotales').scrollIntoView({ block: 'nearest', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+function mostrarFicha() {
+    const contenido = contenidoFicha();
+    if (contenido) ficha.abrir(contenido, 'visor');
+    else ficha.cerrar({ devolverFoco: false });
+}
+
+// Con la ficha, la página no se mueve: el panel de resultados (más arriba) cambia de alto con cada local, así que se
+// compensa el desplazamiento para que lo tocado quede en el mismo lugar de la pantalla. Safari no ancla el
+// desplazamiento por su cuenta y Chrome no siempre lo hace.
+function sinMoverLaPagina(referencia, accion) {
+    const antes = referencia?.getBoundingClientRect().top;
+    accion();
+    if (antes === undefined || !referencia.isConnected) return;
+    const corrimiento = referencia.getBoundingClientRect().top - antes;
+    if (Math.abs(corrimiento) >= 1) window.scrollBy({ top: corrimiento, behavior: 'instant' });
+}
+
+function elegir(cambio, referencia) {
+    if (!usarFicha()) {
+        cambio();
+        renderTodo();
+        $('tituloTotales').scrollIntoView({ block: 'nearest', behavior: movimiento() });
+        return;
+    }
+    sinMoverLaPagina(referencia, () => {
+        cambio();
+        renderTodo();
+    });
+    mostrarFicha();
+}
+
+// referencia: el mapa o la tabla donde se tocó; con la ficha, queda quieto en la pantalla.
+function seleccionarLocal(clave, referencia) {
+    elegir(() => { estado.local = clave; estado.barrio = null; }, referencia);
+}
+
+function seleccionarBarrio(nombre, referencia) {
+    elegir(() => { estado.barrio = nombre; estado.local = null; }, referencia);
 }
 
 function renderFijos() {
@@ -1107,9 +1395,11 @@ function renderFijos() {
     const noDisponible = $('noDisponible');
     const titulos = { pobreza_monetaria_por_barrio: 'Pobreza monetaria por barrio', historial_2021: 'Comparación histórica' };
     for (const [clave, motivo] of Object.entries(r.no_disponible)) {
-        const card = el('article', 'info-card info-card--no-disponible');
+        const card = el('details', 'info-card info-card--no-disponible plegable');
         card.dataset.vista = clave;
-        card.append(el('p', 'info-card__estado', 'No disponible'), el('h2', null, titulos[clave] ?? clave), el('p', null, motivo));
+        const resumen = el('summary');
+        resumen.append(el('span', 'info-card__estado', 'No disponible'), el('h2', null, titulos[clave] ?? clave));
+        card.append(resumen, el('p', null, motivo));
         noDisponible.append(card);
     }
     const fotos = datos.listas['1'].filter((x) => x.foto).length + datos.cand.bancas.electos.filter((e) => e.foto).length;
@@ -1134,6 +1424,22 @@ function renderFijos() {
         dl.append(grupo);
     }
     $('fuentes').replaceChildren(dl);
+}
+
+// Secciones plegables: cerradas en celular y abiertas en escritorio, donde no se pliegan (se ven como antes).
+function prepararPlegables() {
+    const ajustar = () => { for (const d of document.querySelectorAll('details.plegable')) d.open = !PANTALLA_CHICA.matches; };
+    for (const resumen of document.querySelectorAll('details.plegable > summary')) {
+        resumen.addEventListener('click', (evento) => { if (!PANTALLA_CHICA.matches) evento.preventDefault(); });
+    }
+    PANTALLA_CHICA.addEventListener('change', ajustar);
+    ajustar();
+}
+
+// Barra fija (celular y tablet): las pestañas de gráficos se pegan debajo del selector de cargo, que mide --alto-barra.
+function medirBarra() {
+    const barra = document.querySelector('.selector-cargo');
+    new ResizeObserver(() => $('visor').style.setProperty('--alto-barra', `${Math.ceil(barra.getBoundingClientRect().height)}px`)).observe(barra);
 }
 
 function eventos() {
@@ -1203,9 +1509,18 @@ function eventos() {
         renderTodo();
     });
     $('filtroTabla').addEventListener('input', (evento) => { estado.filtro = evento.target.value; renderTabla(); });
+    pestanasConTeclado(document.querySelector('.selector-cargo'));
+    pestanasConTeclado($('pestanas'));
+    $('copiarEnlace').addEventListener('click', () => compartirEnlace($('avisoEnlace')));
+    $('fichaEnlace').addEventListener('click', () => compartirEnlace($('fichaAviso')));
+    // Un enlace pegado en la misma pestaña (o el hash editado a mano) cambia la vista sin recargar.
+    window.addEventListener('hashchange', () => { leerEnlace(); renderTodo(); });
+    // Cambio de tema: los mapas se vuelven a pintar con la superficie nueva («Intendente vs Junta» lo hace en su módulo).
+    new MutationObserver(() => { if (estado.cargo !== 'c') renderVista(); })
+        .observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
     $('tabla').addEventListener('click', (evento) => {
         const local = evento.target.closest('[data-local]')?.dataset.local;
-        if (local) { seleccionarLocal(local); return; }
+        if (local) { seleccionarLocal(local, evento.target.closest('[data-local]')); return; }
         const columna = evento.target.closest('[data-columna]')?.dataset.columna;
         if (!columna) return;
         estado.orden = estado.orden?.id === columna ? { id: columna, dir: -estado.orden.dir } : { id: columna, dir: columna === 'nombre' ? 1 : -1 };
@@ -1219,11 +1534,20 @@ async function iniciar() {
         const [resumen, mesas, locales, geo, cand, ipm] = await Promise.all(
             ['resumen.json', 'mesas.json', 'locales.json', 'geo.json', 'candidaturas.json', 'indicadores_barrios.json'].map(cargar));
         datos = construirModelo(resumen, mesas, locales, geo, cand, ipm);
-        datos.ivj = crearIntendenteJunta(datos, { crearMapa: crearMapaConMesas, mezclar, cuantiles, opacidadPaso });
+        ficha = crearFicha();
+        // Al pasar a escritorio (tablet que gira, ventana que se agranda) la ficha se cierra: allí se usa el panel.
+        PANTALLA_ANGOSTA.addEventListener('change', () => { if (!usarFicha()) ficha.cerrar({ devolverFoco: false }); });
+        datos.ivj = crearIntendenteJunta(datos, { crearMapa: crearMapaConMesas, mezclar, cuantiles, opacidadPaso, ficha, usarFicha, movimiento,
+                                                  alCambiar: () => actualizarEnlace() });
         renderFijos();
+        prepararPlegables();
+        medirBarra();
         crearMapaMesas();
         eventos();
+        leerEnlace();
         renderTodo();
+        enlaceListo = true;
+        vigilarDesplazables();
         visor.dataset.listo = 'true';
     } catch (error) {
         const aviso = $('errorCarga');

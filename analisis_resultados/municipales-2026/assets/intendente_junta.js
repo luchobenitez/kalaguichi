@@ -1,6 +1,8 @@
 // Intendente vs Junta por local de votación (ADR 0006 del módulo): voto cruzado entre Intendencia y Junta Municipal.
 // Los números salen de datos/mesas.json y datos/locales.json. Los gráficos usan Chart.js autoalojado
 // (ADR-015 del proyecto), que se carga solo al abrir esta sección. El texto se asigna con textContent.
+import { salirDePantallaCompleta } from './zoom_mapa.js';
+
 const RUTA_CHART = new URL('../../../assets/vendor/chartjs/chart.umd.min.js', import.meta.url).href;
 // En los JSON del TREP la candidatura a Intendente de la Alianza es la lista 4 (AJA): es la «Intendente L3» del pedido.
 export const GRUPOS = [
@@ -13,9 +15,12 @@ const ROJO = '#dc2626';
 const VERDE = '#16a34a';
 const GRIS = '#4b5563';
 const TOP_MAPA = 10;
+const ANGOSTO = matchMedia('(max-width: 640px)');
 // Rótulo del rojo en el mapa, pedido por el usuario (ADR 0007): diferencia negativa de la lista 1.
 const VOTO_CRUZADO = 'Voto cruzado a lista 3';
 const TOP_AGRUPADAS = 20;
+// Celular: los gráficos muestran por defecto los 20 locales más negativos (la descarga sigue siendo completa).
+const TOP_MOVIL = 20;
 const COLUMNAS_CSV = ['local', 'barrio', 'int_L1', 'junta_L1', 'dif_L1', 'dif_L1_%', 'int_L3', 'junta_L2+L3', 'dif_AL', 'dif_AL_%',
     'grupo con mayor negativo', 'zona_tsje', 'zona_municipal', 'codigo_local', 'mesas', 'emitidos', 'tramo_L1', 'tramo_AL',
     'ambos_negativos', 'grupo con mayor negativo (%)'];
@@ -130,9 +135,18 @@ function descargar(blob, nombre) {
     setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
 
-function itemLeyenda(color, texto, clase) {
+// Encabezado de fila: el nombre va en un span para poder cortarlo en dos renglones en pantallas angostas.
+function celdaNombre(texto, clase) {
+    const th = el('th', clase);
+    th.scope = 'row';
+    th.append(el('span', 'tabla__nombre', texto));
+    return th;
+}
+
+// forma: la del símbolo de los puntos del mapa (rombo: diferencia positiva; cuadrado: sin diferencia).
+function itemLeyenda(color, texto, clase, forma) {
     const li = el('li', clase);
-    const muestra = el('span', 'leyenda__muestra');
+    const muestra = el('span', `leyenda__muestra${forma && forma !== 'circulo' ? ` leyenda__muestra--${forma}` : ''}`);
     if (color) muestra.style.background = color;
     li.append(muestra, el('span', null, texto));
     return li;
@@ -140,7 +154,8 @@ function itemLeyenda(color, texto, clase) {
 
 export function crearIntendenteJunta(datos, herramientas) {
     const modelo = construirFilas(datos);
-    const estado = { grupo: 'L1', metrica: 'votos', vista: 'divergentes', filtro: '', busqueda: '', orden: null, local: null };
+    const estado = { grupo: 'L1', metrica: 'votos', vista: 'divergentes', filtro: '', busqueda: '', orden: null, local: null,
+                     todos: false, ambos: 'L1' };
     let mapa = null;
     let graficos = [];
     let turno = 0;
@@ -200,6 +215,12 @@ export function crearIntendenteJunta(datos, herramientas) {
         segmentos('data-ivj-grupo', 'grupo');
         segmentos('data-ivj-metrica', 'metrica');
         segmentos('data-ivj-vista', 'vista');
+        // Solo en celular: un gráfico por vez en «Ambos» y el paso entre los 20 más negativos y todos los locales.
+        for (const boton of document.querySelectorAll('[data-ivj-ambos]')) {
+            boton.addEventListener('click', () => { estado.ambos = boton.dataset.ivjAmbos; renderGraficos(filtradas()); });
+        }
+        $('ivjTodos').addEventListener('click', () => { estado.todos = !estado.todos; renderGraficos(filtradas()); });
+        ANGOSTO.addEventListener('change', () => { if (!$('panelIvj').hidden) renderGraficos(filtradas()); });
         select.addEventListener('change', () => { estado.filtro = select.value; render(); });
         let espera;
         $('buscarIvj').addEventListener('input', (evento) => {
@@ -265,9 +286,7 @@ export function crearIntendenteJunta(datos, herramientas) {
         const cuerpo = tabla.createTBody();
         for (const t of TRAMOS) {
             const tr = el('tr');
-            const th = el('th', null, t);
-            th.scope = 'row';
-            tr.append(th, ...modelo.grupos.map((g) => el('td', null, fmt.format(filas.filter((f) => f.grupos[g.id].tramo === t).length))));
+            tr.append(celdaNombre(t), ...modelo.grupos.map((g) => el('td', null, fmt.format(filas.filter((f) => f.grupos[g.id].tramo === t).length))));
             cuerpo.append(tr);
         }
     }
@@ -315,9 +334,8 @@ export function crearIntendenteJunta(datos, herramientas) {
             for (const col of COLUMNAS) {
                 const v = col.v(f);
                 const texto = col.pct ? signoPct(v) : col.dif ? signo(v) : typeof v === 'number' ? fmt.format(v) : v;
-                const celda = el(col.id === 'nombre' ? 'th' : 'td', [col.texto ? 'tabla__texto' : '', col.dif && v < 0 ? 'es-negativa' : ''].join(' ').trim() || null, texto);
-                if (col.id === 'nombre') celda.scope = 'row';
-                tr.append(celda);
+                const clase = [col.texto ? 'tabla__texto' : '', col.dif && v < 0 ? 'es-negativa' : ''].join(' ').trim() || null;
+                tr.append(col.id === 'nombre' ? celdaNombre(texto, clase) : el('td', clase, texto));
             }
             fragmento.append(tr);
         }
@@ -334,6 +352,55 @@ export function crearIntendenteJunta(datos, herramientas) {
         estado.local = estado.local === clave ? null : clave;
         renderMapa(filtradas());
         renderMesasLocal();
+        sincronizarFicha(true);
+        herramientas.alCambiar?.();
+    }
+
+    // Enlace compartible (resultados.js arma el hash): grupo, métrica, tipo de gráfico y local elegido.
+    const estadoEnlace = () => ({ grupo: estado.grupo, metrica: estado.metrica, grafico: estado.vista, local: estado.local });
+
+    function aplicarEnlace({ grupo, metrica, grafico, local }) {
+        estado.grupo = ['L1', 'AL', 'ambos'].includes(grupo) ? grupo : 'L1';
+        estado.metrica = ['votos', 'pct'].includes(metrica) ? metrica : 'votos';
+        estado.vista = ['divergentes', 'agrupadas'].includes(grafico) ? grafico : 'divergentes';
+        estado.local = local && modelo.filas.some((f) => f.clave === local) ? local : null;
+        estado.orden = null;
+    }
+
+    // Ficha inferior (celular, tablet, mapa en pantalla completa): diferencias del local sin mover la página.
+    function contenidoFicha(f) {
+        const info = datos.infoLocal.get(f.clave);
+        const cuerpo = el('dl', 'ficha__resumen');
+        for (const g of modelo.grupos) {
+            const r = f.grupos[g.id];
+            const grupo = el('div');
+            grupo.dataset.grupo = g.id;
+            const valor = el('dd');
+            valor.append(el('strong', r.dif < 0 ? 'es-negativa' : r.dif > 0 ? 'es-positiva' : null, `${signo(r.dif)} votos (${signoPct(r.pct)})`),
+                ` · ${g.rotuloInt} ${fmt.format(r.int)} · ${g.rotuloJun} ${fmt.format(r.jun)}`);
+            grupo.append(el('dt', null, g.id === 'L1' && r.dif < 0 ? `${g.nombre}: ${VOTO_CRUZADO.toLowerCase()}` : `${g.nombre}: ${g.rotuloInt} − ${g.rotuloJun}`), valor);
+            cuerpo.append(grupo);
+        }
+        return {
+            eyebrow: 'Intendente vs Junta · local de votación', titulo: f.nombre,
+            meta: [f.barrio ? `Barrio ${f.barrio}` : null, `Zona TSJE ${f.zona} (${info.zona_nombre})`,
+                f.zonaMunicipal === null ? null : `Zona municipal ${f.zonaMunicipal} (${datos.resumen.zonas_municipales[f.zonaMunicipal]})`,
+                `${fmt.format(f.mesas)} ${f.mesas === 1 ? 'mesa' : 'mesas'} · ${fmt.format(f.emitidos)} votos emitidos`].filter(Boolean).join(' · '),
+            cuerpo,
+            detalle: () => {
+                salirDePantallaCompleta();
+                $('mesasIvj').scrollIntoView({ block: 'start', behavior: herramientas.movimiento() });
+            },
+        };
+    }
+
+    // abrir: el local se acaba de tocar. Sin abrir, solo se actualiza (o se cierra) la ficha que esta sección ya abrió.
+    function sincronizarFicha(abrir = false) {
+        const { ficha, usarFicha } = herramientas;
+        const propia = ficha.abierta() && ficha.propietario() === 'ivj';
+        const f = modelo.filas.find((x) => x.clave === estado.local);
+        if (f && ((abrir && usarFicha()) || propia)) ficha.abrir(contenidoFicha(f), 'ivj');
+        else if (propia) ficha.cerrar({ devolverFoco: false });
     }
 
     function encuadreMapa(filas) {
@@ -373,6 +440,8 @@ export function crearIntendenteJunta(datos, herramientas) {
             const v = valorMesa(Number(punto.dataset.i));
             const visible = visibles.has(punto.dataset.local);
             punto.setAttribute('fill', v !== null && v < 0 ? herramientas.mezclar(ROJO, herramientas.opacidadPaso(clase(-v))) : v > 0 ? VERDE : GRIS);
+            // Daltonismo: rojo y verde se distinguen también por la forma.
+            mapa.formaPunto(punto, v !== null && v < 0 ? 'circulo' : v > 0 ? 'rombo' : 'cuadrado');
             punto.classList.toggle('es-atenuado', !visible);
             punto.classList.toggle('es-seleccion', punto.dataset.local === estado.local);
             if (!visible) continue;
@@ -387,7 +456,7 @@ export function crearIntendenteJunta(datos, herramientas) {
             toque.querySelector('title').textContent = `${f.nombre} · ${r.dif < 0 ? VOTO_CRUZADO.toLowerCase() : 'diferencia de la lista 1'}: ` +
                 `${signo(r.dif)} votos (${signoPct(r.pct)}) · ${g.rotuloInt} ${fmt.format(r.int)} · ${g.rotuloJun} ${fmt.format(r.jun)}`;
         }
-        mapa.lienzo.setAttribute('viewBox', encuadreMapa(filas).join(' '));
+        mapa.fijarMarco(encuadreMapa(filas));
         // Locales con mayor diferencia negativa dentro del filtro y la búsqueda, numerados.
         const valorLocal = (f) => (enPct ? f.grupos.L1.pct : f.grupos.L1.dif);
         const ranking = filas.filter((f) => valorLocal(f) !== null && valorLocal(f) < 0)
@@ -417,8 +486,8 @@ export function crearIntendenteJunta(datos, herramientas) {
             const rango = enPct ? `${signoPct(-cortes[k])} a ${signoPct(-cortes[k + 1])}` : `${signo(-cortes[k])} a ${signo(-cortes[k + 1])} votos`;
             leyenda.append(itemLeyenda(herramientas.mezclar(ROJO, herramientas.opacidadPaso(k)), `${rango} · ${fmt.format(conteo[k])} ${conteo[k] === 1 ? 'mesa' : 'mesas'}`));
         }
-        if (positivas) leyenda.append(itemLeyenda(VERDE, `Diferencia positiva (el ${g.rotuloInt} superó a su Junta) · ${fmt.format(positivas)} ${positivas === 1 ? 'mesa' : 'mesas'}`));
-        if (ceros) leyenda.append(itemLeyenda(GRIS, `Sin diferencia · ${fmt.format(ceros)} ${ceros === 1 ? 'mesa' : 'mesas'}`));
+        if (positivas) leyenda.append(itemLeyenda(VERDE, `Diferencia positiva (el ${g.rotuloInt} superó a su Junta) · ${fmt.format(positivas)} ${positivas === 1 ? 'mesa' : 'mesas'}`, null, 'rombo'));
+        if (ceros) leyenda.append(itemLeyenda(GRIS, `Sin diferencia · ${fmt.format(ceros)} ${ceros === 1 ? 'mesa' : 'mesas'}`, null, 'cuadrado'));
         if (ranking.length) leyenda.append(itemLeyenda(null, `Círculo numerado: ${cantidadLocales(ranking.length)} con más ${VOTO_CRUZADO.toLowerCase()}`, 'leyenda__anillo'));
         leyenda.append(itemLeyenda(null, 'Contorno: zonas municipales oficiales', 'leyenda__contorno'));
         const caja = $('rankingIvj');
@@ -443,7 +512,8 @@ export function crearIntendenteJunta(datos, herramientas) {
         $('notaMapaIvj').textContent = `Cada punto es una mesa, dibujada alrededor de su local. Rojo: ${VOTO_CRUZADO.toLowerCase()}, es decir, mesas donde el ` +
             `${g.rotuloInt} obtuvo menos votos que la ${g.rotuloJun}; más intenso, mayor diferencia (${enPct ? 'en %' : 'en votos'}, quintiles). ` +
             'Es una lectura de la diferencia: las actas no dicen a qué candidatura fue cada voto, y parte puede haber ido a otras listas o a ' +
-            'votos en blanco o nulos. Los círculos numerados marcan los locales con mayor diferencia negativa dentro del filtro. Tocá un local para ver sus mesas.';
+            'votos en blanco o nulos. Las mesas con diferencia positiva van en rombo y las sin diferencia en cuadrado. Los círculos numerados marcan ' +
+            'los locales con mayor diferencia negativa dentro del filtro. Tocá un local para ver sus mesas.';
     }
 
     function renderMesasLocal() {
@@ -469,9 +539,7 @@ export function crearIntendenteJunta(datos, herramientas) {
         const cuerpo = tabla.createTBody();
         for (const fila of datos.filas.filter((x) => x.clave === f.clave)) {
             const tr = el('tr');
-            const mesa = el('th', null, `Mesa ${fila.mesa}`);
-            mesa.scope = 'row';
-            tr.append(mesa);
+            tr.append(celdaNombre(`Mesa ${fila.mesa}`));
             for (const g of modelo.grupos) {
                 const m = modelo.mesas[g.id];
                 const dif = m.dif[fila.i], p = m.pct[fila.i];
@@ -537,8 +605,17 @@ export function crearIntendenteJunta(datos, herramientas) {
         ];
     }
 
-    const angosto = () => matchMedia('(max-width: 640px)').matches;
-    const recortar = (s) => (angosto() && s.length > 24 ? `${s.slice(0, 23)}…` : s);
+    const angosto = () => ANGOSTO.matches;
+    const recortar = (s, n) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
+    // Celular: el nombre del local en hasta dos renglones de 22 caracteres; el nombre completo va en el tooltip.
+    function dosRenglones(nombre) {
+        if (nombre.length <= 22) return nombre;
+        const espacios = [...nombre.matchAll(/[ .-]/g)].map((m) => m.index + 1).filter((i) => i > 4 && i < nombre.length - 3);
+        const corte = espacios.length ? espacios.reduce((a, b) => (Math.abs(b - nombre.length / 2) < Math.abs(a - nombre.length / 2) ? b : a)) : 22;
+        return [recortar(nombre.slice(0, corte).trim(), 22), recortar(nombre.slice(corte).trim(), 22)];
+    }
+    // Rótulo del eje: en dos renglones en celular; completo en escritorio y en la descarga.
+    const rotuloEje = (nombre, modo) => (modo.compacto ? dosRenglones(nombre) : nombre);
 
     const pasoRedondo = (x) => {
         const potencia = 10 ** Math.floor(Math.log10(x || 1));
@@ -564,11 +641,12 @@ export function crearIntendenteJunta(datos, herramientas) {
         return { min, max, lineas: posibles.filter((v) => (v < 0 ? minimo < 0 : maximo > 0) && v > min && v < max) };
     }
 
-    function divergente(Chart, lienzo, filas, g, c) {
+    function divergente(Chart, lienzo, filas, g, c, modo = {}) {
         const valores = filas.map((f) => metrica(f, g));
         const enPct = estado.metrica === 'pct';
         const { min, max, lineas } = rango(valores, enPct ? LINEAS_PCT : [], enPct);
         const formato = (v) => (enPct ? signoPct(v) : signo(v));
+        const titulo = `${g.nombre}: ${g.rotuloInt} − ${g.rotuloJun}`;
         return new Chart(lienzo, {
             type: 'bar',
             data: { labels: filas.map((f) => f.nombre),
@@ -576,16 +654,17 @@ export function crearIntendenteJunta(datos, herramientas) {
                                  borderWidth: 0, barPercentage: 0.86, categoryPercentage: 0.92 }] },
             options: {
                 indexAxis: 'y', responsive: true, maintainAspectRatio: false, animation: false,
+                ...(modo.exportar ? { devicePixelRatio: 2 } : {}),
                 layout: { padding: { top: enPct ? 14 : 4, right: 8 } },
                 scales: {
                     x: { min, max, grid: { color: c.borde }, ticks: { color: c.suave, callback: (v) => (enPct ? `${v} %` : fmt.format(v)) },
                          title: { display: true, text: enPct ? 'Diferencia (%)' : 'Diferencia (votos)', color: c.suave } },
-                    y: { grid: { display: false }, ticks: { color: c.texto, autoSkip: false, font: { size: angosto() ? 9 : 10 },
-                                                          callback: (_, k) => recortar(filas[k].nombre) } },
+                    y: { grid: { display: false }, ticks: { color: c.texto, autoSkip: false, font: { size: modo.compacto ? 11 : 10 },
+                                                          callback: (_, k) => rotuloEje(filas[k].nombre, modo) } },
                 },
                 plugins: {
                     legend: { display: false },
-                    title: { display: true, text: `${g.nombre}: ${g.rotuloInt} − ${g.rotuloJun}`, color: c.texto, font: { size: 13, weight: '700' } },
+                    title: { display: true, text: modo.subtitulo ? [titulo, modo.subtitulo] : titulo, color: c.texto, font: { size: 13, weight: '700' } },
                     tooltip: { callbacks: {
                         title: (items) => { const f = filas[items[0].dataIndex]; return f.barrio ? `${f.nombre} · ${f.barrio}` : f.nombre; },
                         label: (item) => {
@@ -607,7 +686,7 @@ export function crearIntendenteJunta(datos, herramientas) {
         });
     }
 
-    function agrupado(Chart, lienzo, filas, g, c) {
+    function agrupado(Chart, lienzo, filas, g, c, modo = {}) {
         const datasets = [
             { label: `${g.rotuloInt} (${g.candidatura.sigla})`, data: filas.map((f) => f.grupos[g.id].int), backgroundColor: g.candidatura.color, stack: 'int' },
             ...g.juntas.map((x, n) => ({ label: `Junta lista ${x.num} (${x.sigla})`, data: filas.map((f) => f.grupos[g.id].porLista[n]),
@@ -618,13 +697,15 @@ export function crearIntendenteJunta(datos, herramientas) {
             data: { labels: filas.map((f) => f.nombre), datasets },
             options: {
                 indexAxis: 'y', responsive: true, maintainAspectRatio: false, animation: false,
+                ...(modo.exportar ? { devicePixelRatio: 2 } : {}),
                 layout: { padding: { right: 8 } },
                 scales: {
                     x: { stacked: true, suggestedMax: Math.max(...filas.map((f) => Math.max(f.grupos[g.id].int, f.grupos[g.id].jun))) * 1.3,
                          grid: { color: c.borde }, ticks: { color: c.suave, callback: (v) => fmt.format(v) },
                          title: { display: true, text: 'Votos', color: c.suave } },
-                    y: { stacked: true, grid: { display: false }, ticks: { color: c.texto, autoSkip: false, font: { size: angosto() ? 9 : 10 },
-                                                                         callback: (_, k) => recortar(filas[k].nombre) } },
+                    y: { stacked: true, grid: { display: false }, ticks: { color: c.texto, autoSkip: false,
+                                                                         font: { size: modo.compacto ? 11 : 10 },
+                                                                         callback: (_, k) => rotuloEje(filas[k].nombre, modo) } },
                 },
                 plugins: {
                     legend: { display: true, position: 'bottom', labels: { color: c.texto, boxWidth: 12 } },
@@ -649,6 +730,41 @@ export function crearIntendenteJunta(datos, herramientas) {
 
     const cantidadLocales = (n) => `${fmt.format(n)} ${n === 1 ? 'local' : 'locales'}`;
 
+    // Locales de cada gráfico. Escritorio (y la descarga): divergentes con todos, agrupadas con los 20 más negativos.
+    // Celular: los 20 más negativos del grupo y la métrica elegidos en las dos vistas, o todos con «Ver los N locales».
+    function filasGrafico(filas, g, compacto) {
+        const orden = estado.vista === 'divergentes' && !(compacto && estado.grupo === 'ambos')
+            ? ordenGrafico(filas)
+            : [...filas].sort((a, b) => ascendente(metrica(a, g), metrica(b, g)));
+        if (compacto) return estado.todos ? orden : orden.slice(0, TOP_MOVIL);
+        return estado.vista === 'divergentes' ? orden : orden.slice(0, TOP_AGRUPADAS);
+    }
+
+    function dibujar(Chart, caja, lienzo, filas, g, c, modo) {
+        const alto = modo.compacto ? 28 : 21;
+        if (estado.vista === 'divergentes') {
+            caja.style.height = `${filas.length * alto + (modo.subtitulo ? 128 : 110)}px`;
+            lienzo.setAttribute('aria-label', `Barras divergentes de ${g.nombre}: ${cantidadLocales(filas.length)} ordenados por diferencia`);
+            return divergente(Chart, lienzo, filas, g, c, modo);
+        }
+        caja.style.height = `${filas.length * (alto + 16) + 150}px`;
+        lienzo.setAttribute('aria-label', `Barras agrupadas de ${g.nombre}: Intendente frente a Junta en ${cantidadLocales(filas.length)}`);
+        return agrupado(Chart, lienzo, filas, g, c, modo);
+    }
+
+    function renderControlesMovil(filas) {
+        const compacto = angosto();
+        $('ivjMovil').hidden = !compacto;
+        const ambos = compacto && estado.grupo === 'ambos';
+        $('ivjAmbos').hidden = !ambos;
+        for (const boton of document.querySelectorAll('[data-ivj-ambos]')) boton.setAttribute('aria-pressed', String(boton.dataset.ivjAmbos === estado.ambos));
+        const boton = $('ivjTodos');
+        boton.hidden = filas.length <= TOP_MOVIL;
+        boton.setAttribute('aria-pressed', String(estado.todos));
+        boton.textContent = estado.todos ? `Ver solo los ${TOP_MOVIL} más negativos` : `Ver los ${fmt.format(filas.length)} locales`;
+        return { compacto, ambos };
+    }
+
     async function renderGraficos(filas) {
         const miTurno = ++turno;
         const Chart = await cargarChart();
@@ -657,7 +773,9 @@ export function crearIntendenteJunta(datos, herramientas) {
         graficos = [];
         const contenedor = $('graficosIvj');
         contenedor.replaceChildren();
-        const vista = gruposVista();
+        const { compacto, ambos } = renderControlesMovil(filas);
+        // En celular, «Ambos» muestra un gráfico por vez, el del grupo elegido con «Lista 1» o «Alianza».
+        const vista = ambos ? [grupoPor(estado.ambos)] : gruposVista();
         contenedor.classList.toggle('ivj__graficos--doble', vista.length > 1);
         const leyenda = $('leyendaIvj');
         leyenda.replaceChildren();
@@ -666,24 +784,16 @@ export function crearIntendenteJunta(datos, herramientas) {
             return;
         }
         const c = colores();
-        const alto = angosto() ? 17 : 21;
         for (const g of vista) {
             const caja = el('div', 'ivj__grafico');
             const lienzo = el('canvas');
             lienzo.setAttribute('role', 'img');
             caja.append(lienzo);
             contenedor.append(caja);
-            if (estado.vista === 'divergentes') {
-                const orden = ordenGrafico(filas);
-                caja.style.height = `${orden.length * alto + 110}px`;
-                lienzo.setAttribute('aria-label', `Barras divergentes de ${g.nombre}: ${cantidadLocales(orden.length)} ordenados por diferencia`);
-                graficos.push(divergente(Chart, lienzo, orden, g, c));
-            } else {
-                const peores = [...filas].sort((a, b) => ascendente(metrica(a, g), metrica(b, g))).slice(0, TOP_AGRUPADAS);
-                caja.style.height = `${peores.length * (alto + 16) + 150}px`;
-                lienzo.setAttribute('aria-label', `Barras agrupadas de ${g.nombre}: Intendente frente a Junta en ${cantidadLocales(peores.length)}`);
-                graficos.push(agrupado(Chart, lienzo, peores, g, c));
-            }
+            const propias = filasGrafico(filas, g, compacto);
+            const subtitulo = compacto && estado.vista === 'divergentes' && propias.length < filas.length
+                ? `${fmt.format(propias.length)} de ${cantidadLocales(filas.length)}, los más negativos` : null;
+            graficos.push(dibujar(Chart, caja, lienzo, propias, g, c, { compacto, subtitulo }));
         }
         const item = (color, texto) => {
             const li = el('li');
@@ -696,9 +806,11 @@ export function crearIntendenteJunta(datos, herramientas) {
             leyenda.append(item(ROJO, 'Negativo: el Intendente obtuvo menos votos que su Junta'), item(VERDE, 'Positivo: el Intendente superó a su Junta'));
             if (estado.metrica === 'pct') leyenda.append(item('transparent', 'Líneas punteadas: separaciones de 5 %, 10 % y 20 %'));
         } else {
-            leyenda.append(item('transparent', `Los ${TOP_AGRUPADAS} locales con la diferencia más negativa del grupo (en ${estado.metrica === 'pct' ? '%' : 'votos'}); ` +
+            const cuantos = compacto && estado.todos ? `Los ${cantidadLocales(filas.length)}, ordenados por` : `Los ${TOP_AGRUPADAS} locales con`;
+            leyenda.append(item('transparent', `${cuantos} la diferencia más negativa del grupo (en ${estado.metrica === 'pct' ? '%' : 'votos'}); ` +
                 'la Junta se apila por lista.'));
         }
+        if (compacto) leyenda.append(item('transparent', 'Tocá una barra para ver el nombre completo, los votos del Intendente y de la Junta y la diferencia.'));
     }
 
     // --- Descargas -----------------------------------------------------------------------------
@@ -723,9 +835,30 @@ export function crearIntendenteJunta(datos, herramientas) {
         descargar(new Blob([`﻿${lineas.join('\r\n')}\r\n`], { type: 'text/csv;charset=utf-8' }), nombreArchivo('csv'));
     }
 
-    function descargarPng() {
-        const lienzos = graficos.map((g) => g.canvas);
-        if (!lienzos.length) return;
+    // Lienzos para la descarga: en escritorio, los de la pantalla (como antes). En celular, que muestra menos, se dibujan
+    // fuera de la pantalla los mismos gráficos que en escritorio: todos los locales filtrados y los dos grupos en «Ambos».
+    async function lienzosDescarga() {
+        if (!angosto()) return { lienzos: graficos.map((g) => g.canvas), limpiar: () => {} };
+        const Chart = await cargarChart();
+        const c = colores();
+        const filas = filtradas();
+        const fuera = el('div', 'ivj__exportacion');
+        fuera.setAttribute('aria-hidden', 'true');
+        document.body.append(fuera);
+        const creados = gruposVista().map((g) => {
+            const caja = el('div', 'ivj__grafico');
+            const lienzo = el('canvas');
+            caja.append(lienzo);
+            fuera.append(caja);
+            return dibujar(Chart, caja, lienzo, filasGrafico(filas, g, false), g, c, { exportar: true });
+        });
+        await new Promise((listo) => requestAnimationFrame(() => requestAnimationFrame(listo)));
+        return { lienzos: creados.map((g) => g.canvas), limpiar: () => { for (const g of creados) g.destroy(); fuera.remove(); } };
+    }
+
+    async function descargarPng() {
+        if (!graficos.length) return;
+        const { lienzos, limpiar } = await lienzosDescarga();
         const c = colores();
         const escala = window.devicePixelRatio || 1;
         const cabecera = Math.round(64 * escala), separacion = Math.round(16 * escala);
@@ -751,6 +884,7 @@ export function crearIntendenteJunta(datos, herramientas) {
             ctx.drawImage(l, x, cabecera);
             x += l.width + separacion;
         }
+        limpiar();
         final.toBlob((blob) => descargar(blob, nombreArchivo('png')), 'image/png');
     }
 
@@ -767,9 +901,11 @@ export function crearIntendenteJunta(datos, herramientas) {
         renderTabla(filas);
         renderMapa(filas);
         renderMesasLocal();
+        sincronizarFicha();
         await renderGraficos(filas);
         $('panelIvj').dataset.listo = 'true';
+        herramientas.alCambiar?.();
     }
 
-    return { render, modelo };
+    return { render, modelo, estadoEnlace, aplicarEnlace };
 }
