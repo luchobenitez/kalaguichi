@@ -85,9 +85,68 @@
         <div class="selector-cargo" role="tablist" aria-label="Cargo">
             <button type="button" role="tab" id="cargo-1" data-cargo="1" aria-selected="true">Intendencia</button>
             <button type="button" role="tab" id="cargo-2" data-cargo="2" aria-selected="false">Junta Municipal</button>
+            <button type="button" role="tab" id="cargo-c" data-cargo="c" aria-selected="false"
+                    title="Diferencia por local entre los votos del Intendente y los de su Junta Municipal">Intendente vs Junta</button>
         </div>
 
-        <article class="panel panel--totales" aria-labelledby="tituloTotales">
+        <article class="panel panel--ivj" id="panelIvj" aria-labelledby="tituloIvj" hidden>
+            <div>
+                <p class="panel__eyebrow">Intendente vs Junta · por local de votación</p>
+                <h2 id="tituloIvj">Voto cruzado entre Intendencia y Junta Municipal</h2>
+                <p class="panel__meta" id="metaIvj"></p>
+            </div>
+            <div class="ivj__totales" id="totalesIvj"></div>
+            <p class="nota">Negativo: el candidato a Intendente obtuvo menos votos que su(s) lista(s) de Junta en el local (votantes de
+                esa Junta que eligieron otro Intendente o votaron en blanco o nulo). Positivo: el Intendente superó a su Junta. En los JSON
+                del TREP la candidatura a Intendente de la Alianza figura como lista 4 (AJA): es la «Intendente L3».</p>
+            <div class="ivj__controles">
+                <div class="segmentos" role="group" aria-label="Grupo">
+                    <button type="button" data-ivj-grupo="L1" aria-pressed="true">Lista 1</button>
+                    <button type="button" data-ivj-grupo="AL" aria-pressed="false">Alianza (L3 vs L2+L3)</button>
+                    <button type="button" data-ivj-grupo="ambos" aria-pressed="false">Ambos</button>
+                </div>
+                <div class="segmentos" role="group" aria-label="Métrica">
+                    <button type="button" data-ivj-metrica="votos" aria-pressed="true">Votos</button>
+                    <button type="button" data-ivj-metrica="pct" aria-pressed="false">%</button>
+                </div>
+                <div class="segmentos" role="group" aria-label="Tipo de gráfico">
+                    <button type="button" data-ivj-vista="divergentes" aria-pressed="true">Divergentes</button>
+                    <button type="button" data-ivj-vista="agrupadas" aria-pressed="false">Agrupadas</button>
+                </div>
+            </div>
+            <div class="ivj__controles">
+                <label class="campo-select" for="filtroIvj">
+                    Barrio o zona
+                    <select id="filtroIvj">
+                        <option value="">Toda Asunción</option>
+                    </select>
+                </label>
+                <label class="campo-buscar" for="buscarIvj">
+                    <span>Buscar local</span>
+                    <input type="search" id="buscarIvj" placeholder="Nombre del local" autocomplete="off">
+                </label>
+                <div class="ivj__acciones">
+                    <button type="button" class="boton-secundario" id="csvIvj">Descargar CSV</button>
+                    <button type="button" class="boton-secundario" id="pngIvj">Descargar gráfico (PNG)</button>
+                </div>
+            </div>
+            <div class="ivj__graficos" id="graficosIvj"></div>
+            <ul class="leyenda" id="leyendaIvj"></ul>
+            <h3 class="vista__titulo">Locales por tramo de diferencia (%)</h3>
+            <div class="tabla-scroll tabla-scroll--detalle">
+                <table class="tabla" id="tramosIvj"></table>
+            </div>
+            <h3 class="vista__titulo">Tabla por local</h3>
+            <div class="tabla-scroll">
+                <table class="tabla" id="tablaIvj">
+                    <thead></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+            <p class="nota" id="notaIvj"></p>
+        </article>
+
+        <article class="panel panel--totales" id="panelTotales" aria-labelledby="tituloTotales">
             <div class="panel--totales__cabecera">
                 <div>
                     <p class="panel__eyebrow" id="eyebrowTotales">Resultado</p>
@@ -120,7 +179,7 @@
             <p class="nota" id="notaBancas"></p>
         </article>
 
-        <section class="panel panel--graficos" aria-labelledby="tituloGraficos">
+        <section class="panel panel--graficos" id="panelGraficos" aria-labelledby="tituloGraficos">
             <h2 class="visualmente-oculto" id="tituloGraficos">Gráficos y tablas</h2>
             <div class="pestanas" role="tablist" aria-label="Gráficos" id="pestanas">
                 <button type="button" role="tab" data-vista="mapa" aria-selected="true" aria-controls="vista-mapa">Mapa de mesas</button>
@@ -134,7 +193,7 @@
 
             <div class="vista" role="tabpanel" id="vista-mapa" aria-label="Mapa de mesas">
                 <div class="panel__barra">
-                    <div class="segmentos" role="group" aria-label="Color de los puntos" id="colorMapa">
+                    <div class="segmentos" role="group" aria-label="Capas del mapa" id="colorMapa">
                         <button type="button" data-color="lista" aria-pressed="true">Lista más votada</button>
                         <button type="button" data-color="zona" aria-pressed="false">Zona TSJE</button>
                     </div>
@@ -221,6 +280,7 @@
                     </div>
                 </div>
                 <div class="histograma" id="histograma"></div>
+                <div class="histograma__detalle" id="detalleHistograma" hidden></div>
                 <p class="nota" id="notaHistograma"></p>
             </div>
 

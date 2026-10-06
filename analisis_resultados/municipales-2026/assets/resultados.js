@@ -1,5 +1,7 @@
 // Visor de resultados TREP 2026 de Asunción. Todo número sale de datos/*.json (mismo origen).
 // Sin dependencias ni HTML desde datos: el texto se asigna con textContent y los estilos por CSSOM.
+// La sección «Intendente vs Junta» vive en su propio módulo y carga Chart.js solo al abrirse.
+import { crearIntendenteJunta } from './intendente_junta.js';
 const SVG = 'http://www.w3.org/2000/svg';
 // Comparación pedida por el usuario para el margen: Camilo Pérez (ANR) frente a Soledad Núñez (AJA).
 const MARGEN = { cargo: '1', positivo: 'ANR', negativo: 'AJA' };
@@ -51,7 +53,8 @@ async function cargar(nombre) {
 }
 
 const estado = { cargo: '1', zona: null, zonaMunicipal: null, local: null, barrio: null, vista: 'mapa', colorMapa: 'lista',
-                 lista: { 1: null, 2: null }, medida: 'pct', ipm: 'H', tabla: 'local', unidad: 'mesa', orden: null, filtro: '' };
+                 lista: { 1: null, 2: null }, medida: 'pct', ipm: 'H', tabla: 'local', unidad: 'mesa', binHistograma: null,
+                 orden: null, filtro: '' };
 let datos;
 
 function construirModelo(resumen, mesas, locales, geo, cand, ipm) {
@@ -425,6 +428,7 @@ function crearMapaMesas() {
         });
         rotulos.append(texto);
     }
+    const halos = svg('g', { class: 'mapa__halos' });
     const puntos = svg('g', { class: 'mapa__puntos', filter: mapa.filtro });
     const toques = svg('g', { class: 'mapa__toques' });
     const porLocal = new Map();
@@ -447,11 +451,17 @@ function crearMapaMesas() {
             puntos.append(punto);
             datos.puntos.push(punto);
         });
-        const toque = svg('circle', { cx: info.x, cy: info.y, r: Math.max(120, ESPIRAL_M * Math.sqrt(filas.length) + PUNTO_M + 40), class: 'mapa__toque' });
+        const radio = Math.max(120, ESPIRAL_M * Math.sqrt(filas.length) + PUNTO_M + 40);
+        // Modo Zona TSJE: el halo lleva el color de la zona y los puntos conservan el de su lista.
+        const halo = svg('circle', { cx: info.x, cy: info.y, r: radio, class: 'mapa__halo', fill: COLORES_ZONA[info.zona], stroke: COLORES_ZONA[info.zona] });
+        halo.dataset.zona = info.zona;
+        halo.dataset.zm = info.zona_municipal ?? '';
+        halos.append(halo);
+        const toque = svg('circle', { cx: info.x, cy: info.y, r: radio, class: 'mapa__toque' });
         toque.dataset.local = clave;
         toques.append(titulo(toque, `${info.nombre} · ${filas.length} mesas · zona TSJE ${info.zona_nombre}`));
     }
-    mapa.lienzo.append(zonas, rotulos, puntos, toques);
+    mapa.lienzo.append(zonas, rotulos, halos, puntos, toques);
     mapa.lienzo.addEventListener('click', (evento) => {
         const local = evento.target.closest('[data-local]')?.dataset.local;
         if (local) seleccionarLocal(local);
@@ -499,45 +509,54 @@ function renderMapaMesas() {
     const leyenda = $('leyenda');
     leyenda.replaceChildren();
     const conteo = new Map();
+    const visibleEn = (nodo) => (estado.zona === null || Number(nodo.dataset.zona) === estado.zona) &&
+        (estado.zonaMunicipal === null || nodo.dataset.zm === String(estado.zonaMunicipal));
+    const porZona = new Map();
+    // Los puntos siempre llevan el color de la lista más votada de su mesa, también en el modo Zona TSJE.
     for (const punto of datos.puntos) {
         const i = Number(punto.dataset.i);
-        const zona = Number(punto.dataset.zona);
-        let color, clave;
-        if (estado.colorMapa === 'zona') {
-            color = COLORES_ZONA[zona];
-            clave = `zona-${zona}`;
-        } else {
-            const j = ganador(c.votos[i]);
-            color = j === null ? '#9ca3af' : colorDe(j);
-            clave = j === null ? 'empate' : `lista-${j}`;
-        }
-        const visible = (estado.zona === null || zona === estado.zona) &&
-            (estado.zonaMunicipal === null || punto.dataset.zm === String(estado.zonaMunicipal));
-        punto.setAttribute('fill', color);
+        const j = ganador(c.votos[i]);
+        const clave = j === null ? 'empate' : `lista-${j}`;
+        const visible = visibleEn(punto);
+        punto.setAttribute('fill', j === null ? '#9ca3af' : colorDe(j));
         punto.classList.toggle('es-seleccion', punto.dataset.local === estado.local);
         punto.classList.toggle('es-atenuado', !visible);
-        if (visible) conteo.set(clave, (conteo.get(clave) ?? 0) + 1);
+        if (visible) {
+            conteo.set(clave, (conteo.get(clave) ?? 0) + 1);
+            const z = porZona.get(punto.dataset.zona) ?? { mesas: 0, locales: new Set() };
+            z.mesas += 1;
+            z.locales.add(punto.dataset.local);
+            porZona.set(punto.dataset.zona, z);
+        }
     }
+    const lienzo = datos.mapas.mesas.lienzo;
+    lienzo.classList.toggle('es-modo-zona', estado.colorMapa === 'zona');
+    for (const halo of lienzo.querySelectorAll('.mapa__halo')) halo.classList.toggle('es-atenuado', !visibleEn(halo));
     for (const nodo of datos.mapas.mesas.lienzo.querySelectorAll('[data-zona-municipal]')) {
         nodo.classList.toggle('es-seleccion', Number(nodo.dataset.zonaMunicipal) === estado.zonaMunicipal);
         nodo.classList.toggle('es-atenuado', estado.zonaMunicipal !== null && Number(nodo.dataset.zonaMunicipal) !== estado.zonaMunicipal);
     }
     datos.mapas.mesas.lienzo.setAttribute('viewBox', encuadre().join(' '));
+    datos.listas[estado.cargo].forEach((item, j) => {
+        if (conteo.get(`lista-${j}`)) leyenda.append(itemLeyenda(item.color, `${item.sigla}: ${fmt.format(conteo.get(`lista-${j}`))} mesas`));
+    });
+    if (conteo.get('empate')) leyenda.append(itemLeyenda(null, `Empate: ${fmt.format(conteo.get('empate'))} mesas`, 'leyenda__muestra--empate'));
     if (estado.colorMapa === 'zona') {
         for (const [codigo, nombre] of Object.entries(datos.resumen.zonas)) {
-            if (conteo.get(`zona-${codigo}`)) leyenda.append(itemLeyenda(COLORES_ZONA[codigo], `Zona TSJE ${codigo} · ${nombre}: ${fmt.format(conteo.get(`zona-${codigo}`))} mesas`));
+            const z = porZona.get(codigo);
+            if (!z) continue;
+            const li = itemLeyenda(null, `Zona TSJE ${codigo} · ${nombre}: ${cantidad(z.locales.size, 'local', 'locales')}, ${cantidad(z.mesas, 'mesa', 'mesas')}`,
+                'leyenda__muestra--halo');
+            li.firstChild.style.borderColor = COLORES_ZONA[codigo];
+            leyenda.append(li);
         }
-    } else {
-        datos.listas[estado.cargo].forEach((item, j) => {
-            if (conteo.get(`lista-${j}`)) leyenda.append(itemLeyenda(item.color, `${item.sigla}: ${fmt.format(conteo.get(`lista-${j}`))} mesas`));
-        });
-        if (conteo.get('empate')) leyenda.append(itemLeyenda(null, `Empate: ${fmt.format(conteo.get('empate'))} mesas`, 'leyenda__muestra--empate'));
     }
     leyenda.append(itemLeyenda(null, 'Contorno: zonas municipales oficiales', 'leyenda__muestra--zona'));
-    $('notaMapa').textContent = 'Cada punto es una mesa, dibujada alrededor de su local de votación: los puntos se separan para que se vean y no ' +
-        'indican una ubicación propia. Los contornos rotulados son las 6 zonas municipales oficiales (Municipalidad de Asunción), que no ' +
-        'coinciden con las 6 zonas electorales del TSJE de las actas: por ejemplo, Zeballos Cué (TSJE) queda dentro de Santísima Trinidad ' +
-        '(municipal). Tocá un local para ver sus cifras.';
+    $('notaMapa').textContent = 'Cada punto es una mesa, con el color de la lista más votada, dibujada alrededor de su local de votación: los puntos ' +
+        'se separan para que se vean y no indican una ubicación propia. ' +
+        (estado.colorMapa === 'zona' ? 'El halo de cada local indica su zona electoral del TSJE. ' : '') +
+        'Los contornos rotulados son las 6 zonas municipales oficiales (Municipalidad de Asunción), que no coinciden con las 6 zonas ' +
+        'electorales del TSJE de las actas: por ejemplo, Zeballos Cué (TSJE) queda dentro de Santísima Trinidad (municipal). Tocá un local para ver sus cifras.';
 }
 
 // Agregados por barrio (lugar de los locales) para el cargo elegido.
@@ -797,6 +816,57 @@ function unidades(tipo) {
     return [...grupos.values()].map((g) => ({ ...g, total: sumar(g.indices, estado.cargo) }));
 }
 
+const NOMBRES_UNIDAD = { mesa: ['mesa', 'mesas'], local: ['local', 'locales'], barrio: ['barrio', 'barrios'] };
+
+function rangoBin(b) {
+    const desde = b < 20 ? -100 + b * 5 : (b - 20) * 5;
+    return `${desde} a ${desde + 5} puntos`;
+}
+
+function renderDetalleHistograma() {
+    const caja = $('detalleHistograma');
+    const h = datos.histograma;
+    const b = estado.binHistograma;
+    for (const barra of document.querySelectorAll('.histograma__barra')) barra.classList.toggle('es-seleccion', Number(barra.dataset.bin) === b);
+    caja.replaceChildren();
+    if (b === null || !h || !h.porBin[b].length) {
+        caja.hidden = true;
+        return;
+    }
+    const filas = [...h.porBin[b]].sort((x, y) => x.m - y.m);
+    const [singular, plural] = NOMBRES_UNIDAD[h.unidad];
+    const cabecera = el('div', 'histograma__detalle-cabecera');
+    cabecera.append(el('h4', null, `${rangoBin(b)} · ${(b < 20 ? h.neg : h.pos).nombre} adelante · ${cantidad(filas.length, singular, plural)}`));
+    const cerrar = el('button', 'boton-tabla', 'Cerrar');
+    cerrar.type = 'button';
+    cerrar.dataset.cerrarDetalle = 'true';
+    cabecera.append(cerrar);
+    const tabla = el('table', 'tabla');
+    const encabezado = el('tr');
+    const columnas = [singular[0].toUpperCase() + singular.slice(1), ...(h.unidad === 'barrio' ? [] : ['Barrio']), 'Margen', 'Emitidos', 'Mesas'];
+    columnas.forEach((texto, k) => {
+        const th = el('th', k === 0 || (k === 1 && h.unidad !== 'barrio') ? 'tabla__texto' : null, texto);
+        th.scope = 'col';
+        encabezado.append(th);
+    });
+    tabla.createTHead().append(encabezado);
+    const cuerpo = tabla.createTBody();
+    for (const { u, m } of filas) {
+        const tr = el('tr');
+        const nombre = el('th', null, u.nombre);
+        nombre.scope = 'row';
+        tr.append(nombre);
+        if (h.unidad !== 'barrio') tr.append(el('td', 'tabla__texto', u.barrio ?? '—'));
+        tr.append(el('td', null, `${m > 0 ? '+' : ''}${pct.format(m)}`), el('td', null, fmt.format(u.total.emitidos)), el('td', null, fmt.format(u.total.mesas)));
+        cuerpo.append(tr);
+    }
+    const desplazable = el('div', 'tabla-scroll tabla-scroll--detalle');
+    desplazable.append(tabla);
+    caja.append(cabecera, desplazable);
+    caja.dataset.filas = String(filas.length);
+    caja.hidden = false;
+}
+
 function renderHistograma() {
     const contenedor = $('histograma');
     contenedor.replaceChildren();
@@ -804,6 +874,8 @@ function renderHistograma() {
     const botones = $('unidadHistograma');
     if (estado.cargo !== MARGEN.cargo) {
         botones.hidden = true;
+        datos.histograma = null;
+        renderDetalleHistograma();
         nota.textContent = 'El margen compara las dos candidaturas a Intendencia pedidas para este análisis; no se aplica a la Junta Municipal.';
         contenedor.append(el('p', 'histograma__vacio', 'Elegí Intendencia para ver la distribución del margen.'));
         return;
@@ -812,8 +884,10 @@ function renderHistograma() {
     const pos = datos.listas[MARGEN.cargo][datos.indiceMargen.positivo];
     const neg = datos.listas[MARGEN.cargo][datos.indiceMargen.negativo];
     const conteo = new Array(40).fill(0);
+    const porBin = Array.from({ length: 40 }, () => []);
     let empates = 0, sinVotos = 0, terceros = 0;
     const lista = unidades(estado.unidad);
+    const [singular, plural] = NOMBRES_UNIDAD[estado.unidad];
     for (const u of lista) {
         const m = margen(u.total);
         if (m === null) { sinVotos += 1; continue; }
@@ -821,8 +895,11 @@ function renderHistograma() {
         if (g !== null && g !== datos.indiceMargen.positivo && g !== datos.indiceMargen.negativo) terceros += 1;
         if (m === 0) { empates += 1; continue; }
         const k = Math.min(20, Math.ceil(Math.abs(m) / 5));
-        conteo[m > 0 ? 19 + k : 20 - k] += 1;
+        const b = m > 0 ? 19 + k : 20 - k;
+        conteo[b] += 1;
+        porBin[b].push({ u, m });
     }
+    datos.histograma = { porBin, unidad: estado.unidad, pos, neg };
     const maximo = Math.max(1, ...conteo);
     // Franja superior reservada a los rótulos y margen lateral para las etiquetas extremas del eje.
     const ancho = 800, alto = 290, arriba = 40, abajo = 34, izquierda = 40, derecha = 40;
@@ -831,12 +908,25 @@ function renderHistograma() {
     const paso = (ancho - izquierda - derecha) / 40;
     conteo.forEach((n, b) => {
         const h = ((alto - abajo - arriba) * n) / maximo;
-        const barra = svg('rect', { x: izquierda + b * paso + 1, y: alto - abajo - h, width: Math.max(1, paso - 2), height: h,
+        const x = izquierda + b * paso;
+        const barra = svg('rect', { x: x + 1, y: alto - abajo - h, width: Math.max(1, paso - 2), height: h,
             fill: b < 20 ? neg.color : pos.color, class: 'histograma__barra' });
         barra.dataset.bin = b;
         barra.dataset.n = n;
-        const desde = b < 20 ? -100 + b * 5 : (b - 20) * 5;
-        g.append(titulo(barra, `${desde} a ${desde + 5} puntos: ${fmt.format(n)}`));
+        const resumen = `${rangoBin(b)}, ${(b < 20 ? neg : pos).nombre} adelante: ${cantidad(n, singular, plural)}`;
+        if (n) {
+            // Cada barra lleva su conteo; el detalle del tramo se abre al tocarla o con Enter.
+            const nombres = porBin[b].map((x) => x.u.nombre);
+            barra.setAttribute('tabindex', '0');
+            barra.setAttribute('role', 'button');
+            barra.setAttribute('aria-label', `${resumen}. Ver el detalle.`);
+            g.append(titulo(barra, `${resumen}\n${nombres.slice(0, 12).join(' · ')}${nombres.length > 12 ? ` y ${fmt.format(nombres.length - 12)} más` : ''}`));
+            const valor = svg('text', { x: x + paso / 2, y: alto - abajo - h - 4, 'text-anchor': 'middle', class: 'histograma__valor' });
+            valor.textContent = fmt.format(n);
+            g.append(valor);
+        } else {
+            g.append(titulo(barra, resumen));
+        }
     });
     for (const valor of [-100, -50, 0, 50, 100]) {
         const x = izquierda + ((valor + 100) / 5) * paso;
@@ -859,8 +949,9 @@ function renderHistograma() {
         `${fmt.format(lista.length)} ${unidadTexto}` + (empates ? `; ${fmt.format(empates)} con empate exacto, fuera de las barras` : '') +
         (sinVotos ? `; ${fmt.format(sinVotos)} sin votos a listas` : '') +
         (terceros ? `; en ${fmt.format(terceros)} ganó otra lista` : '') +
-        '. Barrio = ubicación del local, no residencia de sus electores.';
+        '. Tocá una barra para ver sus datos. Barrio = ubicación del local, no residencia de sus electores.';
     contenedor.dataset.total = String(conteo.reduce((a, b) => a + b, 0) + empates);
+    renderDetalleHistograma();
 }
 
 function renderTabla() {
@@ -900,7 +991,7 @@ function renderTabla() {
     }
     const tr = el('tr');
     for (const col of columnas) {
-        const th = el('th');
+        const th = el('th', col.texto ? 'tabla__texto' : null);
         th.scope = 'col';
         const boton = el('button', 'tabla__orden', col.titulo);
         boton.type = 'button';
@@ -958,6 +1049,16 @@ function renderVista() {
 
 function renderTodo() {
     for (const boton of document.querySelectorAll('[data-cargo]')) boton.setAttribute('aria-selected', String(boton.dataset.cargo === estado.cargo));
+    // «Intendente vs Junta» reemplaza al panel de resultado y a los gráficos mientras está elegida.
+    const intendenteJunta = estado.cargo === 'c';
+    $('panelIvj').hidden = !intendenteJunta;
+    $('panelTotales').hidden = intendenteJunta;
+    $('panelGraficos').hidden = intendenteJunta;
+    if (intendenteJunta) {
+        renderBancas();
+        datos.ivj.render();
+        return;
+    }
     for (const boton of document.querySelectorAll('[data-tabla]')) boton.setAttribute('aria-pressed', String(boton.dataset.tabla === estado.tabla));
     for (const boton of document.querySelectorAll('[data-unidad]')) boton.setAttribute('aria-pressed', String(boton.dataset.unidad === estado.unidad));
     for (const boton of document.querySelectorAll('[data-color]')) boton.setAttribute('aria-pressed', String(boton.dataset.color === estado.colorMapa));
@@ -1047,6 +1148,28 @@ function eventos() {
     for (const boton of document.querySelectorAll('[data-medida]')) {
         boton.addEventListener('click', () => { estado.medida = boton.dataset.medida; renderVista(); });
     }
+    const elegirBarra = (barra) => {
+        const b = Number(barra.dataset.bin);
+        estado.binHistograma = estado.binHistograma === b ? null : b;
+        renderDetalleHistograma();
+    };
+    $('histograma').addEventListener('click', (evento) => {
+        const barra = evento.target.closest('.histograma__barra');
+        if (barra && Number(barra.dataset.n)) elegirBarra(barra);
+    });
+    $('histograma').addEventListener('keydown', (evento) => {
+        const barra = evento.target.closest('.histograma__barra');
+        if (barra && (evento.key === 'Enter' || evento.key === ' ')) {
+            evento.preventDefault();
+            elegirBarra(barra);
+        }
+    });
+    $('detalleHistograma').addEventListener('click', (evento) => {
+        if (evento.target.closest('[data-cerrar-detalle]')) {
+            estado.binHistograma = null;
+            renderDetalleHistograma();
+        }
+    });
     $('selectorLista').addEventListener('click', (evento) => {
         const boton = evento.target.closest('[data-lista]');
         if (!boton) return;
@@ -1086,6 +1209,7 @@ async function iniciar() {
         const [resumen, mesas, locales, geo, cand, ipm] = await Promise.all(
             ['resumen.json', 'mesas.json', 'locales.json', 'geo.json', 'candidaturas.json', 'indicadores_barrios.json'].map(cargar));
         datos = construirModelo(resumen, mesas, locales, geo, cand, ipm);
+        datos.ivj = crearIntendenteJunta(datos);
         renderFijos();
         crearMapaMesas();
         eventos();

@@ -173,6 +173,100 @@ html[data-theme="dark"] .panel__eyebrow {
     gap: 1rem;
 }
 
+/* Intendente vs Junta: tarjetas de totales, controles, gráficos de Chart.js y tablas. */
+.panel--ivj {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1rem;
+}
+
+.panel--ivj .panel__meta {
+    margin-bottom: 0;
+}
+
+.ivj__totales {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+    gap: .875rem;
+}
+
+.ivj__tarjeta {
+    display: grid;
+    gap: .25rem;
+    padding: 1rem;
+    border: 1px solid var(--border);
+    border-radius: 1rem;
+    background: var(--surface-soft);
+}
+
+.ivj__tarjeta h3 {
+    margin: 0;
+    font-size: .9375rem;
+    font-weight: 800;
+}
+
+.ivj__valor {
+    font-size: 1.5rem;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+}
+
+.ivj__valor.es-negativa,
+.tabla td.es-negativa {
+    color: #dc2626;
+}
+
+.ivj__valor.es-positiva {
+    color: #15803d;
+}
+
+html[data-theme="dark"] .ivj__valor.es-negativa,
+html[data-theme="dark"] .tabla td.es-negativa {
+    color: #f87171;
+}
+
+html[data-theme="dark"] .ivj__valor.es-positiva {
+    color: #4ade80;
+}
+
+.ivj__detalle {
+    color: var(--text-muted);
+    font-size: .8125rem;
+    line-height: 1.5;
+}
+
+.ivj__controles {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .75rem;
+}
+
+.ivj__acciones {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem;
+    margin-left: auto;
+}
+
+.ivj__graficos {
+    display: grid;
+    gap: 1rem;
+}
+
+.ivj__grafico {
+    position: relative;
+    min-width: 0;
+}
+
+.ivj__grafico canvas {
+    display: block;
+}
+
+.panel--ivj .vista__titulo {
+    margin-top: .5rem;
+}
+
 .vista__lateral .leyenda {
     margin-top: 0;
 }
@@ -488,6 +582,24 @@ html[data-theme="dark"] .panel__eyebrow {
     fill: transparent;
 }
 
+/* Halo de zona TSJE por local: solo en el modo Zona TSJE; los puntos conservan el color de su lista. */
+.mapa__halo {
+    display: none;
+    fill-opacity: .16;
+    stroke-opacity: .95;
+    stroke-width: 18;
+    pointer-events: none;
+}
+
+.es-modo-zona .mapa__halo {
+    display: inline;
+}
+
+.mapa__halo.es-atenuado {
+    fill-opacity: .04;
+    stroke-opacity: .18;
+}
+
 .mapa__toque:hover {
     fill: rgba(255, 255, 255, .06);
 }
@@ -522,6 +634,11 @@ html[data-theme="dark"] .panel__eyebrow {
 .leyenda__muestra--zona {
     border: 2px dashed rgba(253, 186, 116, .9);
     border-radius: 3px;
+}
+
+.leyenda__muestra--halo {
+    border: 3px solid transparent;
+    background: transparent;
 }
 
 .leyenda__muestra--local {
@@ -668,6 +785,55 @@ html[data-theme="dark"] .panel__eyebrow {
     opacity: .9;
 }
 
+.histograma__barra[tabindex] {
+    cursor: pointer;
+}
+
+.histograma__barra[tabindex]:hover,
+.histograma__barra:focus-visible {
+    opacity: 1;
+    outline: none;
+    stroke: var(--text);
+    stroke-width: 1.5;
+}
+
+.histograma__barra.es-seleccion {
+    opacity: 1;
+    stroke: var(--text);
+    stroke-width: 2.5;
+}
+
+.histograma__valor {
+    fill: var(--text-soft);
+    font-size: 10px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    pointer-events: none;
+}
+
+.histograma__detalle {
+    margin-top: 1rem;
+}
+
+.histograma__detalle-cabecera {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: .5rem 1rem;
+    margin-bottom: .625rem;
+}
+
+.histograma__detalle-cabecera h4 {
+    margin: 0;
+    font-size: .9375rem;
+    font-weight: 800;
+}
+
+.tabla-scroll--detalle {
+    max-height: 18rem;
+}
+
 .histograma__vacio {
     margin: 0;
     padding: 2rem 1rem;
@@ -727,7 +893,8 @@ html[data-theme="dark"] .panel__eyebrow {
     background: var(--surface-solid);
 }
 
-.tabla thead th:first-child {
+.tabla thead th:first-child,
+.tabla thead th.tabla__texto {
     text-align: left;
 }
 
@@ -792,6 +959,10 @@ html[data-theme="dark"] .boton-tabla {
 }
 
 @media (min-width: 900px) {
+    .ivj__graficos--doble {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
     /* La columna del mapa toma el ancho que permite su altura máxima (72vh y la proporción del distrito). */
     .vista__cuerpo {
         grid-template-columns: minmax(0, calc(72vh * 15602 / 17879)) minmax(15rem, 1fr);
@@ -816,6 +987,15 @@ html[data-theme="dark"] .boton-tabla {
 @media (max-width: 640px) {
     .panel {
         padding: 1.125rem;
+    }
+
+    .ivj__acciones {
+        margin-left: 0;
+    }
+
+    /* En pantallas angostas los conteos quedarían ilegibles: el dato está en el detalle al tocar la barra. */
+    .histograma__valor {
+        display: none;
     }
 
     .campo-buscar {
