@@ -47,7 +47,9 @@ export function lookupMessage(manifest, cedula, nacimiento) {
 }
 
 export function associatedData(manifest, lookupId) {
-    // Desde v2 la ficha es posicional (ADR-009); la etiqueta impide mezclarla con fichas v1.
-    return JSON.stringify(['kalaguichi.com', manifest.schema_version >= 2 ? 'ficha-v2' : 'ficha-v1',
-        manifest.dataset_id, manifest.eleccion_id, manifest.key_id, lookupId]);
+    // v3 (ADR-011): la ficha posicional queda atada al orden de sus campos y al hash del catálogo.
+    if (manifest.schema_version === 3) return JSON.stringify(['kalaguichi.com', 'ficha-v3', manifest.dataset_id,
+        manifest.eleccion_id, manifest.key_id, manifest.ficha.join(','), manifest.catalogo.sha256, lookupId]);
+    return JSON.stringify(['kalaguichi.com', 'ficha-v1', manifest.dataset_id,
+        manifest.eleccion_id, manifest.key_id, lookupId]);
 }

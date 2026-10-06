@@ -18,33 +18,9 @@ import { ElectoralRepository } from './repository.js';
     const searchIcon = document.getElementById('searchIcon');
     const loadingIcon = document.getElementById('loadingIcon');
     const buttonText = document.getElementById('buttonText');
-    const themeToggle = document.getElementById('themeToggle');
-    const currentYear = document.getElementById('currentYear');
 
-    if (currentYear) {
-        currentYear.textContent = String(new Date().getFullYear());
-    }
-
-    initTheme();
+    // Tema y año del pie: assets/js/sitio.js, común a todas las páginas.
     describeDataset();
-
-    if (themeToggle) {
-        themeToggle.addEventListener('click', () => {
-            const current =
-                document.documentElement.dataset.theme === 'dark'
-                    ? 'dark'
-                    : 'light';
-
-            const next = current === 'dark' ? 'light' : 'dark';
-
-            document.documentElement.dataset.theme = next;
-
-            try {
-                localStorage.setItem('padron_theme', next);
-            } catch (_) {
-            }
-        });
-    }
 
     function invalidateQuery() {
         requestNumber += 1;
@@ -93,25 +69,6 @@ import { ElectoralRepository } from './repository.js';
             if (token === requestNumber) { activeRequest = null; setLoading(false); }
         }
     });
-
-    function initTheme() {
-
-        let saved = 'light';
-
-        try {
-
-            saved =
-                localStorage.getItem('padron_theme') ||
-                'light';
-
-        } catch (_) {
-        }
-
-        document.documentElement.dataset.theme =
-            saved === 'dark'
-                ? 'dark'
-                : 'light';
-    }
 
     // El aviso estático describe la demo sintética; se corrige si se sirve el padrón cifrado local.
     async function describeDataset() {

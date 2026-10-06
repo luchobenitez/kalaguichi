@@ -18,7 +18,7 @@ function compatibleManifest(m, mode) {
         && ID.test(m.dataset_id) && ID.test(m.eleccion_id);
     const v1 = m.schema_version === 1 && ['encrypted-json', 'encrypted-parquet'].includes(m.format)
         && [1, 2, 3].includes(m.shard_prefix_length) && m.shards && typeof m.shards === 'object';
-    const v3 = m.schema_version === 3 && m.format === 'encrypted-bin-ranges' && m.lookup_bytes === 16
+    const v3 = m.schema_version === 3 && m.format === 'encrypted-bin-ranges' && m.lookup_bytes === 16 && m.aad_version === 3
         && Number.isInteger(m.file_bits) && m.file_bits >= 0 && m.file_bits <= 4
         && Array.isArray(m.files) && m.files.length === 2 ** m.file_bits
         && m.files.every((f, i) => f?.file === `padron-${i.toString(16)}.bin` && Number.isInteger(f.bucket_bits)
@@ -76,7 +76,8 @@ function validCatalog(catalog, ficha) {
 
 /** Una clave pública NO autoriza ni autentica al titular. */
 export class ElectoralRepository {
-    constructor(base = new URL('../../', import.meta.url)) { this.base = base; }
+    // config/ y datos_padron/ se leen junto a la página de la consulta (sitio/padron/), no en la raíz del sitio.
+    constructor(base = new URL('./', document.baseURI)) { this.base = base; }
     resolve(path) {
         const url = new URL(path, this.base);
         if (url.origin !== this.base.origin || !url.pathname.startsWith(this.base.pathname)

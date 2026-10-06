@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="es" data-theme="light">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="description" content="Kalaguichi.com: resultados preliminares del TREP de las municipales 2026 en Asunción, por mesa, local, barrio y zona.">
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="referrer" content="no-referrer">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; connect-src 'self'; style-src 'self'; img-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+    <link rel="icon" href="../../assets/img/kalaguichi-isotipo.svg" type="image/svg+xml">
+    <meta name="color-scheme" content="light dark">
+    <title>Kalaguichi.com · Municipales 2026 en Asunción</title>
+    <link rel="stylesheet" href="../../assets/css/padron.css">
+    <link rel="stylesheet" href="../../assets/css/sitio.css">
+    <link rel="stylesheet" href="assets/resultados.css">
+    <script type="module" src="../../assets/js/sitio.js"></script>
+    <script type="module" src="assets/resultados.js"></script>
+</head>
+
+<body>
+<noscript>El visor necesita JavaScript para leer las actas por mesa.</noscript>
+<div class="app-shell">
+    <div class="background-grid" aria-hidden="true"></div>
+    <div class="ambient-glow ambient-glow--orange" aria-hidden="true"></div>
+    <div class="ambient-glow ambient-glow--blue" aria-hidden="true"></div>
+
+    <header class="site-header">
+        <div class="site-header__inner">
+            <a href="../../" class="brand">
+                <span class="brand__mark">
+                    <img src="../../assets/img/kalaguichi-isotipo.svg" alt="">
+                </span>
+
+                <span class="brand__text">
+                    <strong>Kalaguichi.com</strong>
+                    <small>Análisis de resultados</small>
+                </span>
+            </a>
+
+            <nav class="site-nav" aria-label="Secciones del sitio">
+                <a href="../../">Inicio</a>
+                <a href="../../padron/">Consulta del padrón</a>
+                <a href="../" aria-current="page">Análisis de resultados</a>
+            </nav>
+
+            <button
+                id="themeToggle"
+                type="button"
+                class="theme-toggle"
+                aria-label="Cambiar modo de visualización"
+                title="Cambiar modo de visualización"
+            >
+                <svg id="sunIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                    <circle cx="12" cy="12" r="4"></circle>
+                    <path stroke-linecap="round" d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path>
+                </svg>
+
+                <svg id="moonIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"></path>
+                </svg>
+            </button>
+        </div>
+    </header>
+
+    <main class="portal resultados" id="visor" aria-busy="true">
+        <section class="portal-hero">
+            <div class="portal-hero__glow portal-hero__glow--top" aria-hidden="true"></div>
+            <div class="portal-hero__glow portal-hero__glow--bottom" aria-hidden="true"></div>
+
+            <div class="portal-hero__content">
+                <span class="official-badge">Municipales 2026 · Asunción · TREP</span>
+
+                <h1>
+                    Resultados del TREP
+                    <span>mesa por mesa.</span>
+                </h1>
+
+                <p class="portal-hero__lead" id="resumenLead">Cargando las actas por mesa…</p>
+                <p class="aviso-trep" id="avisoTrep"></p>
+            </div>
+        </section>
+
+        <p class="error-carga" id="errorCarga" role="alert" hidden></p>
+
+        <div class="selector-cargo" role="tablist" aria-label="Cargo">
+            <button type="button" role="tab" id="cargo-1" data-cargo="1" aria-selected="true">Intendencia</button>
+            <button type="button" role="tab" id="cargo-2" data-cargo="2" aria-selected="false">Junta Municipal</button>
+        </div>
+
+        <article class="panel panel--totales" aria-labelledby="tituloTotales">
+            <div class="panel--totales__cabecera">
+                <div>
+                    <p class="panel__eyebrow" id="eyebrowTotales">Resultado</p>
+                    <h2 id="tituloTotales">Asunción</h2>
+                    <p class="panel__meta" id="metaTotales"></p>
+                </div>
+                <button type="button" class="boton-secundario" id="limpiarSeleccion" hidden>Ver toda Asunción</button>
+            </div>
+            <div class="panel--totales__cuerpo">
+                <div class="lista-resultados" id="listaResultados" aria-live="polite"></div>
+                <div class="panel--totales__lateral">
+                    <div class="participacion" id="participacion"></div>
+                    <div class="diferencia" id="diferencia"></div>
+                    <dl class="otros-votos" id="otrosVotos"></dl>
+                </div>
+            </div>
+        </article>
+
+        <article class="panel panel--bancas" id="panelBancas" aria-labelledby="tituloBancas" hidden>
+            <div class="panel__barra">
+                <div>
+                    <p class="panel__eyebrow">Junta Municipal · D'Hondt</p>
+                    <h2 id="tituloBancas">Bancas de la Junta Municipal</h2>
+                    <p class="panel__meta" id="metaBancas"></p>
+                </div>
+            </div>
+            <ul class="bancas__leyenda" id="bancasLeyenda"></ul>
+            <div class="bancas" id="bancas"></div>
+            <div class="bancas__personas" id="bancasPersonas"></div>
+            <p class="nota" id="notaBancas"></p>
+        </article>
+
+        <section class="panel panel--graficos" aria-labelledby="tituloGraficos">
+            <h2 class="visualmente-oculto" id="tituloGraficos">Gráficos y tablas</h2>
+            <div class="pestanas" role="tablist" aria-label="Gráficos" id="pestanas">
+                <button type="button" role="tab" data-vista="mapa" aria-selected="true" aria-controls="vista-mapa">Mapa de mesas</button>
+                <button type="button" role="tab" data-vista="barrios" aria-selected="false" aria-controls="vista-barrios">Asunción por barrio</button>
+                <button type="button" role="tab" data-vista="listas" aria-selected="false" aria-controls="vista-listas">Votos por lista</button>
+                <button type="button" role="tab" data-vista="participacion" aria-selected="false" aria-controls="vista-participacion">Participación</button>
+                <button type="button" role="tab" data-vista="ipm" aria-selected="false" aria-controls="vista-ipm">Pobreza multidimensional</button>
+                <button type="button" role="tab" data-vista="margen" aria-selected="false" aria-controls="vista-margen">Margen</button>
+                <button type="button" role="tab" data-vista="tablas" aria-selected="false" aria-controls="vista-tablas">Tablas</button>
+            </div>
+
+            <div class="vista" role="tabpanel" id="vista-mapa" aria-label="Mapa de mesas">
+                <div class="panel__barra">
+                    <div class="segmentos" role="group" aria-label="Color de los puntos" id="colorMapa">
+                        <button type="button" data-color="lista" aria-pressed="true">Lista más votada</button>
+                        <button type="button" data-color="zona" aria-pressed="false">Zona TSJE</button>
+                    </div>
+                    <label class="campo-select" for="filtroZona">
+                        Ver
+                        <select id="filtroZona">
+                            <option value="">Toda Asunción</option>
+                            <optgroup label="Zonas municipales (oficiales)" id="opcionesMunicipales"></optgroup>
+                            <optgroup label="Zonas electorales (TSJE)" id="opcionesTsje"></optgroup>
+                        </select>
+                    </label>
+                </div>
+                <div class="vista__cuerpo">
+                    <div class="mapa" id="mapa"></div>
+                    <div class="vista__lateral">
+                        <ul class="leyenda" id="leyenda"></ul>
+                        <p class="nota" id="notaMapa"></p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="vista" role="tabpanel" id="vista-barrios" aria-label="Asunción por barrio" hidden>
+                <div class="vista__cuerpo">
+                    <div class="mapa" id="mapaBarrios"></div>
+                    <div class="vista__lateral">
+                        <ul class="leyenda" id="leyendaBarrios"></ul>
+                        <p class="nota" id="notaBarrios"></p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="vista" role="tabpanel" id="vista-listas" aria-label="Votos por lista" hidden>
+                <div class="panel__barra">
+                    <div class="segmentos segmentos--listas" role="group" aria-label="Lista" id="selectorLista"></div>
+                    <div class="segmentos" role="group" aria-label="Medida" id="medidaListas">
+                        <button type="button" data-medida="pct" aria-pressed="true">Porcentaje</button>
+                        <button type="button" data-medida="votos" aria-pressed="false">Votos</button>
+                    </div>
+                </div>
+                <div class="vista__cuerpo">
+                    <div class="mapa" id="mapaListas"></div>
+                    <div class="vista__lateral">
+                        <ul class="leyenda leyenda--escala" id="leyendaListas"></ul>
+                        <p class="nota" id="notaListas"></p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="vista" role="tabpanel" id="vista-participacion" aria-label="Participación" hidden>
+                <div class="vista__cuerpo">
+                    <div class="mapa" id="mapaParticipacion"></div>
+                    <div class="vista__lateral">
+                        <ul class="leyenda leyenda--escala" id="leyendaParticipacion"></ul>
+                        <p class="nota" id="notaParticipacion"></p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="vista" role="tabpanel" id="vista-ipm" aria-label="Pobreza multidimensional" hidden>
+                <div class="panel__barra">
+                    <div class="segmentos" role="group" aria-label="Componente del IPM" id="selectorIpm">
+                        <button type="button" data-ipm="H" aria-pressed="true">Incidencia (H)</button>
+                        <button type="button" data-ipm="A" aria-pressed="false">Intensidad (A)</button>
+                        <button type="button" data-ipm="IPM" aria-pressed="false">IPM (H × A)</button>
+                    </div>
+                </div>
+                <div class="vista__cuerpo">
+                    <div class="mapa" id="mapaIpm"></div>
+                    <div class="vista__lateral">
+                        <ul class="leyenda leyenda--escala" id="leyendaIpm"></ul>
+                        <ul class="leyenda" id="leyendaIpmLocales"></ul>
+                        <p class="nota" id="notaIpm"></p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="vista" role="tabpanel" id="vista-margen" aria-label="Distribución del margen" hidden>
+                <div class="panel__barra">
+                    <h3 class="vista__titulo">Distribución del margen</h3>
+                    <div class="segmentos" role="group" aria-label="Unidad del histograma" id="unidadHistograma">
+                        <button type="button" data-unidad="mesa" aria-pressed="true">Mesa</button>
+                        <button type="button" data-unidad="local" aria-pressed="false">Local</button>
+                        <button type="button" data-unidad="barrio" aria-pressed="false">Barrio</button>
+                    </div>
+                </div>
+                <div class="histograma" id="histograma"></div>
+                <p class="nota" id="notaHistograma"></p>
+            </div>
+
+            <div class="vista" role="tabpanel" id="vista-tablas" aria-label="Tablas" hidden>
+                <div class="panel__barra">
+                    <div class="segmentos" role="group" aria-label="Unidad de la tabla" id="vistaTabla">
+                        <button type="button" data-tabla="mesa" aria-pressed="false">Mesa</button>
+                        <button type="button" data-tabla="local" aria-pressed="true">Local</button>
+                        <button type="button" data-tabla="barrio" aria-pressed="false">Barrio</button>
+                        <button type="button" data-tabla="zona" aria-pressed="false">Zona TSJE</button>
+                        <button type="button" data-tabla="zona_municipal" aria-pressed="false">Zona municipal</button>
+                    </div>
+                    <label class="campo-buscar" for="filtroTabla">
+                        <span>Filtrar</span>
+                        <input type="search" id="filtroTabla" placeholder="Nombre de local o barrio" autocomplete="off">
+                    </label>
+                </div>
+                <div class="tabla-scroll">
+                    <table class="tabla" id="tabla">
+                        <thead></thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+                <p class="nota" id="notaTabla"></p>
+            </div>
+        </section>
+
+        <section class="info-grid" aria-label="Vistas no disponibles" id="noDisponible"></section>
+
+        <section class="panel" aria-labelledby="tituloFuentes">
+            <h2 id="tituloFuentes">Fuentes y método</h2>
+            <div class="fuentes" id="fuentes"></div>
+        </section>
+    </main>
+
+    <footer class="site-footer">
+        <p>© <span id="currentYear"></span> Kalaguichi.com · Iniciativa independiente, no vinculada al TSJE.</p>
+        <p>Los resultados del TREP son preliminares y no reemplazan al cómputo oficial.</p>
+    </footer>
+</div>
+</body>
+</html>

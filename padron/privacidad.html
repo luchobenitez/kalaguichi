@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="es" data-theme="light"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; img-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<title>Privacidad y límites de la prueba · Kalaguichi.com</title><link rel="stylesheet" href="../assets/css/padron.css">
+<link rel="stylesheet" href="../assets/css/sitio.css">
+<script type="module" src="../assets/js/sitio.js"></script>
+<link rel="icon" href="../assets/img/kalaguichi-isotipo.svg" type="image/svg+xml">
+<meta name="color-scheme" content="light dark"></head>
+<body>
+<header class="site-header">
+    <div class="site-header__inner">
+        <a href="../" class="brand">
+            <span class="brand__mark">
+                <img src="../assets/img/kalaguichi-isotipo.svg" alt="">
+            </span>
+            <span class="brand__text">
+                <strong>Kalaguichi.com</strong>
+                <small>Consulta del padrón electoral</small>
+            </span>
+        </a>
+        <nav class="site-nav" aria-label="Secciones del sitio">
+            <a href="../">Inicio</a>
+            <a href="./" aria-current="page">Consulta del padrón</a>
+            <a href="../analisis_resultados/">Análisis de resultados</a>
+        </nav>
+        <button id="themeToggle" type="button" class="theme-toggle" aria-label="Cambiar modo de visualización" title="Cambiar modo de visualización">
+            <svg id="sunIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                <circle cx="12" cy="12" r="4"></circle>
+                <path stroke-linecap="round" d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path>
+            </svg>
+            <svg id="moonIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"></path>
+            </svg>
+        </button>
+    </div>
+</header>
+<main class="document-page"><a href="./">← Volver a la consulta</a><h1>Privacidad y límites de la prueba</h1>
+<p><strong>Versión de demostración. No es un sitio del TSJE, no certifica identidad y no informa sobre electores reales.</strong></p>
+<h2>Qué hace el navegador</h2><p>El formulario busca una coincidencia de cédula y fecha de nacimiento. El código de esta versión no agrega esos valores a la URL ni los envía como campos de una solicitud. Descarga archivos cifrados y muestra la ficha coincidente dentro de la página.</p>
+<p>Los archivos solicitados incluyen prefijos de un identificador derivado de la consulta. No constituyen navegación anónima. El proveedor de alojamiento puede conservar metadatos de acceso. No se incorporaron analítica, publicidad ni rastreadores de terceros al código entregado.</p>
+<h2>La clave de este conjunto es pública</h2><p>La clave de AES-GCM se lee de un archivo TXT del mismo sitio exclusivamente para probar el mecanismo. Quien descargue los archivos y esa clave puede descifrar todo el conjunto sintético sin usar el formulario. La fecha de nacimiento no es una contraseña. Este diseño no se presenta como protección de una base nominal.</p>
+<h2>Qué se guarda</h2><p>La aplicación utiliza almacenamiento local únicamente para recordar el tema claro u oscuro. No guarda allí fichas, cédulas ni fechas de nacimiento. “Limpiar” vacía los campos y el resultado del documento. Esto no certifica el borrado físico de toda la memoria del navegador, capturas de pantalla o copias conservadas por terceros.</p>
+<h2>Cómo se interpretan los estados</h2><p>“Sí votó” y “No votó” reproducen un booleano explícito de la fuente. “Sin información” es un estado distinto. “No figura como fallecido/a” no prueba que una persona esté viva. Dos estados positivos, sin fecha del fallecimiento y contexto, no bastan para concluir una irregularidad.</p>
+<p>El local asignado no acredita el lugar donde efectivamente se emitió un voto. Un enlace a Google Maps solo abre el sitio externo cuando el visitante lo pulsa; no carga un mapa de forma automática.</p>
+<h2>Antes de usar datos reales</h2><p>Faltan acordar la habilitación y finalidad del tratamiento, la procedencia y fecha de corte de cada dato, la política de rectificación, el mecanismo de identidad y una solución en la que las claves privadas no se publiquen. La revisión jurídica, la auditoría independiente y la validación a escala no se han realizado en esta entrega.</p>
+<p>Las instrucciones y controles del paquete admiten únicamente la demostración sintética. No se cambian por sí mismos la configuración del dominio, el DNS ni un repositorio remoto.</p></main>
+<footer class="site-footer">
+    <p>© <span id="currentYear"></span> Kalaguichi.com · Iniciativa independiente, no vinculada al TSJE.</p>
+</footer>
+</body>
+</html>
