@@ -277,8 +277,9 @@ function renderFuentes() {
     kev.append(`Catálogo de vulnerabilidades con explotación conocida, versión ${fu.kev.version_catalogo} (${dia(fu.kev.publicado)}), consultado el ` +
         `${dia(fu.kev.consultado_utc)}. `, enlaceExterno('cisa.gov', 'https://www.cisa.gov/known-exploited-vulnerabilities-catalog'), '.');
     par(dl, 'CISA KEV', kev);
-    par(dl, 'Actualización', 'scripts/mv_cve.py repite las consultas a mano o con una GitHub Action semanal; el sitio publicado se actualiza ' +
-        'cuando se publica una versión nueva. Datos completos en datos/maquina_votacion/ (inventario.json, cpe_map.json y cves.json).');
+    par(dl, 'Actualización', 'Las consultas se repiten en la copia de trabajo del proyecto (scripts/mv_cve.py), fuera del sitio; el sitio ' +
+        'publicado se actualiza cuando se publica una versión nueva. Datos completos en datos/maquina_votacion/ (inventario.json, ' +
+        'cpe_map.json y cves.json).');
     par(dl, 'Severidad', 'La de NVD según CVSS (la versión 3.1 cuando existe; si NVD no la calculó, la que informa quien registró la CVE). ' +
         'La descripción de cada CVE es la de NVD, en inglés.');
     const t = $('alcanceFuentes');

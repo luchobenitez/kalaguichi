@@ -1,39 +1,39 @@
 {
  "nota": "CVE asociadas a cada software por su CPE confirmado (NVD), complementadas con OSV.dev para PyPI y marcadas con el catálogo KEV de CISA. Una CVE asociada a una versión indica una vulnerabilidad conocida de ese software, no que sea explotable en la configuración de la máquina de votación.",
  "generado_por": "scripts/mv_cve.py",
- "consultado_utc": "2026-10-07T17:08:53+00:00",
+ "consultado_utc": "2026-10-07T20:57:30+00:00",
  "fuentes": {
   "nvd": {
    "api": "https://services.nvd.nist.gov/rest/json/cves/2.0",
-   "consultado_utc": "2026-10-07T17:08:25+00:00",
+   "consultado_utc": "2026-10-07T20:57:02+00:00",
    "con_clave": false
   },
   "osv": {
    "api": "https://api.osv.dev/v1",
-   "consultado_utc": "2026-10-07T17:08:53+00:00"
+   "consultado_utc": "2026-10-07T20:57:30+00:00"
   },
   "kev": {
    "url": "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json",
    "version_catalogo": "2026.10.04",
    "publicado": "2026-10-04T18:52:56.0635Z",
-   "consultado_utc": "2026-10-07T17:08:53+00:00"
+   "consultado_utc": "2026-10-07T20:57:30+00:00"
   }
  },
  "cpe_map": {
   "revisado_utc": "2026-10-07T14:45:00Z",
   "inventario_sha256": "403908cecdddd42a3e8eeca96839e9d98c382b0cc3c45f93097ed7f65e79a5ca"
  },
- "total": 5655,
+ "total": 5660,
  "por_severidad": {
-  "crítica": 138,
-  "alta": 1895,
-  "media": 3604,
+  "crítica": 140,
+  "alta": 1896,
+  "media": 3606,
   "baja": 18
  },
  "en_kev": 12,
  "cves_solo_de": {
   "mv-002": 15,
-  "mv-004": 5607,
+  "mv-004": 5612,
   "mv-032": 0,
   "mv-033": 0,
   "mv-035": 0,
@@ -80,13 +80,13 @@
    "cpe": "cpe:2.3:o:linux:linux_kernel:6.8:-:*:*:*:*:*:*",
    "estado_revision": "confirmado",
    "osv": false,
-   "nvd": 5608,
+   "nvd": 5613,
    "osv_avisos": 0,
-   "total": 5608,
+   "total": 5613,
    "por_severidad": {
-    "crítica": 137,
-    "alta": 1866,
-    "media": 3590,
+    "crítica": 139,
+    "alta": 1867,
+    "media": 3592,
     "baja": 15
    },
    "max_severidad": "crítica",
