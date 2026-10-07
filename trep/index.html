@@ -18,7 +18,7 @@
     <meta property="og:image:alt" content="Logo de Kalaguichi.com y mapa de Asunción con un punto por mesa, con el título Resultados del TREP mesa por mesa.">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="referrer" content="no-referrer">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; connect-src 'self'; style-src 'self'; img-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; worker-src 'self'; connect-src 'self'; style-src 'self'; img-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
     <link rel="icon" href="../assets/img/kalaguichi-isotipo.svg" type="image/svg+xml">
     <meta name="color-scheme" content="light dark">
     <title>Kalaguichi.com · TREP · Municipales 2026 en Asunción</title>
@@ -55,7 +55,19 @@
                 <a href="../trep/" data-seccion="trep" aria-current="page"><svg class="site-nav__icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h16"></path><path d="M7 16v-5M12 16V6M17 16V8"></path></svg><span class="site-nav__texto">TREP</span><span class="site-nav__corto" aria-hidden="true">TREP</span></a>
                 <a href="../oficiales/" data-seccion="oficiales"><svg class="site-nav__icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 12l2 2 4-4"></path><path d="M12 3l7 3v5c0 4.5-3 8.2-7 10-4-1.8-7-5.5-7-10V6l7-3Z"></path></svg><span class="site-nav__texto">Resultados oficiales</span><span class="site-nav__corto" aria-hidden="true">Oficiales</span></a>
                 <a href="../analisis/" data-seccion="analisis"><svg class="site-nav__icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5M4 19h16"></path><path d="M7 15l4-5 3 3 5-6"></path></svg><span class="site-nav__texto">Análisis</span><span class="site-nav__corto" aria-hidden="true">Análisis</span></a>
-                <a href="../acerca/" data-seccion="acerca"><svg class="site-nav__icono" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 11v5M12 8h.01"></path></svg><span class="site-nav__texto">Acerca de</span><span class="site-nav__corto" aria-hidden="true">Acerca</span></a>
+                <button type="button" class="site-nav__mas" aria-expanded="false" aria-controls="menuMas"><svg class="site-nav__icono" viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.25"></circle><circle cx="12" cy="12" r="1.25"></circle><circle cx="19" cy="12" r="1.25"></circle></svg><span class="site-nav__texto">Más secciones</span><span class="site-nav__corto" aria-hidden="true">Más</span></button>
+                <div class="site-nav__extra" id="menuMas">
+                    <div class="site-nav__grupo">
+                        <button type="button" class="site-nav__grupo-boton" aria-expanded="false" aria-controls="submenuMaquina"><svg class="site-nav__icono" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"></rect><path d="M8 20h8M12 16v4"></path><path d="M8.5 10l2.5 2.5 4.5-4.5"></path></svg><span class="site-nav__texto">Máquina de votación</span><span class="site-nav__corto" aria-hidden="true">Máquina</span><svg class="site-nav__flecha" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg></button>
+                        <p class="site-nav__grupo-titulo" aria-hidden="true"><svg class="site-nav__icono" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"></rect><path d="M8 20h8M12 16v4"></path><path d="M8.5 10l2.5 2.5 4.5-4.5"></path></svg>Máquina de votación</p>
+                        <ul class="site-nav__submenu" id="submenuMaquina" aria-label="Máquina de votación">
+                            <li><a href="../maquina-votacion/historia/" data-seccion="maquina" data-pagina="historia">Historia de la adquisición</a></li>
+                            <li><a href="../maquina-votacion/maquina/" data-seccion="maquina" data-pagina="maquina">La máquina</a></li>
+                            <li><a href="../maquina-votacion/vulnerabilidades/" data-seccion="maquina" data-pagina="vulnerabilidades">Vulnerabilidades documentadas</a></li>
+                        </ul>
+                    </div>
+                    <a href="../acerca/" data-seccion="acerca"><svg class="site-nav__icono" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 11v5M12 8h.01"></path></svg><span class="site-nav__texto">Acerca de</span><span class="site-nav__corto" aria-hidden="true">Acerca</span></a>
+                </div>
             </nav>
 
             <div class="site-header__acciones">
@@ -94,7 +106,6 @@
             <p class="barra-contexto__fuente" id="estadoFuente" aria-live="polite"></p>
         </div>
     </div>
-    <p class="aviso-fuente" id="avisoFuente" hidden></p>
 
     <main id="visor" aria-busy="true" data-fuente="trep"></main>
 
@@ -126,104 +137,25 @@
         <h1 class="visualmente-oculto" id="tituloTablero">Resultados · Municipales 2026 · Asunción</h1>
         <p class="error-carga" id="errorCarga" role="alert" hidden></p>
 
-        <aside class="tablero__filtros" id="filtros" aria-labelledby="tituloFiltros">
-            <div class="filtros__cabecera">
-                <h2 id="tituloFiltros">Filtros y capas</h2>
-                <button type="button" class="boton-secundario filtros__cerrar" id="cerrarFiltros">Listo</button>
-            </div>
-            <nav class="ruta-geo" aria-label="Ruta geográfica">
-                <ol id="rutaGeo"></ol>
-            </nav>
-            <div class="filtros__niveles">
-                <label class="campo-select" for="nivelZona">
-                    Zona
-                    <select id="nivelZona">
-                        <option value="">Toda Asunción</option>
-                        <optgroup label="Zonas municipales (oficiales)" id="opcionesMunicipales"></optgroup>
-                        <optgroup label="Zonas electorales (TSJE)" id="opcionesTsje"></optgroup>
-                    </select>
-                </label>
-                <label class="campo-select" for="nivelBarrio">
-                    Barrio
-                    <select id="nivelBarrio"></select>
-                </label>
-                <label class="campo-select" for="nivelLocal">
-                    Local
-                    <select id="nivelLocal"></select>
-                </label>
-                <label class="campo-select" for="nivelMesa">
-                    Mesa
-                    <select id="nivelMesa"></select>
-                </label>
-            </div>
-            <div class="buscar-local">
-                <label class="campo-buscar" for="buscarLocal">
-                    <span>Buscar local</span>
-                    <input type="search" id="buscarLocal" placeholder="Nombre, dirección o barrio" autocomplete="off" role="combobox"
-                           aria-autocomplete="list" aria-expanded="false" aria-controls="sugerenciasLocal">
-                </label>
-                <ul class="sugerencias" id="sugerenciasLocal" role="listbox" aria-label="Locales encontrados" hidden></ul>
-                <p class="visualmente-oculto" id="estadoBusqueda" role="status" aria-live="polite"></p>
-            </div>
-            <fieldset class="capas" id="capas">
-                <legend>Capa del mapa</legend>
-                <label class="capas__opcion"><input type="radio" name="capa" value="lista"><span>Lista más votada</span></label>
-                <label class="capas__opcion"><input type="radio" name="capa" value="listas"><span>Votos por lista</span></label>
-                <div class="capas__detalle" id="detalleListas" hidden>
-                    <label class="campo-select" for="capaLista">
-                        Lista
-                        <select id="capaLista"></select>
-                    </label>
-                    <div class="segmentos" role="group" aria-label="Medida">
-                        <button type="button" data-medida="pct" aria-pressed="true">Porcentaje</button>
-                        <button type="button" data-medida="votos" aria-pressed="false">Votos</button>
-                    </div>
-                </div>
-                <label class="capas__opcion"><input type="radio" name="capa" value="participacion"><span>Participación</span></label>
-                <label class="capas__opcion"><input type="radio" name="capa" value="margen"><span>Margen ANR − AJA</span></label>
-                <label class="capas__opcion"><input type="radio" name="capa" value="ipm"><span>Pobreza multidimensional (IPM)</span></label>
-                <div class="capas__detalle" id="detalleIpm" hidden>
-                    <div class="segmentos" role="group" aria-label="Componente del IPM">
-                        <button type="button" data-ipm="H" aria-pressed="true">Incidencia</button>
-                        <button type="button" data-ipm="A" aria-pressed="false">Intensidad</button>
-                        <button type="button" data-ipm="IPM" aria-pressed="false">IPM</button>
-                    </div>
-                </div>
-                <label class="capas__opcion"><input type="radio" name="capa" value="zona"><span>Zona TSJE</span></label>
-            </fieldset>
-            <p class="nota" id="notaCapa"></p>
-            <div class="filtros__pie">
-                <button type="button" class="boton-secundario" id="abrirFuentes" aria-haspopup="dialog" aria-controls="dialogoFuentes"><svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 11v5M12 8h.01"></path></svg>Fuentes y método</button>
-                <a class="boton-secundario" id="enlaceInforme" href="#modo=informe">Vista informe</a>
-            </div>
-            <p class="tablero__legal" id="avisoLegal">Iniciativa independiente, no vinculada al TSJE.</p>
-        </aside>
-
-        <section class="tablero__mapa" aria-labelledby="tituloMapa">
-            <h2 class="visualmente-oculto" id="tituloMapa">Mapa de Asunción</h2>
-            <div class="mapa mapa--gestos" id="mapa"></div>
-            <details class="mapa__leyenda mapa__leyenda--fija" id="leyendaMapa" open>
-                <summary id="tituloLeyenda">Leyenda</summary>
-                <ul class="leyenda" id="leyenda"></ul>
-            </details>
-            <button type="button" class="tablero__capas" id="botonCapas" aria-controls="filtros" aria-expanded="false"><svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l9 5-9 5-9-5 9-5Z"></path><path d="M3 13l9 5 9-5"></path></svg><span>Capas</span></button>
-        </section>
-
-        <div class="tablero__hoja" id="hoja" data-altura="peek" data-panel="resultados">
+        <!-- Panel de pestañas: columna izquierda (escritorio y tablet horizontal), cajón (tablet vertical) u hoja inferior
+             (celular). Solo se desplaza el contenido de cada pestaña. -->
+        <aside class="tablero__panel" id="hoja" data-altura="peek" data-panel="resultados" aria-label="Panel del tablero">
             <button type="button" class="hoja__asa" id="asaHoja" aria-controls="hoja" aria-label="Agrandar el panel">
                 <span class="hoja__agarre" aria-hidden="true"></span>
             </button>
-            <div class="bandeja__separador" id="separador" role="separator" aria-orientation="horizontal" aria-label="Alto de la bandeja de tablas"
-                 aria-controls="panelTabla panelRanking" tabindex="0"></div>
-            <section class="tablero__indicadores" aria-label="Indicadores de la selección">
-                <dl class="indicadores" id="indicadores"></dl>
-            </section>
-            <div class="tablero__pestanas pestanas" role="tablist" aria-label="Paneles del tablero" id="pestanasTablero">
-                <button type="button" role="tab" id="pestana-resultados" data-panel="resultados" aria-controls="panelResultados" aria-selected="true">Resultados</button>
-                <button type="button" role="tab" id="pestana-tabla" data-panel="tabla" aria-controls="panelTabla" aria-selected="false" tabindex="-1">Tabla</button>
-                <button type="button" role="tab" id="pestana-ranking" data-panel="ranking" aria-controls="panelRanking" aria-selected="false" tabindex="-1">Ranking</button>
+            <div class="tablero__barra-pestanas">
+            <div class="tablero__pestanas" role="tablist" aria-label="Paneles del tablero" id="pestanasTablero">
+                <button type="button" role="tab" id="pestana-resultados" data-panel="resultados" aria-controls="panelResultados" aria-selected="true"><svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h11M4 12h16M4 18h7"></path></svg><span>Resultados</span></button>
+                <button type="button" role="tab" id="pestana-dhondt" data-panel="dhondt" aria-controls="panelDhondt" aria-selected="false" tabindex="-1"><svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 18a9 9 0 0 1 18 0"></path><path d="M7.5 18a4.5 4.5 0 0 1 9 0"></path></svg><span>D'Hondt</span></button>
+                <button type="button" role="tab" id="pestana-filtros" data-panel="filtros" aria-controls="panelFiltros" aria-selected="false" tabindex="-1"><svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16l-6 7v6l-4 2v-8L4 5Z"></path></svg><span>Filtros</span></button>
+                <button type="button" role="tab" id="pestana-capas" data-panel="capas" aria-controls="panelCapas" aria-selected="false" tabindex="-1"><svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l9 5-9 5-9-5 9-5Z"></path><path d="M3 13l9 5 9-5"></path></svg><span>Capas</span></button>
+                <button type="button" role="tab" id="pestana-metodo" data-panel="metodo" aria-controls="panelMetodo" aria-selected="false" tabindex="-1"><svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 11v5M12 8h.01"></path></svg><span>Método</span></button>
             </div>
-            <section class="tablero__resultados" id="panelResultados" aria-labelledby="tituloTotales">
+            <button type="button" class="tablero__cerrar-panel" id="cerrarPanel" aria-label="Cerrar el panel"><svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg></button>
+            </div>
+            <p class="pestanas__aviso" id="avisoDhondt" role="tooltip" hidden>Disponible al seleccionar Junta</p>
+
+            <section class="tablero__seccion" id="panelResultados" role="tabpanel" aria-labelledby="pestana-resultados" tabindex="0">
                 <article class="panel panel--totales" id="panelTotales">
                     <div class="panel--totales__cabecera">
                         <div>
@@ -232,6 +164,7 @@
                             <p class="panel__meta" id="metaTotales"></p>
                         </div>
                         <div class="panel__acciones">
+                            <button type="button" class="boton-secundario" id="verEstadisticas" aria-haspopup="dialog"><svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h16"></path><path d="M7 16v-5M12 16V6M17 16v-8"></path></svg>Estadísticas</button>
                             <button type="button" class="boton-secundario" id="limpiarSeleccion" hidden>Ver toda Asunción</button>
                         </div>
                     </div>
@@ -244,6 +177,14 @@
                         </div>
                     </div>
                 </article>
+            </section>
+
+            <section class="tablero__seccion" id="panelDhondt" role="tabpanel" aria-labelledby="pestana-dhondt" tabindex="0" hidden>
+                <div class="estado-vacio estado-vacio--panel" id="dhondtNoDisponible" hidden>
+                    <h2>El reparto de bancas es de la Junta Municipal</h2>
+                    <p>Las bancas se reparten con D'Hondt sobre los votos por lista de la Junta. Disponible al seleccionar Junta.</p>
+                    <button type="button" class="boton-secundario" id="verJunta">Ver la Junta</button>
+                </div>
                 <article class="panel panel--bancas" id="panelBancas" aria-labelledby="tituloBancas" hidden>
                     <div class="panel__barra">
                         <div>
@@ -258,56 +199,174 @@
                     <p class="nota" id="notaBancas"></p>
                 </article>
             </section>
-            <section class="tablero__tabla" id="panelTabla" role="tabpanel" aria-labelledby="pestana-tabla" hidden>
-                <div class="panel__barra bandeja__controles">
-                    <label class="campo-select" for="unidadTabla">
-                        Ver por
-                        <select id="unidadTabla">
-                            <option value="mesa">Mesa</option>
-                            <option value="local" selected>Local</option>
-                            <option value="barrio">Barrio</option>
-                            <option value="zona">Zona TSJE</option>
-                            <option value="zona_municipal">Zona municipal</option>
+
+            <section class="tablero__seccion tablero__filtros" id="panelFiltros" role="tabpanel" aria-labelledby="pestana-filtros" tabindex="0" hidden>
+                <nav class="ruta-geo" aria-label="Ruta geográfica">
+                    <ol id="rutaGeo"></ol>
+                </nav>
+                <div class="filtros__niveles">
+                    <label class="campo-select" for="nivelZona">
+                        Zona
+                        <select id="nivelZona">
+                            <option value="">Toda Asunción</option>
+                            <optgroup label="Zonas municipales (oficiales)" id="opcionesMunicipales"></optgroup>
+                            <optgroup label="Zonas electorales (TSJE)" id="opcionesTsje"></optgroup>
                         </select>
                     </label>
-                    <label class="campo-buscar" for="filtroTabla">
-                        <span>Filtrar</span>
-                        <input type="search" id="filtroTabla" placeholder="Nombre de local o barrio" autocomplete="off">
+                    <label class="campo-select" for="nivelBarrio">
+                        Barrio
+                        <select id="nivelBarrio"></select>
+                    </label>
+                    <label class="campo-select" for="nivelLocal">
+                        Local
+                        <select id="nivelLocal"></select>
+                    </label>
+                    <label class="campo-select" for="nivelMesa">
+                        Mesa
+                        <select id="nivelMesa"></select>
                     </label>
                 </div>
-                <div class="tabla-scroll" id="desplazaTabla">
-                    <table class="tabla" id="tabla">
-                        <thead></thead>
-                        <tbody></tbody>
-                    </table>
+                <div class="buscar-local">
+                    <label class="campo-buscar" for="buscarLocal">
+                        <span>Buscar local</span>
+                        <input type="search" id="buscarLocal" placeholder="Nombre, dirección o barrio" autocomplete="off" role="combobox"
+                               aria-autocomplete="list" aria-expanded="false" aria-controls="sugerenciasLocal">
+                    </label>
+                    <ul class="sugerencias" id="sugerenciasLocal" role="listbox" aria-label="Locales encontrados" hidden></ul>
+                    <p class="visualmente-oculto" id="estadoBusqueda" role="status" aria-live="polite"></p>
                 </div>
-                <p class="nota" id="notaTabla"></p>
+                <button type="button" class="boton-secundario filtros__limpiar" id="limpiarFiltros">Limpiar filtros</button>
             </section>
-            <section class="tablero__ranking" id="panelRanking" role="tabpanel" aria-labelledby="pestana-ranking" hidden>
-                <div class="panel__barra bandeja__controles">
-                    <div class="segmentos" role="group" aria-label="Unidad del ranking">
-                        <button type="button" data-ranking="local" aria-pressed="true">Locales</button>
-                        <button type="button" data-ranking="barrio" aria-pressed="false">Barrios</button>
-                    </div>
-                    <div class="segmentos" role="group" aria-label="Orden del ranking">
-                        <button type="button" data-orden-ranking="desc" aria-pressed="true">Mayor a menor</button>
-                        <button type="button" data-orden-ranking="asc" aria-pressed="false">Menor a mayor</button>
-                    </div>
-                </div>
-                <p class="ranking__titulo" id="tituloRanking"></p>
-                <ol class="ranking-lista" id="ranking"></ol>
-                <p class="nota" id="notaRanking"></p>
-            </section>
-        </div>
 
-        <dialog class="dialogo" id="dialogoFuentes" aria-labelledby="tituloFuentes">
-            <div class="dialogo__cabecera">
-                <h2 id="tituloFuentes">Fuentes y método</h2>
-                <button type="button" class="boton-secundario" id="cerrarFuentes">Cerrar</button>
+            <section class="tablero__seccion tablero__capas-panel" id="panelCapas" role="tabpanel" aria-labelledby="pestana-capas" tabindex="0" hidden>
+                <fieldset class="capas capas--base">
+                    <legend>Mapa base</legend>
+                    <div class="segmentos" role="group" aria-label="Mapa base">
+                        <button type="button" data-base="calles" aria-pressed="true">Calles</button>
+                        <button type="button" data-base="ninguno" aria-pressed="false">Sin mapa base</button>
+                    </div>
+                </fieldset>
+                <fieldset class="capas" id="capas">
+                    <legend>Capa temática</legend>
+                    <label class="capas__opcion"><input type="radio" name="capa" value="lista"><span>Lista más votada</span></label>
+                    <label class="capas__opcion"><input type="radio" name="capa" value="listas"><span>Votos por lista</span></label>
+                    <div class="capas__detalle" id="detalleListas" hidden>
+                        <label class="campo-select" for="capaLista">
+                            Lista
+                            <select id="capaLista"></select>
+                        </label>
+                        <div class="segmentos" role="group" aria-label="Medida">
+                            <button type="button" data-medida="pct" aria-pressed="true">Porcentaje</button>
+                            <button type="button" data-medida="votos" aria-pressed="false">Votos</button>
+                        </div>
+                    </div>
+                    <label class="capas__opcion"><input type="radio" name="capa" value="participacion"><span>Participación</span></label>
+                    <label class="capas__opcion"><input type="radio" name="capa" value="margen"><span>Margen entre el primero y el segundo</span></label>
+                    <label class="capas__opcion"><input type="radio" name="capa" value="ipm"><span>Pobreza multidimensional (IPM)</span></label>
+                    <div class="capas__detalle" id="detalleIpm" hidden>
+                        <div class="segmentos" role="group" aria-label="Componente del IPM">
+                            <button type="button" data-ipm="H" aria-pressed="true">Incidencia</button>
+                            <button type="button" data-ipm="A" aria-pressed="false">Intensidad</button>
+                            <button type="button" data-ipm="IPM" aria-pressed="false">IPM</button>
+                        </div>
+                    </div>
+                    <label class="capas__opcion"><input type="radio" name="capa" value="zona"><span>Zonas TSJE</span></label>
+                    <label class="capas__opcion"><input type="radio" name="capa" value="zona_municipal"><span>Zonas municipales</span></label>
+                </fieldset>
+                <div class="capas__opacidad">
+                    <label for="opacidadCapa">Opacidad de la capa temática</label>
+                    <input type="range" id="opacidadCapa" min="0" max="100" step="5" value="45" aria-describedby="valorOpacidad">
+                    <output id="valorOpacidad" for="opacidadCapa">45 %</output>
+                </div>
+                <fieldset class="capas capas--elementos" id="elementosMapa">
+                    <legend>Elementos visibles</legend>
+                    <label class="capas__opcion"><input type="checkbox" name="ver" value="limites" checked><span>Límites de barrios</span></label>
+                    <label class="capas__opcion"><input type="checkbox" name="ver" value="nombres" checked><span>Nombres de barrios</span></label>
+                    <label class="capas__opcion"><input type="checkbox" name="ver" value="puntos" checked><span>Puntos de mesas o locales</span></label>
+                    <label class="capas__opcion"><input type="checkbox" name="ver" value="manzanas"><span>Manzanas municipales</span></label>
+                </fieldset>
+                <p class="nota" id="notaCapa"></p>
+            </section>
+
+            <section class="tablero__seccion" id="panelMetodo" role="tabpanel" aria-labelledby="pestana-metodo" tabindex="0" hidden>
+                <div class="metodo__botones">
+                    <button type="button" class="boton-grande" id="abrirFuente" aria-haspopup="dialog"><svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><ellipse cx="12" cy="6" rx="7" ry="3"></ellipse><path d="M5 6v6c0 1.66 3.13 3 7 3s7-1.34 7-3V6"></path><path d="M5 12v6c0 1.66 3.13 3 7 3s7-1.34 7-3v-6"></path></svg><span><strong>Fuente</strong><small>Fuentes y licencias, corte y procedencia (SHA-256)</small></span></button>
+                    <button type="button" class="boton-grande" id="abrirMetodo" aria-haspopup="dialog"><svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2"></rect><path d="M8 7h8M8 11h2M12 11h2M8 15h2M12 15h2M8 18h2M12 18h2M16 14v4"></path></svg><span><strong>Método</strong><small>Cómo se calcula cada cifra</small></span></button>
+                    <button type="button" class="boton-grande" id="abrirEstadisticas" aria-haspopup="dialog"><svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h16"></path><path d="M7 16v-5M12 16V6M17 16v-8"></path></svg><span><strong>Estadísticas generales</strong><small>De la selección y el cargo, mesa por mesa</small></span></button>
+                </div>
+                <a class="boton-secundario" id="enlaceInforme" href="#modo=informe">Vista informe</a>
+                <p class="tablero__legal" id="avisoLegal">Iniciativa independiente, no vinculada al TSJE.</p>
+            </section>
+        </aside>
+
+        <section class="tablero__mapa" aria-labelledby="tituloMapa">
+            <h2 class="visualmente-oculto" id="tituloMapa">Mapa de Asunción</h2>
+            <div class="mapa mapa--gestos" id="mapa"></div>
+            <details class="mapa__leyenda mapa__leyenda--fija" id="leyendaMapa" open>
+                <summary id="tituloLeyenda">Leyenda</summary>
+                <ul class="leyenda" id="leyenda"></ul>
+            </details>
+            <div class="mapa__herramientas" id="herramientasMapa">
+                <button type="button" class="mapa__herramienta" id="botonPanel" aria-controls="hoja" aria-expanded="false"><svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="M9 4v16"></path></svg><span>Panel</span></button>
+                <button type="button" class="mapa__herramienta" id="botonBuscar" aria-controls="buscarLocal"><svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"></circle><path d="m20 20-4.5-4.5"></path></svg><span>Buscar</span></button>
+                <button type="button" class="mapa__herramienta" id="botonTabla" aria-controls="bandeja" aria-expanded="false"><svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="14" rx="2"></rect><path d="M4 10h16M4 15h16M10 5v14"></path></svg><span>Tabla</span></button>
             </div>
-            <div class="fuentes" id="fuentes"></div>
-            <section class="info-grid" aria-label="Vistas no disponibles" id="noDisponible"></section>
-        </dialog>
+            <p class="mapa__atribucion" id="atribucionMapa"></p>
+
+            <!-- Tabla y ranking: panel desplegable sobre la parte de abajo del mapa (cerrado por omisión, alto ajustable). Los
+                 controles de cada uno van en la cabecera, junto a las pestañas (bandeja.elegir muestra los del elegido). -->
+            <section class="tablero__bandeja" id="bandeja" aria-label="Tabla y ranking" hidden>
+                <div class="bandeja__separador" id="separador" role="separator" aria-orientation="horizontal" aria-label="Alto de la tabla"
+                     aria-controls="bandeja" tabindex="0"></div>
+                <div class="bandeja__cabecera">
+                    <div class="tablero__bandeja-pestanas pestanas" role="tablist" aria-label="Tabla y ranking" id="pestanasBandeja">
+                        <button type="button" role="tab" id="pestana-tabla" data-bandeja="tabla" aria-controls="panelTabla" aria-selected="true">Tabla</button>
+                        <button type="button" role="tab" id="pestana-ranking" data-bandeja="ranking" aria-controls="panelRanking" aria-selected="false" tabindex="-1">Ranking</button>
+                    </div>
+                    <div class="panel__barra bandeja__controles" data-para="tabla">
+                        <label class="campo-select" for="unidadTabla">
+                            <span>Ver por</span>
+                            <select id="unidadTabla">
+                                <option value="mesa">Mesa</option>
+                                <option value="local" selected>Local</option>
+                                <option value="barrio">Barrio</option>
+                                <option value="zona">Zona TSJE</option>
+                                <option value="zona_municipal">Zona municipal</option>
+                            </select>
+                        </label>
+                        <label class="campo-buscar" for="filtroTabla">
+                            <span>Filtrar</span>
+                            <input type="search" id="filtroTabla" placeholder="Nombre de local o barrio" autocomplete="off">
+                        </label>
+                    </div>
+                    <div class="panel__barra bandeja__controles" data-para="ranking" hidden>
+                        <div class="segmentos" role="group" aria-label="Unidad del ranking">
+                            <button type="button" data-ranking="local" aria-pressed="true">Locales</button>
+                            <button type="button" data-ranking="barrio" aria-pressed="false">Barrios</button>
+                        </div>
+                        <div class="segmentos" role="group" aria-label="Orden del ranking">
+                            <button type="button" data-orden-ranking="desc" aria-pressed="true">Mayor a menor</button>
+                            <button type="button" data-orden-ranking="asc" aria-pressed="false">Menor a mayor</button>
+                        </div>
+                    </div>
+                    <button type="button" class="boton-secundario" id="cerrarBandeja">Cerrar</button>
+                </div>
+                <section class="tablero__tabla" id="panelTabla" role="tabpanel" aria-labelledby="pestana-tabla">
+                    <div class="tabla-scroll" id="desplazaTabla">
+                        <table class="tabla" id="tabla">
+                            <thead></thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                    <p class="nota" id="notaTabla"></p>
+                </section>
+                <section class="tablero__ranking" id="panelRanking" role="tabpanel" aria-labelledby="pestana-ranking" hidden>
+                    <p class="ranking__titulo" id="tituloRanking"></p>
+                    <ol class="ranking-lista" id="ranking"></ol>
+                    <p class="nota" id="notaRanking"></p>
+                </section>
+            </section>
+        </section>
 </template>
 
 <template id="plantillaInforme">

@@ -28,7 +28,10 @@ oficiales es agregar archivos con este esquema y actualizar `elecciones.json`.
 ```text
 datos/<eleccion>/<anio>/
 ├── comun/                    lo que no depende de la fuente
-│   ├── geo.json              proyección, viewBox, distrito, barrios (INE), zonas municipales y río, en metros
+│   ├── geo.json              proyección, viewBox, distrito, barrios (INE), zonas municipales y río, en metros (vista informe)
+│   ├── geo/                  lo mismo en GeoJSON WGS84 (EPSG:4326) para el mapa de MapLibre: distrito, barrios (con
+│   │                         clave, nombre y población), zonas_municipales, rio, etiquetas (un punto por barrio y por zona)
+│   │                         y, como capas opcionales, manzanas y cauces (Municipalidad); procedencia.json con las fuentes
 │   ├── locales.json          locales de votación: códigos, nombre, dirección, coordenadas, barrio, zona municipal
 │   ├── candidaturas.json     listas por cargo (sigla, nombre, color, foto), bancas de la Junta según el TREP
 │   ├── indicadores_barrios.json   indicadores por barrio (IPM del INE), unidos por la clave del barrio
@@ -38,6 +41,16 @@ datos/<eleccion>/<anio>/
 │   ├── mesas.json
 │   └── procedencia.json
 └── oficial/                  cómputo oficial: los MISMOS tres archivos y el MISMO esquema que trep/
+
+datos/mapa_base/              mapa base de OpenStreetMap (extracto PMTiles de Protomaps), común a todas las elecciones:
+├── asuncion.pmtiles          ver mapa_base/LEEME.md (comando, versiones y licencias)
+└── procedencia.json
+
+datos/maquina_votacion/       la sección «Máquina de votación» (ver maquina_votacion/LEEME.md):
+├── inventario.json           todo el software que menciona la documentación técnica, con su origen y texto literal
+├── cpe_map.json              CPE propuestos y revisados por una persona (confirmado, corregido o sin CPE)
+├── cves.json                 CVE de los CPE revisados (NVD, OSV.dev y CISA KEV), un registro por línea
+└── cves_resumen.json         cuentas por software y severidad, para la carga inicial de la página
 ```
 
 ## Esquema de cada fuente (`trep/` y `oficial/`)

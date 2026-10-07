@@ -1,6 +1,7 @@
 // «Acerca de»: el índice de la página queda abierto en pantalla ancha (columna lateral) y plegado en celular y tablet,
 // donde elegir un ítem lo vuelve a plegar. La sección que se está leyendo se marca en el índice (aria-current).
-const indice = document.getElementById('indiceAcerca');
+// También el índice de las páginas de lectura de Máquina de votación ([data-indice]).
+const indice = document.getElementById('indiceAcerca') ?? document.querySelector('[data-indice]');
 const ANCHO = matchMedia('(min-width: 1024px)');
 
 if (indice) {

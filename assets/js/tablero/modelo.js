@@ -1,6 +1,6 @@
 // Modelo de una elección y una fuente (TREP u oficial, mismo esquema: datos/LEEME.md): mesas con acta, locales,
-// geometría, candidaturas e indicadores por barrio, y sus sumas. No toca el DOM: lo usan el tablero, la vista informe
-// y, más adelante, los análisis.
+// geometría, candidaturas e indicadores por barrio, sus sumas y la estadística por mesa. No toca el DOM: lo usan el
+// tablero, la vista informe y los análisis.
 import { cargarEleccion } from '../datos.js';
 import { fmt, pct } from './util.js';
 
@@ -81,6 +81,66 @@ export function ganador(votos) {
 
 export function participacion(total) {
     return total.electores ? (100 * total.emitidos) / total.electores : null;
+}
+
+// Ventaja del primero sobre el segundo de un total: puntos sobre los votos a listas y las dos listas (índices); null sin
+// votos a listas. Nunca un partido fijo: el orden se calcula en cada total.
+export function ventajaDe(total) {
+    if (!total?.listas || total.votos.length < 2) return null;
+    const orden = total.votos.map((v, j) => j).sort((a, b2) => total.votos[b2] - total.votos[a] || a - b2);
+    const [primero, segundo] = orden;
+    const votos = total.votos[primero] - total.votos[segundo];
+    return { primero, segundo, votos, puntos: (100 * votos) / total.listas, empate: votos === 0 };
+}
+
+// Listas principales de la estadística por mesa: las que reúnen al menos este porcentaje de los votos a listas de la
+// selección (y siempre las dos más votadas).
+export const UMBRAL_PRINCIPAL = 5;
+
+// Estadística descriptiva de valores por mesa (los null no cuentan): media, mediana, desvío estándar poblacional (sobre
+// todas las mesas de la selección, que no son una muestra), mínimo y máximo.
+export function describir(valores) {
+    const v = valores.filter((x) => x !== null && Number.isFinite(x)).sort((a, b) => a - b);
+    const n = v.length;
+    if (!n) return { n: 0, media: null, mediana: null, desvio: null, minimo: null, maximo: null };
+    const media = v.reduce((a, b) => a + b, 0) / n;
+    const mediana = n % 2 ? v[(n - 1) / 2] : (v[n / 2 - 1] + v[n / 2]) / 2;
+    const desvio = Math.sqrt(v.reduce((a, x) => a + (x - media) ** 2, 0) / n);
+    return { n, media, mediana, desvio, minimo: v[0], maximo: v[n - 1] };
+}
+
+// Estadísticas generales de las mesas con acta de una selección (índices) para un cargo. sinActa: mesas esperadas de la
+// selección que no tienen acta. La ventaja es la del primero sobre el segundo de esta selección (nunca un partido fijo).
+export function estadisticas(datos, indices, cargo, sinActa = 0) {
+    const total = datos.sumar(indices, cargo);
+    const c = datos.mesas.cargos[cargo];
+    const orden = total.votos.map((v, j) => j).sort((a, b) => total.votos[b] - total.votos[a] || a - b);
+    let ventaja = null;
+    if (orden.length > 1 && total.listas) {
+        const [primero, segundo] = orden;
+        const votos = total.votos[primero] - total.votos[segundo];
+        ventaja = { primero, segundo, votos, puntos: (100 * votos) / total.listas, empate: votos === 0 };
+    }
+    const principales = orden.filter((j, k) => k < 2 || (total.listas > 0 && (100 * total.votos[j]) / total.listas >= UMBRAL_PRINCIPAL));
+    const sobre = (parte, todo) => (todo ? (100 * parte) / todo : null);
+    const mesas = indices.map((i) => {
+        const listas = c.votos[i].reduce((a, b) => a + b, 0);
+        return { i, listas, emitidos: c.emitidos[i], blancos: c.blancos[i], nulos: c.nulos[i], electores: datos.mesas.electores[i],
+                 participacion: sobre(c.emitidos[i], datos.mesas.electores[i]) };
+    });
+    return {
+        total, ventaja, principales,
+        actas: { computadas: total.mesas, esperadas: total.mesas + sinActa, sinActa },
+        porMesa: {
+            n: mesas.length,
+            participacion: describir(mesas.map((m) => m.participacion)),
+            listas: principales.map((j) => ({ j, ...describir(mesas.map((m) => sobre(c.votos[m.i][j], m.listas))) })),
+            blancos: describir(mesas.map((m) => sobre(m.blancos, m.emitidos))),
+            nulos: describir(mesas.map((m) => sobre(m.nulos, m.emitidos))),
+            blancosNulos: describir(mesas.map((m) => sobre(m.blancos + m.nulos, m.emitidos))),
+            sobre100: mesas.filter((m) => m.participacion !== null && m.participacion > 100).length,
+        },
+    };
 }
 
 // Margen en puntos (ANR − AJA sobre votos a listas de Intendencia); null en otro cargo o sin votos a listas.

@@ -1,0 +1,411 @@
+{
+ "nota": "CVE asociadas a cada software por su CPE confirmado (NVD), complementadas con OSV.dev para PyPI y marcadas con el catálogo KEV de CISA. Una CVE asociada a una versión indica una vulnerabilidad conocida de ese software, no que sea explotable en la configuración de la máquina de votación.",
+ "generado_por": "scripts/mv_cve.py",
+ "consultado_utc": "2026-10-07T17:08:53+00:00",
+ "fuentes": {
+  "nvd": {
+   "api": "https://services.nvd.nist.gov/rest/json/cves/2.0",
+   "consultado_utc": "2026-10-07T17:08:25+00:00",
+   "con_clave": false
+  },
+  "osv": {
+   "api": "https://api.osv.dev/v1",
+   "consultado_utc": "2026-10-07T17:08:53+00:00"
+  },
+  "kev": {
+   "url": "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json",
+   "version_catalogo": "2026.10.04",
+   "publicado": "2026-10-04T18:52:56.0635Z",
+   "consultado_utc": "2026-10-07T17:08:53+00:00"
+  }
+ },
+ "cpe_map": {
+  "revisado_utc": "2026-10-07T14:45:00Z",
+  "inventario_sha256": "403908cecdddd42a3e8eeca96839e9d98c382b0cc3c45f93097ed7f65e79a5ca"
+ },
+ "total": 5655,
+ "por_severidad": {
+  "crítica": 138,
+  "alta": 1895,
+  "media": 3604,
+  "baja": 18
+ },
+ "en_kev": 12,
+ "cves_solo_de": {
+  "mv-002": 15,
+  "mv-004": 5607,
+  "mv-032": 0,
+  "mv-033": 0,
+  "mv-035": 0,
+  "mv-036": 0,
+  "mv-037": 0,
+  "mv-038": 0,
+  "mv-040": 0,
+  "mv-041": 3,
+  "mv-042": 17,
+  "mv-043": 0,
+  "mv-044": 0,
+  "mv-045": 0,
+  "mv-046": 0,
+  "mv-047": 0,
+  "mv-048": 0,
+  "mv-049": 0,
+  "mv-050": 0,
+  "mv-051": 4,
+  "mv-077": 7,
+  "mv-093": 1
+ },
+ "elementos": {
+  "mv-002": {
+   "nombre": "Ubuntu",
+   "version": "24.04 LTS (Noble)",
+   "cpe": "cpe:2.3:o:canonical:ubuntu_linux:24.04:*:*:*:lts:*:*:*",
+   "estado_revision": "confirmado",
+   "osv": false,
+   "nvd": 16,
+   "osv_avisos": 0,
+   "total": 16,
+   "por_severidad": {
+    "alta": 7,
+    "media": 6,
+    "baja": 3
+   },
+   "max_severidad": "alta",
+   "max_puntaje": 8.1,
+   "en_kev": 2
+  },
+  "mv-004": {
+   "nombre": "Kernel Linux",
+   "version": "6.8.0-49-generic",
+   "cpe": "cpe:2.3:o:linux:linux_kernel:6.8:-:*:*:*:*:*:*",
+   "estado_revision": "confirmado",
+   "osv": false,
+   "nvd": 5608,
+   "osv_avisos": 0,
+   "total": 5608,
+   "por_severidad": {
+    "crítica": 137,
+    "alta": 1866,
+    "media": 3590,
+    "baja": 15
+   },
+   "max_severidad": "crítica",
+   "max_puntaje": 10.0,
+   "en_kev": 11
+  },
+  "mv-032": {
+   "nombre": "elaphe3",
+   "version": "0.2.0",
+   "cpe": "cpe:2.3:a:elaphe3_project:elaphe3:0.2.0:*:*:*:*:*:*:*",
+   "estado_revision": "confirmado",
+   "osv": true,
+   "nvd": 0,
+   "osv_avisos": 0,
+   "total": 0,
+   "por_severidad": {},
+   "max_severidad": null,
+   "max_puntaje": null,
+   "en_kev": 0
+  },
+  "mv-033": {
+   "nombre": "MarkupSafe",
+   "version": "2.1.2",
+   "cpe": "cpe:2.3:a:palletsprojects:markupsafe:2.1.2:*:*:*:*:*:*:*",
+   "estado_revision": "confirmado",
+   "osv": true,
+   "nvd": 0,
+   "osv_avisos": 0,
+   "total": 0,
+   "por_severidad": {},
+   "max_severidad": null,
+   "max_puntaje": null,
+   "en_kev": 0
+  },
+  "mv-035": {
+   "nombre": "pygame",
+   "version": "2.5.2",
+   "cpe": "cpe:2.3:a:pygame:pygame:2.5.2:*:*:*:*:*:*:*",
+   "estado_revision": "confirmado",
+   "osv": true,
+   "nvd": 0,
+   "osv_avisos": 0,
+   "total": 0,
+   "por_severidad": {},
+   "max_severidad": null,
+   "max_puntaje": null,
+   "en_kev": 0
+  },
+  "mv-036": {
+   "nombre": "python3-keybinder",
+   "version": "1.1.2",
+   "cpe": "cpe:2.3:a:keybinder_project:keybinder:1.1.2:*:*:*:*:*:*:*",
+   "estado_revision": "confirmado",
+   "osv": false,
+   "nvd": 0,
+   "osv_avisos": 0,
+   "total": 0,
+   "por_severidad": {},
+   "max_severidad": null,
+   "max_puntaje": null,
+   "en_kev": 0
+  },
+  "mv-037": {
+   "nombre": "pyusb",
+   "version": "1.0.2",
+   "cpe": "cpe:2.3:a:pyusb_project:pyusb:1.0.2:*:*:*:*:*:*:*",
+   "estado_revision": "confirmado",
+   "osv": true,
+   "nvd": 0,
+   "osv_avisos": 0,
+   "total": 0,
+   "por_severidad": {},
+   "max_severidad": null,
+   "max_puntaje": null,
+   "en_kev": 0
+  },
+  "mv-038": {
+   "nombre": "PyYAML",
+   "version": "6.0.3",
+   "cpe": "cpe:2.3:a:pyyaml:pyyaml:6.0.3:*:*:*:*:*:*:*",
+   "estado_revision": "confirmado",
+   "osv": true,
+   "nvd": 0,
+   "osv_avisos": 0,
+   "total": 0,
+   "por_severidad": {},
+   "max_severidad": null,
+   "max_puntaje": null,
+   "en_kev": 0
+  },
+  "mv-040": {
+   "nombre": "construct",
+   "version": "2.10.70",
+   "cpe": "cpe:2.3:a:construct_project:construct:2.10.70:*:*:*:*:*:*:*",
+   "estado_revision": "confirmado",
+   "osv": true,
+   "nvd": 0,
+   "osv_avisos": 0,
+   "total": 0,
+   "por_severidad": {},
+   "max_severidad": null,
+   "max_puntaje": null,
+   "en_kev": 0
+  },
+  "mv-041": {
+   "nombre": "Jinja2",
+   "version": "3.1.4",
+   "cpe": "cpe:2.3:a:palletsprojects:jinja:3.1.4:*:*:*:*:*:*:*",
+   "estado_revision": "confirmado",
+   "osv": true,
+   "nvd": 3,
+   "osv_avisos": 6,
+   "total": 3,
+   "por_severidad": {
+    "alta": 3
+   },
+   "max_severidad": "alta",
+   "max_puntaje": 8.8,
+   "en_kev": 0
+  },
+  "mv-042": {
+   "nombre": "Pillow",
+   "version": "10.4.0",
+   "cpe": "cpe:2.3:a:python:pillow:10.4.0:*:*:*:*:*:*:*",
+   "estado_revision": "confirmado",
+   "osv": true,
+   "nvd": 17,
+   "osv_avisos": 34,
+   "total": 17,
+   "por_severidad": {
+    "crítica": 1,
+    "alta": 13,
+    "media": 3
+   },
+   "max_severidad": "crítica",
+   "max_puntaje": 9.1,
+   "en_kev": 0
+  },
+  "mv-043": {
+   "nombre": "pyalsaaudio",
+   "version": "0.10.0",
+   "cpe": "cpe:2.3:a:pyalsaaudio_project:pyalsaaudio:0.10.0:*:*:*:*:*:*:*",
+   "estado_revision": "confirmado",
+   "osv": true,
+   "nvd": 0,
+   "osv_avisos": 0,
+   "total": 0,
+   "por_severidad": {},
+   "max_severidad": null,
+   "max_puntaje": null,
+   "en_kev": 0
+  },
+  "mv-044": {
+   "nombre": "pycairo",
+   "version": "1.25.1",
+   "cpe": "cpe:2.3:a:cairographics:pycairo:1.25.1:*:*:*:*:*:*:*",
+   "estado_revision": "confirmado",
+   "osv": true,
+   "nvd": 0,
+   "osv_avisos": 0,
+   "total": 0,
+   "por_severidad": {},
+   "max_severidad": null,
+   "max_puntaje": null,
+   "en_kev": 0
+  },
+  "mv-045": {
+   "nombre": "pygame",
+   "version": "2.6.1",
+   "cpe": "cpe:2.3:a:pygame:pygame:2.6.1:*:*:*:*:*:*:*",
+   "estado_revision": "confirmado",
+   "osv": true,
+   "nvd": 0,
+   "osv_avisos": 0,
+   "total": 0,
+   "por_severidad": {},
+   "max_severidad": null,
+   "max_puntaje": null,
+   "en_kev": 0
+  },
+  "mv-046": {
+   "nombre": "PyGObject",
+   "version": "3.48.2",
+   "cpe": "cpe:2.3:a:gnome:pygobject:3.48.2:*:*:*:*:*:*:*",
+   "estado_revision": "confirmado",
+   "osv": true,
+   "nvd": 0,
+   "osv_avisos": 0,
+   "total": 0,
+   "por_severidad": {},
+   "max_severidad": null,
+   "max_puntaje": null,
+   "en_kev": 0
+  },
+  "mv-047": {
+   "nombre": "pyserial",
+   "version": "3.5",
+   "cpe": "cpe:2.3:a:pyserial_project:pyserial:3.5:*:*:*:*:*:*:*",
+   "estado_revision": "confirmado",
+   "osv": true,
+   "nvd": 0,
+   "osv_avisos": 0,
+   "total": 0,
+   "por_severidad": {},
+   "max_severidad": null,
+   "max_puntaje": null,
+   "en_kev": 0
+  },
+  "mv-048": {
+   "nombre": "pyudev",
+   "version": "0.24.1",
+   "cpe": "cpe:2.3:a:pyudev_project:pyudev:0.24.1:*:*:*:*:*:*:*",
+   "estado_revision": "confirmado",
+   "osv": true,
+   "nvd": 0,
+   "osv_avisos": 0,
+   "total": 0,
+   "por_severidad": {},
+   "max_severidad": null,
+   "max_puntaje": null,
+   "en_kev": 0
+  },
+  "mv-049": {
+   "nombre": "PyYAML",
+   "version": "6.0.1",
+   "cpe": "cpe:2.3:a:pyyaml:pyyaml:6.0.1:*:*:*:*:*:*:*",
+   "estado_revision": "confirmado",
+   "osv": true,
+   "nvd": 0,
+   "osv_avisos": 0,
+   "total": 0,
+   "por_severidad": {},
+   "max_severidad": null,
+   "max_puntaje": null,
+   "en_kev": 0
+  },
+  "mv-050": {
+   "nombre": "sensors (PySensors)",
+   "version": "1.0",
+   "cpe": "cpe:2.3:a:pysensors_project:pysensors:1.0:*:*:*:*:*:*:*",
+   "estado_revision": "confirmado",
+   "osv": true,
+   "nvd": 0,
+   "osv_avisos": 0,
+   "total": 0,
+   "por_severidad": {},
+   "max_severidad": null,
+   "max_puntaje": null,
+   "en_kev": 0
+  },
+  "mv-051": {
+   "nombre": "ujson",
+   "version": "5.9.0",
+   "cpe": "cpe:2.3:a:ultrajson_project:ultrajson:5.9.0:*:*:*:*:python:*:*",
+   "estado_revision": "confirmado",
+   "osv": true,
+   "nvd": 4,
+   "osv_avisos": 8,
+   "total": 4,
+   "por_severidad": {
+    "alta": 3,
+    "media": 1
+   },
+   "max_severidad": "alta",
+   "max_puntaje": 7.5,
+   "en_kev": 0
+  },
+  "mv-077": {
+   "nombre": "cryptography",
+   "version": "41.0.7",
+   "cpe": "cpe:2.3:a:cryptography.io:cryptography:41.0.7:*:*:*:*:*:*:*",
+   "estado_revision": "corregido",
+   "osv": true,
+   "nvd": 4,
+   "osv_avisos": 14,
+   "total": 7,
+   "por_severidad": {
+    "alta": 3,
+    "media": 4
+   },
+   "max_severidad": "alta",
+   "max_puntaje": 8.7,
+   "en_kev": 0
+  },
+  "mv-093": {
+   "nombre": "GNU Arm Embedded Toolchain",
+   "version": "10.3-2021.10",
+   "cpe": "cpe:2.3:a:arm:gnu_toolchain:10.3-2021.10:*:*:*:*:*:*:*",
+   "estado_revision": "confirmado",
+   "osv": false,
+   "nvd": 1,
+   "osv_avisos": 0,
+   "total": 1,
+   "por_severidad": {
+    "alta": 1
+   },
+   "max_severidad": "alta",
+   "max_puntaje": 7.8,
+   "en_kev": 0
+  }
+ },
+ "avisos_osv_sin_cve": [
+  {
+   "id": "GHSA-537c-gmf6-5ccf",
+   "resumen": "Vulnerable OpenSSL included in cryptography wheels",
+   "publicado": "2026-06-15",
+   "url": "https://osv.dev/vulnerability/GHSA-537c-gmf6-5ccf",
+   "afecta": [
+    "mv-077"
+   ]
+  },
+  {
+   "id": "GHSA-h4gh-qq45-vh27",
+   "resumen": "pyca/cryptography has a vulnerable OpenSSL included in cryptography wheels",
+   "publicado": "2024-09-03",
+   "url": "https://osv.dev/vulnerability/GHSA-h4gh-qq45-vh27",
+   "afecta": [
+    "mv-077"
+   ]
+  }
+ ]
+}

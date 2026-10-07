@@ -1,9 +1,9 @@
-// Indicador de «hay más contenido a la derecha» en tablas, pestañas, el menú del sitio y los indicadores del tablero
+// Indicador de «hay más contenido a la derecha» en tablas, pestañas y el menú del sitio
 // desplazables a lo ancho:
 // resultados.css desvanece el borde derecho con mask-image mientras no tengan la clase es-fin, que se pone al
 // llegar al final del desplazamiento (o si todo entra). Se actualiza al desplazar, al redimensionar la ventana y
 // cuando cambia el contenido o se muestra una vista oculta.
-const SELECTOR = '.tabla-scroll, .pestanas, .site-nav, .indicadores';
+const SELECTOR = '.tabla-scroll, .pestanas, .site-nav';
 let vigilando = false;  // Lo usan el menú (shell.js) y el visor: una sola vez por página.
 
 function actualizar(nodo) {

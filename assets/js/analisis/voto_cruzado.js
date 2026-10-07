@@ -1,7 +1,8 @@
 // «Intendente vs Junta» (voto cruzado por local) dentro de la sección Análisis: el módulo intendente_junta.js con su
 // misma estructura (plantillas de la página), el filtro de zona o barrio de la sección y el nombre de la fuente.
 import { crearIntendenteJunta } from './intendente_junta.js';
-import { crearMapaConMesas, mezclar, cuantiles, opacidadPaso } from '../tablero/mapa.js';
+import { mezclar, cuantiles, opacidadPaso } from '../tablero/mapa.js';
+import { crearMapaGL } from '../tablero/mapa_gl.js';
 import { $, el, movimiento } from '../tablero/util.js';
 
 const ANGOSTO = matchMedia('(max-width: 899px)');
@@ -16,7 +17,9 @@ export function crear(ctx) {
     lectura.append(copiar('plantillaIvjLectura'));
     ctx.lectura.append(lectura);
     const ivj = crearIntendenteJunta(ctx.datos, {
-        crearMapa: (id, etiqueta, alElegir) => crearMapaConMesas(ctx.datos, id, etiqueta, alElegir),
+        // Mapa de MapLibre con el mapa base; la página se desplaza: el mapa se mueve con dos dedos (o Ctrl + rueda).
+        crearMapa: (id, etiqueta, alElegir) => crearMapaGL(ctx.datos, document.getElementById(id), { etiqueta, gestosCooperativos: true,
+                                                                                                  alTocarLocal: alElegir }),
         mezclar, cuantiles, opacidadPaso, movimiento,
         ficha: ctx.ficha,
         usarFicha: () => ANGOSTO.matches || Boolean(document.querySelector('.mapa--pantalla')),

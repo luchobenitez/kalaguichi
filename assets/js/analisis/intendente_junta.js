@@ -413,22 +413,9 @@ export function crearIntendenteJunta(datos, herramientas) {
         else if (propia) ficha.cerrar({ devolverFoco: false });
     }
 
-    function encuadreMapa(filas) {
-        const vista = datos.geo.viewBox;
-        if ((!estado.filtro && !estado.busqueda.trim()) || !filas.length) return vista;
-        const infos = filas.map((f) => datos.infoLocal.get(f.clave));
-        const margen = 700;
-        let x0 = Math.min(...infos.map((i) => i.x)) - margen, y0 = Math.min(...infos.map((i) => i.y)) - margen;
-        let x1 = Math.max(...infos.map((i) => i.x)) + margen, y1 = Math.max(...infos.map((i) => i.y)) + margen;
-        const proporcion = vista[2] / vista[3];
-        if ((x1 - x0) / (y1 - y0) < proporcion) {
-            const extra = (y1 - y0) * proporcion - (x1 - x0);
-            x0 -= extra / 2; x1 += extra / 2;
-        } else {
-            const extra = (x1 - x0) / proporcion - (y1 - y0);
-            y0 -= extra / 2; y1 += extra / 2;
-        }
-        return [x0, y0, x1 - x0, y1 - y0].map(Math.round);
+    // Encuadre: los locales del filtro o de la búsqueda; sin filtro, el distrito.
+    function localesEncuadre(filas) {
+        return (!estado.filtro && !estado.busqueda.trim()) || !filas.length ? null : filas.map((f) => f.clave);
     }
 
     function renderMapa(filas) {
@@ -441,55 +428,37 @@ export function crearIntendenteJunta(datos, herramientas) {
         const valorMesa = (i) => (enPct ? porMesa.pct[i] : porMesa.dif[i]);
         const formato = (v) => (enPct ? signoPct(v) : `${signo(v)} votos`);
         const visibles = new Set(filas.map((f) => f.clave));
-        const negativos = mapa.puntos.filter((p) => visibles.has(p.dataset.local)).map((p) => valorMesa(Number(p.dataset.i)))
+        const negativos = datos.filas.filter((f) => visibles.has(f.clave)).map((f) => valorMesa(f.i))
             .filter((v) => v !== null && v < 0).map((v) => -v);
         const { cortes, clase } = negativos.length ? herramientas.cuantiles(negativos) : { cortes: [], clase: () => 0 };
         const conteo = new Array(5).fill(0);
         let positivas = 0, ceros = 0;
-        for (const punto of mapa.puntos) {
-            const v = valorMesa(Number(punto.dataset.i));
-            const visible = visibles.has(punto.dataset.local);
-            punto.setAttribute('fill', v !== null && v < 0 ? herramientas.mezclar(ROJO, herramientas.opacidadPaso(clase(-v))) : v > 0 ? VERDE : GRIS);
-            // Daltonismo: rojo y verde se distinguen también por la forma.
-            mapa.formaPunto(punto, v !== null && v < 0 ? 'circulo' : v > 0 ? 'rombo' : 'cuadrado');
-            punto.classList.toggle('es-atenuado', !visible);
-            punto.classList.toggle('es-seleccion', punto.dataset.local === estado.local);
-            if (!visible) continue;
-            if (v !== null && v < 0) conteo[clase(-v)] += 1;
-            else if (v > 0) positivas += 1;
-            else ceros += 1;
-        }
         const porClave = new Map(modelo.filas.map((f) => [f.clave, f]));
-        for (const toque of mapa.lienzo.querySelectorAll('.mapa__toque')) {
-            const f = porClave.get(toque.dataset.local);
+        const textoLocal = new Map([...porClave].map(([clave, f]) => {
             const r = f.grupos.L1;
-            toque.querySelector('title').textContent = `${f.nombre} · ${r.dif < 0 ? VOTO_CRUZADO.toLowerCase() : 'diferencia de la lista 1'}: ` +
-                `${signo(r.dif)} votos (${signoPct(r.pct)}) · ${g.rotuloInt} ${fmt.format(r.int)} · ${g.rotuloJun} ${fmt.format(r.jun)}`;
-        }
-        mapa.fijarMarco(encuadreMapa(filas));
+            return [clave, `${f.nombre} · ${r.dif < 0 ? VOTO_CRUZADO.toLowerCase() : 'diferencia de la lista 1'}: ${signo(r.dif)} votos ` +
+                `(${signoPct(r.pct)}) · ${g.rotuloInt} ${fmt.format(r.int)} · ${g.rotuloJun} ${fmt.format(r.jun)}`];
+        }));
+        mapa.pintarMesas(({ i, clave }) => {
+            const v = valorMesa(i);
+            const visible = visibles.has(clave);
+            if (visible) {
+                if (v !== null && v < 0) conteo[clase(-v)] += 1;
+                else if (v > 0) positivas += 1;
+                else ceros += 1;
+            }
+            // Daltonismo: rojo y verde se distinguen también por la forma.
+            return { color: v !== null && v < 0 ? herramientas.mezclar(ROJO, herramientas.opacidadPaso(clase(-v))) : v > 0 ? VERDE : GRIS,
+                     forma: v !== null && v < 0 ? 'circulo' : v > 0 ? 'rombo' : 'cuadrado', atenuado: !visible,
+                     seleccionada: clave === estado.local, texto: textoLocal.get(clave) };
+        });
+        mapa.marcar?.(estado.local);
+        mapa.encuadrarLocales(localesEncuadre(filas));
         // Locales con mayor diferencia negativa dentro del filtro y la búsqueda, numerados.
         const valorLocal = (f) => (enPct ? f.grupos.L1.pct : f.grupos.L1.dif);
         const ranking = filas.filter((f) => valorLocal(f) !== null && valorLocal(f) < 0)
             .sort((a, b) => valorLocal(a) - valorLocal(b)).slice(0, TOP_MAPA);
-        const capa = mapa.lienzo.querySelector('.mapa__ranking');
-        capa.replaceChildren();
-        const svg = (tag, atributos) => {
-            const nodo = document.createElementNS('http://www.w3.org/2000/svg', tag);
-            for (const [k, v] of Object.entries(atributos)) nodo.setAttribute(k, String(v));
-            return nodo;
-        };
-        ranking.forEach((f, k) => {
-            const info = datos.infoLocal.get(f.clave);
-            const r = mapa.radioLocal.get(f.clave) + 60;
-            const anillo = svg('circle', { cx: info.x, cy: info.y, r, class: 'mapa__anillo' });
-            anillo.dataset.local = f.clave;
-            const nota = svg('title', {});
-            nota.textContent = `${k + 1}. ${f.nombre}: ${formato(valorLocal(f))}`;
-            anillo.append(nota);
-            const numero = svg('text', { x: info.x, y: Math.round(info.y - r - 80), 'text-anchor': 'middle', class: 'mapa__puesto' });
-            numero.textContent = String(k + 1);
-            capa.append(anillo, numero);
-        });
+        mapa.pintarRanking(ranking.map((f, k) => ({ clave: f.clave, puesto: k + 1, texto: `${k + 1}. ${f.nombre}: ${formato(valorLocal(f))}` })));
         const leyenda = $('leyendaMapaIvj');
         leyenda.replaceChildren(itemLeyenda(ROJO, `${VOTO_CRUZADO}: el ${g.rotuloInt} obtuvo menos votos que la ${g.rotuloJun}`, 'leyenda__titulo'));
         for (let k = 0; k < (negativos.length ? 5 : 0); k++) {

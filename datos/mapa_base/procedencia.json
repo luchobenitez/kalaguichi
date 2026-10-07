@@ -1,0 +1,89 @@
+{
+ "nota": "Procedencia del mapa base autoalojado (scripts/mapa_base.py, ADR-021). Las descargas se hicieron al preparar los datos.",
+ "bibliotecas": {
+  "maplibre-gl": {
+   "version": "6.13.0",
+   "destino": "sitio/assets/vendor/maplibre",
+   "sha256": {
+    "maplibre-gl.mjs": "389731e8581cc59d484e867b051db73ae034a76f0691d2890a2a1a7d2495bdf3",
+    "maplibre-gl-worker.mjs": "53a2dd60f76c7b9201a3cc007b755d98ce4b52403843fef5c90c41780fe62e91",
+    "maplibre-gl.css": "20fc3054e6c769ae9502ec5c7ea46dae05b544fdc4fca2108553fb8c07265bf3",
+    "LICENSE.txt": "ee5fc05a0677eaf69601d2c7db0d9ecd6cc27c3abc1d0733bc9ed34707cf8ef2"
+   }
+  },
+  "pmtiles": {
+   "version": "4.5.0",
+   "destino": "sitio/assets/vendor/pmtiles",
+   "sha256": {
+    "pmtiles.js": "caf981bc46f6327ee7e65d5dc964d89d38a69f60edca2bd4c5c890c21b554c6c",
+    "LICENSE.txt": "0371c38f338835f7fc13ed71176f3d92144e22c8b736a31cced57adbbeb647b3"
+   }
+  },
+  "actualizado_utc": "2026-10-07T12:28:56+00:00"
+ },
+ "estilos": {
+  "generador": "scripts/mapa_base/estilo.mjs",
+  "protomaps_basemaps": "5.7.2",
+  "estilos": {
+   "claro": {
+    "capas": 70,
+    "bytes": 65316,
+    "sha256": "9ec3dd57a8583544339982badcdc194c845af7d1fe7abfddcdc7360507ee244f"
+   },
+   "oscuro": {
+    "capas": 70,
+    "bytes": 65315,
+    "sha256": "25795857edb7e197bd227a52c94626ef09f8a449d133d334b8a0332cdeebd27c"
+   }
+  },
+  "actualizado_utc": "2026-10-07T12:28:57+00:00"
+ },
+ "recursos": {
+  "repositorio": "protomaps/basemaps-assets",
+  "commit": "028c18f713baecad011301ff7a69acc39bcc2ae7",
+  "sha256_contenido": "45826f038156057ee19caff3e6139235ef9267dd5b9647854b6390efe94b8d30",
+  "tipografias": [
+   "Noto Sans Regular",
+   "Noto Sans Medium",
+   "Noto Sans Italic"
+  ],
+  "sprites": [
+   "v4/light",
+   "v4/dark"
+  ],
+  "archivos": 778,
+  "bytes": 11188447,
+  "licencias": {
+   "fonts": "SIL Open Font License 1.1 (fonts/OFL.txt)",
+   "sprites": "MIT, derivados de tangrams/icons (sprites/LICENSE.md)"
+  },
+  "actualizado_utc": "2026-10-07T12:29:52+00:00"
+ },
+ "mosaicos": {
+  "origen": "https://build.protomaps.com/20261006.pmtiles",
+  "comando": "pmtiles extract https://build.protomaps.com/20261006.pmtiles sitio/datos/mapa_base/asuncion.pmtiles --bbox=-57.76,-25.42,-57.44,-25.16 --maxzoom=15",
+  "herramienta": "pmtiles 1.31.2, commit a3e4951ea6a0477b784c27c1dcbfd9c130878c5a, built at 2026-07-22T18:59:03Z",
+  "bbox": "-57.76,-25.42,-57.44,-25.16",
+  "zoom": [
+   0,
+   15
+  ],
+  "bytes": 21645410,
+  "sha256": "b9057069b76cb8aab81117aff86a419e99c77556142cfffb95b4b7d70e600016",
+  "esquema_protomaps": "4.15.2",
+  "osm_al": "2026-10-06T04:00:00Z",
+  "capas": [
+   "boundaries",
+   "buildings",
+   "earth",
+   "landcover",
+   "landuse",
+   "places",
+   "pois",
+   "roads",
+   "water"
+  ],
+  "licencia": "Datos © colaboradores de OpenStreetMap, ODbL 1.0 (https://www.openstreetmap.org/copyright); esquema y build de Protomaps (https://protomaps.com).",
+  "actualizado_utc": "2026-10-07T12:39:22+00:00"
+ }
+}

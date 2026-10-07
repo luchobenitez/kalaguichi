@@ -1,0 +1,83 @@
+{
+ "generador": "analisis_resultados/procesamiento/geo_wgs84.py",
+ "generado_utc": "2026-10-07T12:28:05+00:00",
+ "crs": "EPSG:4326 (longitud, latitud)",
+ "simplificacion": "Douglas-Peucker en EPSG:32721, conservando la topología",
+ "decimales": 6,
+ "tolerancia_m": {
+  "distrito": 1.5,
+  "barrios": 1.5,
+  "zonas_municipales": 2.0,
+  "rio": 5.0,
+  "manzanas": 0.75,
+  "cauces": 1.5
+ },
+ "fuentes": {
+  "distrito": {
+   "archivo": "datos_reales/cartografia_paraguay/Asunción/Distrito_Asuncion.kml",
+   "sha256": "66603127bd4a89e99af23652dc27b9afa72a1442d7ea0615529de5bd59b62db3"
+  },
+  "barrios": {
+   "archivo": "datos_reales/cartografia_paraguay/Asunción/Barrios Localidades_Asuncion.kml",
+   "sha256": "606304f6f6e096e37a45df51c2a4b7690a18219fbeadf84a316637a163881c8e"
+  },
+  "zonas_municipales": {
+   "archivo": "datos_reales/cartografia_paraguay/MunicipalidadAsuncionOficiales/Mapas_Mapa_Base__27_Zonas.geojson",
+   "sha256": "24102452027cb76d23c2aa64ea024843625f7b231d60a6439c5b09ce8205beae"
+  },
+  "rio": {
+   "archivo": "datos_reales/cartografia_paraguay/MunicipalidadAsuncionOficiales/Mapas_Mapa_Base__26_Rio_Paraguay.geojson",
+   "sha256": "b4087765c9fdcf2676365d178170c85c2dfe4e6a5e76c3b29f6c5fc596b5f138"
+  },
+  "manzanas": {
+   "archivo": "datos_reales/cartografia_paraguay/MunicipalidadAsuncionOficiales/Mapa_Web_Lugares__27_Manzana.geojson",
+   "sha256": "846dcf2600890ca0071a786bd9e140d90819939b08df13e3cce9e712530e65b1"
+  },
+  "cauces": {
+   "archivo": "datos_reales/cartografia_paraguay/MunicipalidadAsuncionOficiales/Mapas_Mapa_Base__20_Cauces_Hídricos.geojson",
+   "sha256": "cd8f8505293aba60db2cee001ca7aa26f1553631f44a23b43eff20210eb0b0a6"
+  }
+ },
+ "atribucion": "Distrito y barrios: INE, Cartografía digital CNPV 2022 (límites referenciales), Licencia de Uso de Información Pública. Zonas municipales, río Paraguay, manzanas y cauces hídricos: Municipalidad de Asunción (ArcGIS REST, 2026-10-06).",
+ "notas": [
+  "Las capas de calles de la Municipalidad se descargaron sin geometría: las calles las muestra el mapa base.",
+  "Las zonas electorales del TSJE no tienen polígonos publicados: el mapa las muestra con los locales de cada zona."
+ ],
+ "salidas": {
+  "distrito": {
+   "entidades": 1,
+   "bytes": 11097,
+   "sha256": "f9805fb8971eb2656d66cdbb68c55e4968eeec4ded3b0214fe858c9bc6ff7911"
+  },
+  "barrios": {
+   "entidades": 68,
+   "bytes": 85453,
+   "sha256": "4e6fb0470e1ea2d144bc7a6e90fae0eb897b3b198d5ba02b760ff75443b9f8b8"
+  },
+  "zonas_municipales": {
+   "entidades": 6,
+   "bytes": 51497,
+   "sha256": "f6b31c0c463820822e404e6bd8461f92413d5acd6e31722fef8b9d1a07d9fa6d"
+  },
+  "etiquetas": {
+   "entidades": 74,
+   "bytes": 11934,
+   "sha256": "e51968bfee91aae5c38ffc7628ce97f19632c1d7e88f22f98f8fd52b4b663f9f"
+  },
+  "rio": {
+   "entidades": 1,
+   "bytes": 35711,
+   "sha256": "1df0115715e289a630efad2c3c94c69821171fb76bad9399f9872f5a22c46575"
+  },
+  "manzanas": {
+   "entidades": 6345,
+   "bytes": 1858651,
+   "sha256": "4d3751492b0da6d1d892e73593960d8ad0f6cc0ecf017fb0875241fa0c7d2b43"
+  },
+  "cauces": {
+   "entidades": 3679,
+   "bytes": 832043,
+   "sha256": "565a7a33ab3c4e79b44b44589e74e41e55cb473c9e2f07ddd1550bda6b362d90"
+  }
+ }
+}

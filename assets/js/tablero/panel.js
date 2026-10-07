@@ -224,16 +224,19 @@ export function renderFuentes(datos, { fuente = 'trep' } = {}) {
     $('fuentes').replaceChildren(dl);
 }
 
-// Vistas que los datos declaran no disponibles (y por qué), como tarjetas plegables.
-export function renderNoDisponible(datos) {
-    const noDisponible = $('noDisponible');
+// Vistas que los datos declaran no disponibles (y por qué), como tarjetas plegables (vista informe y diálogo «Fuente»).
+export function tarjetasNoDisponible(datos, { nivel = 'h2' } = {}) {
     const titulos = { pobreza_monetaria_por_barrio: 'Pobreza monetaria por barrio', historial_2021: 'Comparación histórica' };
-    for (const [clave, motivo] of Object.entries(datos.resumen.no_disponible)) {
+    return Object.entries(datos.resumen.no_disponible).map(([clave, motivo]) => {
         const card = el('details', 'info-card info-card--no-disponible plegable');
         card.dataset.vista = clave;
         const resumen = el('summary');
-        resumen.append(el('span', 'info-card__estado', 'No disponible'), el('h2', null, titulos[clave] ?? clave));
+        resumen.append(el('span', 'info-card__estado', 'No disponible'), el(nivel, null, titulos[clave] ?? clave));
         card.append(resumen, el('p', null, motivo));
-        noDisponible.append(card);
-    }
+        return card;
+    });
+}
+
+export function renderNoDisponible(datos) {
+    $('noDisponible').append(...tarjetasNoDisponible(datos));
 }

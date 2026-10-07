@@ -2,7 +2,7 @@
 // /analisis_resultados/municipales-2026/ llevan a la sección nueva conservando el contexto del hash, traducido al
 // formato nuevo (#eleccion=…&anio=…&cargo=intendencia|junta&capa=…). El enlace visible de la página es el respaldo.
 const enlace = document.getElementById('destino');
-// Pestañas de la página vieja (vista) → capas del tablero (ADR-017); «Tablas» abre además la tabla de la bandeja.
+// Pestañas de la página vieja (vista) → capas del tablero (ADR-017); «Tablas» abre además la tabla (bandeja, ADR-021).
 const CAPAS = { mapa: 'lista', barrios: 'lista', listas: 'listas', participacion: 'participacion', ipm: 'ipm', margen: 'margen', tablas: 'lista' };
 
 // Hash viejo (#cargo=1|2|c&vista=…&local=…) → hash nuevo; las claves que no cambian pasan tal cual. El voto cruzado
@@ -18,7 +18,7 @@ function traducir(hash) {
         nuevo.set('analisis', 'voto-cruzado');
     } else if (Object.hasOwn(CAPAS, vista)) {
         nuevo.set('capa', CAPAS[vista]);
-        if (vista === 'tablas') nuevo.set('panel', 'tabla');
+        if (vista === 'tablas') nuevo.set('bandeja', 'tabla');
     }
     for (const clave of ['local', 'barrio', 'zona', 'zona_municipal', 'grupo', 'metrica', 'grafico']) {
         if (viejo.has(clave)) nuevo.set(clave, viejo.get(clave));

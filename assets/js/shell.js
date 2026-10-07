@@ -98,13 +98,95 @@ function contextoRecordado() {
     }
 }
 
+// Claves de una vista o de una página que el menú no lleva a otra sección (ADR 0011 del módulo): «TREP» abre siempre el
+// tablero, no la vista informe (modo) ni vuelve a Análisis por el análisis elegido allí (analisis=voto-cruzado).
+const NO_SE_LLEVAN = { trep: ['modo', 'analisis'], oficiales: ['modo', 'analisis'], analisis: ['modo'] };
+
 function actualizarMenu() {
     const hash = contextoRecordado();
     for (const enlace of document.querySelectorAll('.site-nav a[data-seccion]')) {
         if (!CON_CONTEXTO.has(enlace.dataset.seccion)) continue;
+        const contexto = new URLSearchParams(hash);
+        for (const clave of NO_SE_LLEVAN[enlace.dataset.seccion] ?? []) contexto.delete(clave);
         const url = new URL(enlace.getAttribute('href'), location.href);
-        url.hash = hash;
+        url.hash = contexto.toString();
         enlace.href = url.href;
+    }
+}
+
+// --- «Más» (celular): despliega Máquina de votación y Acerca de encima de la barra inferior --------------------------
+function menuMas() {
+    const boton = document.querySelector('.site-nav__mas');
+    const grupo = $('menuMas');
+    if (!boton || !grupo) return;
+    const abierto = () => grupo.classList.contains('abierto');
+    const abrir = (si, { foco = false } = {}) => {
+        grupo.classList.toggle('abierto', si);
+        boton.setAttribute('aria-expanded', String(si));
+        if (si && foco) grupo.querySelector('a')?.focus();
+    };
+    boton.addEventListener('click', () => abrir(!abierto(), { foco: true }));
+    document.addEventListener('keydown', (evento) => {
+        if (evento.key !== 'Escape' || !abierto()) return;
+        abrir(false);
+        boton.focus();
+    });
+    document.addEventListener('click', (evento) => {
+        if (abierto() && !grupo.contains(evento.target) && !boton.contains(evento.target)) abrir(false);
+    });
+    grupo.addEventListener('focusout', (evento) => {
+        if (abierto() && evento.relatedTarget && !grupo.contains(evento.relatedTarget) && evento.relatedTarget !== boton) abrir(false);
+    });
+    // En pantallas más anchas los dos enlaces vuelven a la fila del menú.
+    matchMedia('(min-width: 641px)').addEventListener('change', (consulta) => { if (consulta.matches) abrir(false); });
+}
+
+// --- Grupo «Máquina de votación» (escritorio y tablet): el botón despliega sus páginas debajo de él -------------------
+// La lista tiene posición fija (el menú de la tablet se desplaza a lo ancho y la recortaría); se ubica al abrirla y se
+// cierra con Escape, con un clic afuera, al salir el foco, al desplazar o al cambiar el tamaño. En el celular el botón no
+// se ve: las páginas aparecen dentro de «Más».
+function grupos() {
+    for (const boton of document.querySelectorAll('.site-nav__grupo-boton')) {
+        const lista = $(boton.getAttribute('aria-controls'));
+        if (!lista) continue;
+        const abierto = () => lista.classList.contains('abierto');
+        const abrir = (si, { foco = false } = {}) => {
+            lista.classList.toggle('abierto', si);
+            boton.setAttribute('aria-expanded', String(si));
+            if (!si) return;
+            const r = boton.getBoundingClientRect();
+            lista.style.top = `${Math.round(r.bottom + 6)}px`;
+            lista.style.left = `${Math.round(Math.max(8, Math.min(r.left, innerWidth - lista.offsetWidth - 8)))}px`;
+            if (foco) lista.querySelector('a')?.focus();
+        };
+        boton.addEventListener('click', (evento) => abrir(!abierto(), { foco: evento.detail === 0 }));
+        boton.addEventListener('keydown', (evento) => {
+            if (evento.key === 'ArrowDown') {
+                evento.preventDefault();
+                abrir(true, { foco: true });
+            }
+        });
+        lista.addEventListener('keydown', (evento) => {
+            const enlaces = [...lista.querySelectorAll('a')];
+            const k = enlaces.indexOf(document.activeElement);
+            if (evento.key === 'ArrowDown' || evento.key === 'ArrowUp') {
+                evento.preventDefault();
+                enlaces[(k + (evento.key === 'ArrowDown' ? 1 : enlaces.length - 1)) % enlaces.length]?.focus();
+            }
+        });
+        document.addEventListener('keydown', (evento) => {
+            if (evento.key !== 'Escape' || !abierto()) return;
+            abrir(false);
+            boton.focus();
+        });
+        document.addEventListener('click', (evento) => {
+            if (abierto() && !lista.contains(evento.target) && !boton.contains(evento.target)) abrir(false);
+        });
+        lista.addEventListener('focusout', (evento) => {
+            if (abierto() && evento.relatedTarget && !lista.contains(evento.relatedTarget) && evento.relatedTarget !== boton) abrir(false);
+        });
+        for (const nodo of [window, boton.closest('.site-nav')]) nodo?.addEventListener('scroll', () => { if (abierto()) abrir(false); }, { passive: true });
+        addEventListener('resize', () => { if (abierto()) abrir(false); });
     }
 }
 
@@ -230,28 +312,33 @@ async function barraDeContexto(barra) {
         todas[destino].click();
     });
     estado.suscribir(({ cambiadas }) => { if (cambiadas.has('cargo')) marcarCargo(anio); });
-    // Estado de la fuente en una línea: TREP con actas y corte, o cómputo oficial con su fecha o pendiente.
+    // Estado de la fuente en una línea: TREP con actas y corte, o cómputo oficial con su fecha o pendiente; el aviso de
+    // la fuente (resultados preliminares) va al final de esa misma línea.
     const info = anio.fuentes?.[fuente] ?? { estado: 'pendiente' };
     const linea = $('estadoFuente');
-    const avisoFuente = $('avisoFuente');
     linea.replaceChildren();
     const nombre = document.createElement('strong');
     nombre.textContent = info.nombre ?? (fuente === 'trep' ? 'TREP preliminar' : 'Cómputo oficial');
     linea.append(nombre);
     if (info.estado !== 'publicado') {
         linea.append(' · aún no publicado');
-        if (avisoFuente) avisoFuente.hidden = true;
     } else {
         const cargado = await cargarEleccion({ eleccion: eleccion.id, anio: anio.anio }, fuente, { fuente: ['resumen.json'] });
         const resumen = cargado.datos['resumen.json'];
         const cob = resumen.cobertura;
-        linea.append(` · ${fmt.format(cob.mesas_con_acta)}/${fmt.format(cob.mesas_esperadas)} actas`);
+        // Las actas no entran en el celular (shell.css): allí las muestra el panel de resultados.
+        const actas = document.createElement('span');
+        actas.className = 'barra-contexto__actas';
+        actas.textContent = ` · ${fmt.format(cob.mesas_con_acta)}/${fmt.format(cob.mesas_esperadas)} actas`;
+        linea.append(actas);
         const momento = info.corte ?? info.fecha;
         if (momento) linea.append(` · ${fuente === 'trep' ? 'corte' : 'cómputo'} ${fecha(momento)}`);
-        if (avisoFuente) {
-            avisoFuente.textContent = resumen.eleccion.aviso ?? '';
-            avisoFuente.title = avisoFuente.textContent;
-            avisoFuente.hidden = !avisoFuente.textContent;
+        if (resumen.eleccion.aviso) {
+            const aviso = document.createElement('span');
+            aviso.className = 'barra-contexto__aviso';
+            aviso.id = 'avisoFuente';
+            aviso.textContent = resumen.eleccion.aviso;
+            linea.append(' · ', aviso);
         }
     }
     // Alto de la barra (fija en celular y tablet): las pestañas y los destinos de salto quedan debajo de ella.
@@ -263,6 +350,8 @@ async function barraDeContexto(barra) {
 
 // --- Arranque -------------------------------------------------------------------------------------------------------
 $('compartir')?.addEventListener('click', compartir);
+menuMas();
+grupos();
 recordar();
 actualizarMenu();
 vigilarDesplazables();

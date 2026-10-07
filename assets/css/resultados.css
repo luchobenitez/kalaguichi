@@ -687,6 +687,69 @@ html[data-theme="dark"] .ranking__valor {
 }
 
 /* Pantalla completa: el mapa ocupa toda la ventana sobre un fondo opaco; la leyenda queda superpuesta y plegable. */
+/* --- Mapa con MapLibre (mapa_gl.js): globo de ayuda, atribución y aviso sin WebGL -------------------------------- */
+
+.mapa .maplibregl-canvas:focus-visible {
+    outline: 3px solid var(--orange-500);
+    outline-offset: -3px;
+}
+
+/* Globo al pasar el puntero: texto plano, sin capturar el puntero. */
+.mapa__globo {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 5;
+    max-width: min(22rem, calc(100% - 1rem));
+    padding: .375rem .625rem;
+    border: 1px solid var(--border-strong);
+    border-radius: .625rem;
+    background: var(--surface-solid);
+    color: var(--text);
+    font-size: .75rem;
+    font-weight: 600;
+    line-height: 1.4;
+    box-shadow: 0 6px 20px rgba(15, 23, 42, .18);
+    pointer-events: none;
+}
+
+.mapa__globo[hidden] {
+    display: none;
+}
+
+/* Atribución obligatoria del mapa base y de la cartografía propia: abajo a la derecha, siempre a la vista. */
+.mapa__atribucion {
+    position: absolute;
+    right: max(.375rem, env(safe-area-inset-right));
+    bottom: .25rem;
+    z-index: 3;
+    max-width: calc(100% - .75rem);
+    margin: 0;
+    padding: .125rem .5rem;
+    border-radius: .5rem;
+    background: color-mix(in srgb, var(--surface-solid) 85%, transparent);
+    color: var(--text-soft);
+    font-size: .6875rem;
+    line-height: 1.4;
+}
+
+.mapa__atribucion a {
+    color: inherit;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.mapa__sin-mapa {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    margin: 0;
+    padding: 2rem;
+    color: var(--text-soft);
+    text-align: center;
+}
+
 .mapa--pantalla {
     position: fixed;
     inset: 0;

@@ -722,6 +722,144 @@ a.section-card:hover .section-card__cta svg {
     stroke-width: 1.8;
 }
 
+/* «Más»: solo en la barra inferior del celular, donde abre Máquina de votación y Acerca de. En las demás pantallas esos
+   dos enlaces siguen en la fila del menú (el grupo no tiene caja propia). */
+.site-nav__mas {
+    display: none;
+}
+
+.site-nav__extra {
+    display: contents;
+}
+
+/* Grupo «Máquina de votación»: un botón con el aspecto de los enlaces del menú que despliega sus tres páginas. La lista
+   va con posición fija (shell.js la ubica debajo del botón), porque el menú de la tablet se desplaza a lo ancho. */
+.site-nav__grupo {
+    display: inline-flex;
+}
+
+.site-nav__grupo-boton {
+    display: inline-flex;
+    align-items: center;
+    gap: .375rem;
+    padding: .5rem .875rem;
+    border: 1px solid transparent;
+    border-radius: 9999px;
+    background: none;
+    color: var(--text-soft);
+    font: inherit;
+    font-size: .8125rem;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: color .2s ease, background-color .2s ease, border-color .2s ease;
+}
+
+.site-nav__grupo-boton:hover {
+    color: var(--orange-600);
+    background: var(--surface-soft);
+}
+
+.site-nav__grupo-boton[aria-expanded="true"],
+.site-nav__grupo[data-actual] .site-nav__grupo-boton {
+    color: var(--orange-700);
+    border-color: rgba(249, 115, 22, .35);
+    background: rgba(249, 115, 22, .10);
+}
+
+html[data-theme="dark"] .site-nav__grupo-boton[aria-expanded="true"],
+html[data-theme="dark"] .site-nav__grupo[data-actual] .site-nav__grupo-boton {
+    color: var(--orange-400);
+}
+
+.site-nav__grupo-boton:focus-visible {
+    outline: 3px solid var(--orange-500);
+    outline-offset: 2px;
+}
+
+.site-nav__flecha {
+    width: .875rem;
+    height: .875rem;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    transition: transform .15s ease;
+}
+
+.site-nav__grupo-boton[aria-expanded="true"] .site-nav__flecha {
+    transform: rotate(180deg);
+}
+
+.site-nav__grupo-titulo {
+    display: none;
+}
+
+.site-nav__submenu {
+    position: fixed;
+    z-index: 60;
+    display: none;
+    min-width: 16rem;
+    margin: 0;
+    padding: .375rem;
+    list-style: none;
+    border: 1px solid var(--border-strong);
+    border-radius: 1rem;
+    background: var(--surface-solid);
+    box-shadow: var(--card-shadow);
+}
+
+.site-nav__submenu.abierto {
+    display: grid;
+    gap: .125rem;
+}
+
+.site-nav .site-nav__submenu a {
+    display: flex;
+    align-items: center;
+    min-height: 2.5rem;
+    padding: .5rem .875rem;
+    border: 0;
+    border-radius: .75rem;
+    color: var(--text-soft);
+    font-size: .875rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.site-nav .site-nav__submenu a:hover {
+    color: var(--orange-600);
+    background: var(--surface-soft);
+}
+
+.site-nav .site-nav__submenu a[aria-current="page"] {
+    color: var(--orange-700);
+    background: rgba(249, 115, 22, .10);
+}
+
+html[data-theme="dark"] .site-nav .site-nav__submenu a[aria-current="page"] {
+    color: var(--orange-400);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .site-nav__flecha {
+        transition: none;
+    }
+}
+
+@media (min-width: 900px) {
+    .site-nav__grupo-boton {
+        font-size: .875rem;
+    }
+}
+
+@media (pointer: coarse) {
+    .site-nav__grupo-boton {
+        min-height: 44px;
+    }
+}
+
 /* Barra de contexto: debajo del encabezado, a todo el ancho; el contenido se alinea con el de la página. */
 .barra-contexto {
     position: relative;
@@ -766,39 +904,27 @@ a.section-card:hover .section-card__cta svg {
     font: inherit;
 }
 
+/* Estado de la fuente (actas y corte) y, al final de la misma línea, el aviso de resultados preliminares: si no entra
+   junto al cargo pasa al renglón de abajo y, si hace falta, ocupa dos líneas antes que cortar el aviso. */
 .barra-contexto__fuente {
     margin: 0 0 0 auto;
     min-width: 0;
-    overflow: hidden;
     color: var(--text-soft);
     font-size: .8125rem;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    line-height: 1.4;
 }
 
 .barra-contexto__fuente strong {
     color: var(--text);
 }
 
-/* Aviso de resultados preliminares: siempre en una sola línea. */
-.aviso-fuente {
-    width: min(100%, 80rem);
-    margin: 0 auto;
-    padding: .375rem 1rem 0;
-    overflow: hidden;
+.barra-contexto__aviso {
     color: var(--orange-700);
-    font-size: .8125rem;
     font-weight: 600;
-    text-overflow: ellipsis;
-    white-space: nowrap;
 }
 
-html[data-theme="dark"] .aviso-fuente {
+html[data-theme="dark"] .barra-contexto__aviso {
     color: #fdba74;
-}
-
-.aviso-fuente[hidden] {
-    display: none;
 }
 
 /* Cargo: control segmentado (Intendencia | Junta Municipal). */
@@ -829,6 +955,221 @@ html[data-theme="dark"] .aviso-fuente {
 .selector-cargo button:focus-visible {
     outline: 3px solid var(--orange-500);
     outline-offset: 2px;
+}
+
+/* --- Diálogo modal (dialogo.js): ancho de lectura, cabecera fija y cuerpo que se desplaza por dentro; en celular,
+   pantalla completa. Lo usan el tablero (Fuente, Método y Estadísticas generales) y las demás secciones. -------- */
+.dialogo {
+    width: min(46rem, calc(100% - 2rem));
+    max-width: none;
+    max-height: calc(100vh - 2rem);
+    max-height: calc(100dvh - 2rem);
+    padding: 0;
+    overflow: hidden;
+    border: 1px solid var(--border-strong);
+    border-radius: 1.25rem;
+    background: var(--surface-solid);
+    color: var(--text);
+    box-shadow: var(--card-shadow);
+}
+
+.dialogo[open] {
+    display: flex;
+    flex-direction: column;
+}
+
+.dialogo::backdrop {
+    background: rgba(15, 23, 42, .55);
+}
+
+html.con-dialogo {
+    overflow: hidden;
+}
+
+.dialogo__cabecera {
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: .875rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.dialogo__cabecera h2 {
+    margin: 0;
+    font-size: 1.125rem;
+    font-weight: 800;
+}
+
+.dialogo__cuerpo {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 1rem 1.25rem 1.25rem;
+    line-height: 1.55;
+    overflow-wrap: break-word;
+}
+
+.dialogo__cuerpo:focus-visible {
+    outline: 3px solid var(--orange-500);
+    outline-offset: -3px;
+}
+
+.dialogo__contenido > * {
+    margin: 0;
+}
+
+.dialogo__contenido > * + * {
+    margin-top: 1.25rem;
+}
+
+.dialogo__contenido > p:first-child {
+    color: var(--text-soft);
+}
+
+.dialogo__seccion h3 {
+    margin: 0 0 .625rem;
+    font-size: 1rem;
+    font-weight: 800;
+}
+
+.dialogo__seccion > p {
+    margin: 0 0 .75rem;
+}
+
+.dialogo__seccion .info-grid {
+    margin-top: 0;
+}
+
+/* Estadísticas generales: la fuente, el cargo y la selección arriba; tablas compactas debajo. */
+.estadisticas__contexto {
+    padding: .625rem .875rem;
+    border: 1px solid var(--border);
+    border-radius: .875rem;
+    background: var(--surface);
+}
+
+.estadisticas__contexto p {
+    margin: 0;
+}
+
+.estadisticas__contexto p + p {
+    margin-top: .125rem;
+    color: var(--text-soft);
+}
+
+.tabla-compacta__caja {
+    max-width: 100%;
+    overflow-x: auto;
+}
+
+.tabla-compacta {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: .875rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.tabla-compacta caption {
+    padding-bottom: .375rem;
+    color: var(--text);
+    font-weight: 800;
+    text-align: left;
+}
+
+.tabla-compacta th,
+.tabla-compacta td {
+    padding: .375rem .5rem;
+    border-bottom: 1px solid var(--border);
+    text-align: right;
+    vertical-align: top;
+}
+
+.tabla-compacta thead th {
+    color: var(--text-muted);
+    font-size: .6875rem;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.tabla-compacta th[scope="row"],
+.tabla-compacta thead th:first-child {
+    padding-left: 0;
+    text-align: left;
+}
+
+.tabla-compacta th[scope="row"] {
+    font-weight: 700;
+}
+
+.tabla-compacta--resumen td:nth-child(2) {
+    color: var(--text);
+    font-weight: 800;
+    white-space: nowrap;
+}
+
+.tabla-compacta--resumen td:last-child,
+.tabla-compacta--resumen thead th:last-child,
+.tabla-compacta--procedencia td,
+.tabla-compacta--procedencia thead th {
+    text-align: left;
+}
+
+.tabla-compacta--resumen td:last-child,
+.tabla-compacta--procedencia td {
+    color: var(--text-soft);
+}
+
+.huella {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: .75rem;
+    overflow-wrap: anywhere;
+}
+
+@media (max-width: 640px) {
+    .dialogo {
+        width: 100%;
+        height: 100%;
+        height: 100dvh;
+        max-height: none;
+        margin: 0;
+        border: 0;
+        border-radius: 0;
+    }
+
+    .dialogo__cabecera {
+        padding: max(.625rem, env(safe-area-inset-top)) 1rem .625rem;
+    }
+
+    .dialogo__cuerpo {
+        padding: .875rem 1rem max(1rem, env(safe-area-inset-bottom));
+    }
+
+    .tabla-compacta {
+        font-size: .8125rem;
+    }
+
+    .tabla-compacta--resumen td:nth-child(2) {
+        white-space: normal;
+    }
+
+    /* Seis columnas en 390 px: celdas más angostas y sin espaciado de letras en los encabezados. */
+    .tabla-compacta--mesas {
+        font-size: .75rem;
+    }
+
+    .tabla-compacta--mesas th,
+    .tabla-compacta--mesas td {
+        padding: .375rem .25rem;
+    }
+
+    .tabla-compacta--mesas thead th {
+        letter-spacing: 0;
+    }
 }
 
 /* Aviso breve de «Enlace copiado». */
@@ -947,6 +1288,132 @@ html[data-theme="dark"] .aviso-fuente {
         white-space: nowrap;
     }
 
+    /* Quinto lugar de la barra: «Más», que despliega Máquina de votación y Acerca de encima de la barra. */
+    .site-nav__mas {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: .125rem;
+        min-height: 3.5rem;
+        padding: .25rem .125rem;
+        border: 1px solid transparent;
+        border-radius: .75rem;
+        background: none;
+        color: var(--text-soft);
+        font: inherit;
+        font-size: .6875rem;
+        font-weight: 600;
+        line-height: 1.1;
+        cursor: pointer;
+    }
+
+    .site-nav__mas:hover {
+        color: var(--orange-600);
+        background: var(--surface-soft);
+    }
+
+    .site-nav__mas[aria-expanded="true"],
+    .site-nav__mas:has(+ .site-nav__extra [aria-current="page"]),
+    .site-nav__mas:has(+ .site-nav__extra [data-actual]) {
+        color: var(--orange-700);
+        border-color: rgba(249, 115, 22, .35);
+        background: rgba(249, 115, 22, .10);
+    }
+
+    html[data-theme="dark"] .site-nav__mas[aria-expanded="true"],
+    html[data-theme="dark"] .site-nav__mas:has(+ .site-nav__extra [aria-current="page"]),
+    html[data-theme="dark"] .site-nav__mas:has(+ .site-nav__extra [data-actual]) {
+        color: var(--orange-400);
+    }
+
+    .site-nav__mas:focus-visible {
+        outline: 3px solid var(--orange-500);
+        outline-offset: 2px;
+    }
+
+    .site-nav__extra {
+        display: none;
+        position: fixed;
+        right: .5rem;
+        bottom: calc(var(--alto-nav-inferior) + .5rem);
+        z-index: 56;
+        min-width: 15rem;
+        max-width: calc(100vw - 1rem);
+        padding: .375rem;
+        border: 1px solid var(--border-strong);
+        border-radius: 1rem;
+        background: var(--surface-solid);
+        box-shadow: var(--card-shadow);
+    }
+
+    .site-nav__extra.abierto {
+        display: grid;
+        gap: .25rem;
+    }
+
+    .site-nav__extra a {
+        flex-direction: row;
+        justify-content: flex-start;
+        gap: .625rem;
+        min-height: 3rem;
+        padding: .5rem .75rem;
+        font-size: .875rem;
+        text-align: left;
+    }
+
+    .site-nav__extra .site-nav__texto {
+        position: static;
+        width: auto;
+        height: auto;
+        margin: 0;
+        overflow: visible;
+        clip: auto;
+    }
+
+    .site-nav__extra .site-nav__corto {
+        display: none;
+    }
+
+    /* Dentro de «Más»: el grupo es un título con sus tres páginas debajo (sin botón ni lista flotante). */
+    .site-nav__grupo {
+        display: grid;
+    }
+
+    .site-nav__grupo-boton {
+        display: none;
+    }
+
+    .site-nav__grupo-titulo {
+        display: flex;
+        align-items: center;
+        gap: .625rem;
+        margin: 0;
+        padding: .5rem .75rem .125rem;
+        color: var(--text-muted);
+        font-size: .75rem;
+        font-weight: 800;
+        letter-spacing: .04em;
+        text-transform: uppercase;
+    }
+
+    .site-nav__submenu,
+    .site-nav__submenu.abierto {
+        position: static;
+        display: grid;
+        gap: .125rem;
+        min-width: 0;
+        padding: 0 0 .25rem 2.25rem;
+        border: 0;
+        background: none;
+        box-shadow: none;
+    }
+
+    .site-nav .site-nav__submenu a {
+        min-height: 2.75rem;
+        white-space: normal;
+    }
+
     .barra-contexto__inner {
         gap: .375rem .75rem;
         padding: .375rem 1rem;
@@ -956,17 +1423,22 @@ html[data-theme="dark"] .aviso-fuente {
         font-size: .8125rem;
     }
 
+    /* Cada cargo mide al menos su texto («Intendencia» nunca se corta): si no entra junto a Elección › Año, el selector
+       pasa al renglón de abajo. */
     .selector-cargo {
         flex: 1 1 auto;
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+        grid-auto-columns: minmax(max-content, 1fr);
+        grid-auto-flow: column;
         border-radius: 1rem;
     }
 
     .selector-cargo button {
+        padding-inline: .75rem;
         border-radius: .75rem;
         line-height: 1.2;
         text-align: center;
+        white-space: nowrap;
     }
 
     .barra-contexto__fuente {
@@ -975,9 +1447,9 @@ html[data-theme="dark"] .aviso-fuente {
         font-size: .75rem;
     }
 
-    .aviso-fuente {
-        padding-top: .25rem;
-        font-size: .75rem;
+    /* En dos renglones: las actas computadas siguen en el panel de resultados y en «Estadísticas generales». */
+    .barra-contexto__actas {
+        display: none;
     }
 
     .aviso-global {

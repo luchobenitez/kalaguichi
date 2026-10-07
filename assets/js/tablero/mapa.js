@@ -239,6 +239,43 @@ export function crearMapaConMesas(datos, id, etiqueta, alElegir, opciones = {}) 
         const local = evento.target.closest('[data-local]')?.dataset.local;
         if (local) alElegir(local, mapa.lienzo);
     });
+
+    // Interfaz común con el mapa de MapLibre (mapa_gl.js), para «Intendente vs Junta» en la vista informe.
+    // fn(mesa) → { color, forma, atenuado, seleccionada, texto }; el texto (el del local) va en su zona de toque.
+    mapa.pintarMesas = (fn) => {
+        const textos = new Map();
+        for (const p of mapa.puntos) {
+            const r = fn({ i: Number(p.dataset.i), clave: p.dataset.local });
+            p.setAttribute('fill', r.color);
+            mapa.formaPunto(p, r.forma);
+            p.classList.toggle('es-atenuado', Boolean(r.atenuado));
+            p.classList.toggle('es-seleccion', Boolean(r.seleccionada));
+            if (r.texto) textos.set(p.dataset.local, r.texto);
+        }
+        for (const toque of toques.children) {
+            if (textos.has(toque.dataset.local)) toque.querySelector('title').textContent = textos.get(toque.dataset.local);
+        }
+    };
+    // items: [{ clave, puesto, texto }] → anillo numerado alrededor de cada local.
+    mapa.pintarRanking = (items) => {
+        const capa = mapa.lienzo.querySelector('.mapa__ranking');
+        capa.replaceChildren();
+        for (const { clave, puesto, texto } of items) {
+            const info = datos.infoLocal.get(clave);
+            const r = mapa.radioLocal.get(clave) + 60;
+            const anillo = svg('circle', { cx: info.x, cy: info.y, r, class: 'mapa__anillo' });
+            anillo.dataset.local = clave;
+            capa.append(titulo(anillo, texto));
+            const numero = svg('text', { x: info.x, y: Math.round(info.y - r - 80), 'text-anchor': 'middle', class: 'mapa__puesto' });
+            numero.textContent = String(puesto);
+            capa.append(numero);
+        }
+    };
+    // Encuadre de un grupo de locales (con 700 m de margen); sin locales, el distrito.
+    mapa.encuadrarLocales = (claves) => {
+        const infos = (claves ?? []).map((k) => datos.infoLocal.get(k)).filter(Boolean);
+        mapa.fijarMarco(infos.length ? cajaDe(datos, infos.map((x) => x.x), infos.map((x) => x.y), 700) : datos.geo.viewBox);
+    };
     return mapa;
 }
 
