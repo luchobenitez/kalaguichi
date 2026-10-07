@@ -13,11 +13,13 @@ const CATALOGO = [
     { id: 'voto-cruzado', titulo: 'Intendente vs Junta', descripcion: 'Voto cruzado por local: Lista 1 y Alianza (L3 frente a L2 + L3).' },
     { id: 'margen', titulo: 'Distribución del margen', descripcion: 'ANR − AJA por mesa, local o barrio, en tramos de 5 puntos.' },
     { id: 'participacion-ipm', titulo: 'Participación y pobreza', descripcion: 'Participación frente al IPM por barrio, con su tendencia.' },
+    { id: 'ganador-ipm', titulo: 'Ganador por mesa y pobreza', descripcion: 'Cada mesa con el color de la lista que ganó, frente a la pobreza de su barrio, y las curvas por lista.' },
     { id: 'ranking', titulo: 'Ranking por lista', descripcion: 'Locales y barrios según el voto de cada lista.' },
     { id: 'trep-oficial', titulo: 'TREP vs oficial', descripcion: 'Diferencias entre las dos fuentes, por mesa y por local.', requiereOficial: true },
 ];
 const MODULOS = { 'voto-cruzado': () => import('./voto_cruzado.js'), margen: () => import('./margen.js'),
-                  'participacion-ipm': () => import('./participacion_ipm.js'), ranking: () => import('./ranking.js'),
+                  'participacion-ipm': () => import('./participacion_ipm.js'), 'ganador-ipm': () => import('./ganador_ipm.js'),
+                  ranking: () => import('./ranking.js'),
                   'trep-oficial': () => import('./trep_oficial.js') };
 const FECHA = /^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2}))?/;
 

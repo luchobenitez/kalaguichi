@@ -4,7 +4,8 @@ Datos de la página «Vulnerabilidades documentadas» (`/maquina-votacion/vulner
 generan con los scripts de `scripts/`, desde la raíz del proyecto; el sitio solo los lee. Las otras dos páginas de la
 sección se generan directamente en `sitio/maquina-votacion/`: «La máquina» con `python scripts/mv_documento.py` (el
 documento técnico, con sus figuras en `maquina/figuras/`) e «Historia de la adquisición» con
-`python scripts/mv_historia.py` (del texto del responsable del proyecto en `datos_reales/mv/historia_adquisicion.md`).
+`python scripts/mv_historia.py` (del texto que aportó el responsable del proyecto,
+`datos_reales/mv/Máquinas De Votación TSJE Paraguay.md`, con sus 58 fuentes; `--citas` lista las llamadas a las fuentes).
 
 | Archivo | Qué tiene | Cómo se genera |
 | --- | --- | --- |

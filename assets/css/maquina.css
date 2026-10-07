@@ -887,3 +887,53 @@ html[data-theme="dark"] .maquina-subnav a[aria-current="page"] {
         white-space: nowrap;
     }
 }
+
+/* Historia de la adquisición (ADR 0013): presentación del texto, llamadas a las fuentes y la lista de fuentes. */
+.maquina-historia__presentacion {
+    max-width: 46rem;
+    margin: .75rem 0 0;
+    color: var(--text-muted);
+    font-size: .9375rem;
+}
+
+.historia__cita {
+    font-size: .7em;
+    line-height: 0;
+}
+
+.historia__cita a {
+    padding: 0 .125em;
+    font-weight: 800;
+    text-decoration: none;
+}
+
+.historia__cita a:hover,
+.historia__cita a:focus-visible {
+    text-decoration: underline;
+}
+
+.maquina-historia .acerca__texto ol,
+.maquina-historia .acerca__texto ul {
+    padding-left: 1.5rem;
+}
+
+.maquina-historia .maquina-doc__tabla {
+    margin-top: 1rem;
+}
+
+.maquina-historia__lista-fuentes {
+    font-size: .9375rem;
+    line-height: 1.6;
+}
+
+.maquina-historia__lista-fuentes li {
+    margin: .375rem 0;
+    overflow-wrap: anywhere;
+    scroll-margin-top: 1.5rem;
+}
+
+.maquina-historia__lista-fuentes li:target {
+    border-radius: .375rem;
+    outline: 2px solid var(--orange-500);
+    outline-offset: 2px;
+}
