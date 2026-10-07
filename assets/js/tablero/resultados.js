@@ -1,89 +1,28 @@
-// Visor de resultados TREP 2026 de Asunción. Todo número sale de datos/*.json (mismo origen).
+// Vista informe del TREP (#modo=informe): la página vertical anterior al tablero, con sus pestañas de mapas y tablas,
+// el histograma del margen e «Intendente vs Junta». Todo número sale de /datos/<eleccion>/<anio>/ (mismo origen),
+// según el manifiesto /datos/elecciones.json (assets/js/datos.js, ADR 0009 del módulo). El modelo, los mapas y el
+// panel de resultados son los del tablero (modelo.js, mapa.js y panel.js).
 // Sin dependencias ni HTML desde datos: el texto se asigna con textContent y los estilos por CSSOM.
 // La sección «Intendente vs Junta» vive en su propio módulo y carga Chart.js solo al abrirse.
-import { crearIntendenteJunta } from './intendente_junta.js';
+import { crearIntendenteJunta } from '../analisis/intendente_junta.js';
 import { crearFicha } from './ficha.js';
-import { vigilarDesplazables } from './desplazables.js';
-import { habilitarZoom, agregarControles, salirDePantallaCompleta } from './zoom_mapa.js';
-const SVG = 'http://www.w3.org/2000/svg';
-// Comparación pedida por el usuario para el margen: Camilo Pérez (ANR) frente a Soledad Núñez (AJA).
-const MARGEN = { cargo: '1', positivo: 'ANR', negativo: 'AJA' };
-const ESPIRAL_M = 34;          // Separación de los puntos de mesa alrededor del local, en metros.
-const PUNTO_M = 30;            // Radio de cada punto de mesa, en metros.
-// Colores de las zonas TSJE: categóricos y distintos de los de las listas, para no sugerir afinidad.
-const COLORES_ZONA = { 1: '#f97316', 2: '#22d3ee', 3: '#a78bfa', 4: '#facc15', 5: '#34d399', 6: '#f472b6' };
-const PARTICIPACION_COLOR = '#f97316';
-// IPM: tono ámbar, distinto de los colores de las listas que llevan los locales encima.
-const IPM_COLOR = '#fbbf24';
-// Daltonismo: además del color, la forma distingue las listas en los puntos y en sus leyendas. Rojo y verde (ANR y la
-// Alianza: AJA en Intendencia, AUA en Junta) son los que más se confunden; las demás listas van en cuadrado.
-const FORMAS = { ANR: 'circulo', AJA: 'rombo', AUA: 'rombo' };
-const formaDe = (item) => FORMAS[item?.sigla] ?? 'cuadrado';
-// Símbolo de igual área que un círculo de radio r, como trazado SVG.
-function simbolo(x, y, r, forma) {
-    const n = (v) => Math.round(v * 10) / 10;
-    if (forma === 'rombo') {
-        const s = r * 1.2533;
-        return `M${n(x)} ${n(y - s)}L${n(x + s)} ${n(y)}L${n(x)} ${n(y + s)}L${n(x - s)} ${n(y)}Z`;
-    }
-    if (forma === 'cuadrado') {
-        const h = r * 0.8862;
-        return `M${n(x - h)} ${n(y - h)}h${n(2 * h)}v${n(2 * h)}h${n(-2 * h)}Z`;
-    }
-    return `M${n(x - r)} ${n(y)}a${n(r)} ${n(r)} 0 1 0 ${n(2 * r)} 0a${n(r)} ${n(r)} 0 1 0 ${n(-2 * r)} 0Z`;
-}
-const fmt = new Intl.NumberFormat('es-PY');
-const pct = new Intl.NumberFormat('es-PY', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
-const pct2 = new Intl.NumberFormat('es-PY', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+import { vigilarDesplazables } from '../desplazables.js';
+import { estado as compartido, listo as shellListo } from '../shell.js';
+import { salirDePantallaCompleta } from './zoom_mapa.js';
+import { $, el, svg, titulo, cantidad, celdaNombre, fmt, pct, pct2, movimiento } from './util.js';
+import { MARGEN, formaDe, cargarModelo, ganador, participacion, margenDe, agregadosBarrio as agregadosDe, unidades as unidadesDe,
+         textoBarrio as textoDeBarrio } from './modelo.js';
+import { COLORES_ZONA, PARTICIPACION_COLOR, IPM_COLOR, simbolo, crearMapaBase as mapaBase, crearMapaConMesas as mapaConMesas,
+         encuadre as encuadreDe, mezclar, escala, cuantiles, opacidadPaso, pintarBarrio as pintar, itemLeyenda } from './mapa.js';
+import { renderTotales as totalesDe, renderBancas as bancasDe, renderFuentes, renderNoDisponible } from './panel.js';
 
-const $ = (id) => document.getElementById(id);
-const base = new URL('./', document.baseURI);
 // Celular y tablet (y un mapa en pantalla completa): tocar un local o un barrio abre la ficha inferior en lugar de
 // desplazar la página hasta el panel de resultados. En escritorio se conserva el desplazamiento.
 const PANTALLA_ANGOSTA = matchMedia('(max-width: 899px)');
 // Celular: las tarjetas «No disponible» y «Fuentes y método» empiezan plegadas (en escritorio siguen abiertas).
 const PANTALLA_CHICA = matchMedia('(max-width: 640px)');
 const usarFicha = () => PANTALLA_ANGOSTA.matches || Boolean(document.querySelector('.mapa--pantalla'));
-const movimiento = () => (matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth');
 let ficha;
-
-function el(tag, clase, texto) {
-    const nodo = document.createElement(tag);
-    if (clase) nodo.className = clase;
-    if (texto !== undefined && texto !== null) nodo.textContent = String(texto);
-    return nodo;
-}
-
-function cantidad(n, singular, plural) {
-    return `${fmt.format(n)} ${n === 1 ? singular : plural}`;
-}
-
-function svg(tag, atributos = {}) {
-    const nodo = document.createElementNS(SVG, tag);
-    for (const [k, v] of Object.entries(atributos)) nodo.setAttribute(k, String(v));
-    return nodo;
-}
-
-// Encabezado de fila: el nombre va en un span para poder cortarlo en dos renglones en pantallas angostas.
-function celdaNombre(texto, clase) {
-    const th = el('th', clase);
-    th.scope = 'row';
-    th.append(el('span', 'tabla__nombre', texto));
-    return th;
-}
-
-function titulo(nodo, texto) {
-    const t = svg('title');
-    t.textContent = texto;
-    nodo.append(t);
-    return nodo;
-}
-
-async function cargar(nombre) {
-    const respuesta = await fetch(new URL(`datos/${nombre}`, base), { credentials: 'omit', referrerPolicy: 'no-referrer' });
-    if (!respuesta.ok) throw new Error(`No se pudo leer datos/${nombre}`);
-    return respuesta.json();
-}
 
 const VISTAS = ['mapa', 'barrios', 'listas', 'participacion', 'ipm', 'margen', 'tablas'];
 const estado = { cargo: '1', zona: null, zonaMunicipal: null, local: null, barrio: null, vista: 'mapa', colorMapa: 'lista',
@@ -91,59 +30,8 @@ const estado = { cargo: '1', zona: null, zonaMunicipal: null, local: null, barri
                  orden: null, filtro: '' };
 let datos;
 
-function construirModelo(resumen, mesas, locales, geo, cand, ipm) {
-    const claveLocal = (z, l) => `${z}-${l}`;
-    const listas = {};
-    for (const cargo of ['1', '2']) {
-        const porNum = Object.fromEntries(cand[cargo].map((x) => [x.numLista, x]));
-        listas[cargo] = mesas.cargos[cargo].listas.map((num) => ({ num, ...porNum[num] }));
-    }
-    const infoLocal = new Map(locales.locales.map((x) => [claveLocal(x.zona, x.local), x]));
-    const filas = mesas.mesas.map(([zona, local, mesa], i) => {
-        const info = infoLocal.get(claveLocal(zona, local));
-        return { i, zona, local, mesa, clave: claveLocal(zona, local), barrio: info.barrio, zonaMunicipal: info.zona_municipal };
-    });
-    const indiceMargen = {
-        positivo: listas[MARGEN.cargo].findIndex((x) => x.sigla === MARGEN.positivo),
-        negativo: listas[MARGEN.cargo].findIndex((x) => x.sigla === MARGEN.negativo),
-    };
-    const barrioPor = new Map(geo.barrios.map((b) => [b.nombre, b]));
-    const zonaMunicipalPor = new Map(geo.zonas_municipales.map((z) => [z.numero, z]));
-    // IPM por barrio (INE, Censo 2022), unido a la geometría por la clave del barrio (CLAVE_BAR).
-    const ipmPor = new Map(ipm.barrios.map((b) => [b.clave, b]));
-    return { resumen, mesas, geo, cand, ipm, ipmPor, listas, infoLocal, filas, indiceMargen, claveLocal, barrioPor, zonaMunicipalPor, mapas: {} };
-}
-
-// Suma de un conjunto de mesas para un cargo: votos por lista, demás campos y electores del padrón.
-function sumar(indices, cargo) {
-    const c = datos.mesas.cargos[cargo];
-    const total = { votos: new Array(c.listas.length).fill(0), blancos: 0, nulos: 0, nocomputados: 0, emitidos: 0, electores: 0, mesas: indices.length };
-    for (const i of indices) {
-        c.votos[i].forEach((v, j) => { total.votos[j] += v; });
-        total.blancos += c.blancos[i];
-        total.nulos += c.nulos[i];
-        total.nocomputados += c.nocomputados[i];
-        total.emitidos += c.emitidos[i];
-        total.electores += datos.mesas.electores[i];
-    }
-    total.listas = total.votos.reduce((a, b) => a + b, 0);
-    return total;
-}
-
-function ganador(votos) {
-    const maximo = Math.max(...votos);
-    const indices = votos.flatMap((v, j) => (v === maximo ? [j] : []));
-    return maximo > 0 && indices.length === 1 ? indices[0] : null;
-}
-
-function margen(total) {
-    if (estado.cargo !== MARGEN.cargo || !total.listas) return null;
-    return (100 * (total.votos[datos.indiceMargen.positivo] - total.votos[datos.indiceMargen.negativo])) / total.listas;
-}
-
-function participacion(total) {
-    return total.electores ? (100 * total.emitidos) / total.electores : null;
-}
+const sumar = (indices, cargo) => datos.sumar(indices, cargo);
+const margen = (total) => margenDe(datos, total, estado.cargo);
 
 function mesasDe(filtro) {
     return datos.filas.filter(filtro).map((f) => f.i);
@@ -181,406 +69,23 @@ function seleccionActual() {
 function colorDe(j, cargo = estado.cargo) {
     return datos.listas[cargo][j].color;
 }
-
-function nombreDe(item) {
-    return estado.cargo === '1' ? item.nombre : `${item.sigla} · ${item.lista}`;
-}
-
 function renderTotales() {
-    const sel = seleccionActual();
-    const total = sumar(sel.indices, estado.cargo);
-    $('eyebrowTotales').textContent = `${sel.eyebrow} · ${datos.resumen.cargos[estado.cargo].nombre}`;
-    $('tituloTotales').textContent = sel.titulo;
-    $('metaTotales').textContent = [sel.meta, `${fmt.format(total.mesas)} mesas con acta`, `${fmt.format(total.emitidos)} votos emitidos`]
-        .filter(Boolean).join(' · ');
-    $('limpiarSeleccion').hidden = !estado.local && !estado.barrio && estado.zona === null && estado.zonaMunicipal === null;
-    const contenedor = $('listaResultados');
-    contenedor.replaceChildren();
-    const orden = total.votos.map((v, j) => j).sort((a, b) => total.votos[b] - total.votos[a]);
-    for (const j of orden) {
-        const item = datos.listas[estado.cargo][j];
-        const fila = el('div', 'resultado');
-        fila.dataset.lista = item.num;
-        const figura = el('span', 'resultado__foto');
-        figura.style.borderColor = item.color;
-        if (estado.cargo === '1' && item.foto) {
-            const img = el('img');
-            img.src = item.foto.archivo;
-            img.alt = '';
-            img.width = 48;
-            img.height = 48;
-            img.loading = 'lazy';
-            figura.append(img);
-        } else {
-            figura.textContent = item.sigla.slice(0, 5);
-            figura.style.background = item.color;
-            figura.classList.add('resultado__foto--sigla');
-        }
-        const cuerpo = el('div', 'resultado__cuerpo');
-        const encabezado = el('div', 'resultado__encabezado');
-        encabezado.append(el('strong', 'resultado__nombre', nombreDe(item)),
-            el('span', 'resultado__votos', `${fmt.format(total.votos[j])} votos`));
-        const barra = el('div', 'barra');
-        const relleno = el('span', 'barra__relleno');
-        relleno.style.width = `${total.listas ? (100 * total.votos[j]) / total.listas : 0}%`;
-        relleno.style.background = item.color;
-        barra.append(relleno);
-        const pie = el('div', 'resultado__pie');
-        pie.append(el('span', null, estado.cargo === '1' ? `${item.sigla} · ${item.lista}` : `Lista ${item.num}`),
-            el('span', 'resultado__pct', `${total.listas ? pct.format((100 * total.votos[j]) / total.listas) : '0,0'} %`));
-        cuerpo.append(encabezado, barra, pie);
-        fila.append(figura, cuerpo);
-        contenedor.append(fila);
-    }
-    const part = $('participacion');
-    part.replaceChildren();
-    const p = participacion(total);
-    if (p !== null) {
-        part.append(el('span', 'participacion__titulo', 'Participación'),
-            el('strong', 'participacion__valor', `${pct.format(p)} %`),
-            el('span', 'participacion__detalle', `${fmt.format(total.emitidos)} votos emitidos de ${fmt.format(total.electores)} electores habilitados en las mesas con acta (padrón).`));
-    }
-    const dif = $('diferencia');
-    dif.replaceChildren();
-    if (orden.length > 1 && total.listas) {
-        const [a, b] = orden;
-        const votos = total.votos[a] - total.votos[b];
-        dif.append(el('span', 'diferencia__titulo', 'Diferencia entre las dos más votadas'),
-            el('strong', 'diferencia__valor', `${fmt.format(votos)} votos · ${pct.format((100 * votos) / total.listas)} puntos`),
-            el('span', 'diferencia__detalle', `${nombreDe(datos.listas[estado.cargo][a])} sobre ${nombreDe(datos.listas[estado.cargo][b])}. Porcentajes sobre ${fmt.format(total.listas)} votos a listas.`));
-    }
-    const otros = $('otrosVotos');
-    otros.replaceChildren();
-    for (const [etiqueta, valor] of [['Votos a listas', total.listas], ['Blancos', total.blancos], ['Nulos', total.nulos],
-        ['No computados', total.nocomputados], ['Emitidos', total.emitidos], ['Electores', total.electores]]) {
-        const grupo = el('div');
-        grupo.append(el('dt', null, etiqueta), el('dd', null, fmt.format(valor)));
-        otros.append(grupo);
-    }
+    totalesDe(datos, estado.cargo, seleccionActual(),
+              { hayFiltro: Boolean(estado.local || estado.barrio) || estado.zona !== null || estado.zonaMunicipal !== null });
 }
 
-// --- Bancas de la Junta Municipal (hemiciclo con fotos) -----------------------------------------
-
-// Hemiciclo: filas concéntricas con bancas proporcionales al radio; se ocupan por ángulo, de izquierda a derecha.
-function posicionesHemiciclo(total) {
-    const filas = Math.max(2, Math.round(Math.sqrt(total / 2.6)));
-    const radios = Array.from({ length: filas }, (_, i) => 160 + i * 72);
-    const suma = radios.reduce((a, b) => a + b, 0);
-    const cantidades = radios.map((r) => Math.max(2, Math.round((total * r) / suma)));
-    let diferencia = total - cantidades.reduce((a, b) => a + b, 0);
-    for (let i = cantidades.length - 1; diferencia !== 0; i = (i - 1 + cantidades.length) % cantidades.length) {
-        cantidades[i] += Math.sign(diferencia);
-        diferencia -= Math.sign(diferencia);
-    }
-    const puestos = [];
-    radios.forEach((r, i) => {
-        for (let k = 0; k < cantidades[i]; k++) {
-            const angulo = Math.PI * (1 - k / (cantidades[i] - 1));
-            puestos.push({ angulo, x: 380 + r * Math.cos(angulo), y: 380 - r * Math.sin(angulo), r });
-        }
-    });
-    return puestos.sort((a, b) => b.angulo - a.angulo || a.r - b.r);
-}
-
-function renderBancas() {
-    const panel = $('panelBancas');
-    panel.hidden = estado.cargo !== '2';
-    if (panel.hidden || panel.dataset.listo) return;
-    const b = datos.cand.bancas;
-    const listas = datos.listas['2'];
-    const porLista = listas.map((item) => ({ item, electos: b.electos.filter((e) => e.numLista === item.num).sort((x, y) => x.banca - y.banca) }))
-        .filter((x) => x.electos.length).sort((x, y) => y.electos.length - x.electos.length);
-    $('metaBancas').textContent = `${b.total} bancas · ${porLista.map((x) => `${x.item.sigla} ${x.electos.length}`).join(' · ')} · TREP preliminar`;
-    const leyenda = $('bancasLeyenda');
-    leyenda.replaceChildren();
-    for (const { item, electos } of porLista) {
-        const li = el('li', 'bancas__grupo');
-        const numero = el('span', 'bancas__numero', electos.length);
-        numero.style.background = item.color;
-        const texto = el('span', 'bancas__texto');
-        texto.append(el('strong', null, item.sigla), el('span', null, item.lista));
-        li.append(numero, texto);
-        leyenda.append(li);
-    }
-    const puestos = posicionesHemiciclo(b.total);
-    const lienzo = svg('svg', { viewBox: '0 0 760 412', class: 'bancas__svg', role: 'img',
-        'aria-label': `Hemiciclo de ${b.total} bancas: ${porLista.map((x) => `${x.item.sigla} ${x.electos.length}`).join(', ')}` });
-    const defs = svg('defs');
-    lienzo.append(defs);
-    let k = 0;
-    for (const { item, electos } of porLista) {
-        for (const e of electos) {
-            const p = puestos[k];
-            const grupo = svg('g', { class: 'banca' });
-            grupo.dataset.lista = item.num;
-            const recorte = svg('clipPath', { id: `banca-${k}` });
-            recorte.append(svg('circle', { cx: p.x.toFixed(1), cy: p.y.toFixed(1), r: 24 }));
-            defs.append(recorte);
-            grupo.append(svg('circle', { cx: p.x.toFixed(1), cy: p.y.toFixed(1), r: 28, fill: item.color, class: 'banca__anillo' }));
-            if (e.foto) {
-                grupo.append(svg('image', { href: e.foto.archivo, x: (p.x - 24).toFixed(1), y: (p.y - 24).toFixed(1), width: 48, height: 48,
-                    preserveAspectRatio: 'xMidYMid slice', 'clip-path': `url(#banca-${k})` }));
-            }
-            titulo(grupo, `${e.nombre} · ${item.sigla} · ${fmt.format(e.votos_preferenciales)} votos preferenciales`);
-            lienzo.append(grupo);
-            k += 1;
-        }
-    }
-    const total = svg('text', { x: 380, y: 352, 'text-anchor': 'middle', class: 'bancas__total' });
-    total.textContent = String(b.mayoria);
-    const mayoria = svg('text', { x: 380, y: 380, 'text-anchor': 'middle', class: 'bancas__mayoria' });
-    mayoria.textContent = 'necesarias para la mayoría';
-    lienzo.append(total, mayoria);
-    $('bancas').replaceChildren(lienzo);
-    const personas = $('bancasPersonas');
-    personas.replaceChildren();
-    for (const { item, electos } of porLista) {
-        const grupo = el('div', 'bancas__lista');
-        const encabezado = el('h3', null, `${item.sigla} · ${electos.length} ${electos.length === 1 ? 'banca' : 'bancas'}`);
-        encabezado.style.borderColor = item.color;
-        const ol = el('ol');
-        for (const e of electos) ol.append(el('li', null, `${e.nombre} (${fmt.format(e.votos_preferenciales)} preferenciales)`));
-        grupo.append(encabezado, ol);
-        personas.append(grupo);
-    }
-    $('notaBancas').textContent = `${b.metodo}: corte en ${fmt.format(Math.round(b.cociente_de_corte))} votos por banca. ` +
-        'Las personas electas dentro de cada lista surgen del voto preferencial, que las actas por mesa no traen: se toman de la ' +
-        'referencia y se contrastaron con el reparto propio. TREP preliminar: no es la proclamación oficial.';
-    panel.dataset.listo = 'true';
-}
+const renderBancas = () => bancasDe(datos, estado.cargo);
 
 // --- Mapas --------------------------------------------------------------------------------------
-
-function anillosDePath(d) {
-    return d.split('M').filter((s) => s.trim()).map((s) => {
-        const numeros = (s.match(/-?\d+(?:\.\d+)?/g) ?? []).map(Number);
-        const puntos = [];
-        for (let i = 0; i + 1 < numeros.length; i += 2) puntos.push([numeros[i], numeros[i + 1]]);
-        return puntos;
-    });
-}
-
-function dentroDe(x, y, anillos) {
-    let dentro = false;
-    for (const a of anillos) {
-        for (let i = 0, j = a.length - 1; i < a.length; j = i++) {
-            const [xi, yi] = a[i], [xj, yj] = a[j];
-            if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) dentro = !dentro;
-        }
-    }
-    return dentro;
-}
-
-function distanciaBorde(x, y, anillos) {
-    let minimo = Infinity;
-    for (const a of anillos) {
-        for (let i = 0, j = a.length - 1; i < a.length; j = i++) {
-            const [x1, y1] = a[j], [x2, y2] = a[i];
-            const dx = x2 - x1, dy = y2 - y1;
-            const t = dx || dy ? Math.max(0, Math.min(1, ((x - x1) * dx + (y - y1) * dy) / (dx * dx + dy * dy))) : 0;
-            minimo = Math.min(minimo, Math.hypot(x - x1 - t * dx, y - y1 - t * dy));
-        }
-    }
-    return minimo;
-}
-
-// Lugar del rótulo: punto interior más alejado del borde, buscado en una grilla y refinado una vez.
-function lugarRotulo(d) {
-    const anillos = anillosDePath(d);
-    const todos = anillos.flat();
-    let [x0, y0, x1, y1] = [Math.min(...todos.map((p) => p[0])), Math.min(...todos.map((p) => p[1])),
-        Math.max(...todos.map((p) => p[0])), Math.max(...todos.map((p) => p[1]))];
-    let mejor = null;
-    for (let ronda = 0; ronda < 2; ronda++) {
-        const n = 24, px = (x1 - x0) / n, py = (y1 - y0) / n;
-        for (let i = 0; i <= n; i++) {
-            for (let j = 0; j <= n; j++) {
-                const x = x0 + i * px, y = y0 + j * py;
-                if (!dentroDe(x, y, anillos)) continue;
-                const dist = distanciaBorde(x, y, anillos);
-                if (!mejor || dist > mejor.dist) mejor = { x, y, dist };
-            }
-        }
-        if (!mejor) break;
-        [x0, y0, x1, y1] = [mejor.x - px, mejor.y - py, mejor.x + px, mejor.y + py];
-    }
-    return mejor ?? { x: (x0 + x1) / 2, y: (y0 + y1) / 2 };
-}
-
-function lineasRotulo(nombre) {
-    if (nombre.length <= 14) return [nombre];
-    const medio = nombre.length / 2;
-    const espacios = [...nombre.matchAll(/ /g)].map((m) => m.index);
-    const corte = espacios.reduce((a, b) => (Math.abs(b - medio) < Math.abs(a - medio) ? b : a), espacios[0]);
-    return [nombre.slice(0, corte), nombre.slice(corte + 1)];
-}
-
-function crearMapaBase(id, etiqueta) {
-    const [x0, y0, ancho, alto] = datos.geo.viewBox;
-    const lienzo = svg('svg', { viewBox: `${x0} ${y0} ${ancho} ${alto}`, role: 'img', class: 'mapa__svg', 'aria-label': etiqueta });
-    const defs = svg('defs');
-    const filtro = svg('filter', { id: `brillo-${id}`, x: '-50%', y: '-50%', width: '200%', height: '200%' });
-    filtro.append(svg('feGaussianBlur', { stdDeviation: 22, result: 'difuso' }));
-    const mezcla = svg('feMerge');
-    mezcla.append(svg('feMergeNode', { in: 'difuso' }), svg('feMergeNode', { in: 'SourceGraphic' }));
-    filtro.append(mezcla);
-    defs.append(filtro);
-    lienzo.append(defs);
-    if (datos.geo.rio) lienzo.append(svg('path', { d: datos.geo.rio, class: 'mapa__rio' }));
-    lienzo.append(svg('path', { d: datos.geo.distrito, class: 'mapa__distrito' }));
-    const barrios = svg('g', { class: 'mapa__barrios' });
-    const porNombre = new Map();
-    for (const b of datos.geo.barrios) {
-        const p = svg('path', { d: b.d, class: 'mapa__barrio', 'fill-rule': 'evenodd' });
-        p.dataset.barrio = b.nombre;
-        p.dataset.clave = b.clave;
-        barrios.append(p);
-        porNombre.set(b.nombre, p);
-    }
-    lienzo.append(barrios);
-    $(id).replaceChildren(lienzo);
-    // Zoom: parte del encuadre que fija el visor (zona elegida o todo el distrito) y «reiniciar» vuelve a él.
-    const mapa = { lienzo, barrios: porNombre, filtro: `url(#brillo-${id})`, marco: datos.geo.viewBox, marcoTexto: datos.geo.viewBox.join(' ') };
-    mapa.zoom = habilitarZoom(lienzo, () => mapa.marco);
-    mapa.fijarMarco = (marco) => {
-        const texto = marco.join(' ');
-        if (texto === mapa.marcoTexto) return;
-        mapa.marco = marco;
-        mapa.marcoTexto = texto;
-        mapa.zoom.reiniciar();
-    };
-    agregarControles($(id), mapa.zoom, () => [...($(id).closest('.vista__cuerpo')?.querySelectorAll('.vista__lateral .leyenda') ?? [])]);
-    return mapa;
-}
-
-// Mapa con las zonas municipales y un punto por mesa alrededor de cada local. Lo usan el mapa de mesas y el de
-// voto cruzado de «Intendente vs Junta»; alElegir recibe la clave del local tocado.
-function crearMapaConMesas(id, etiqueta, alElegir) {
-    const mapa = crearMapaBase(id, etiqueta);
-    const zonas = svg('g', { class: 'mapa__zonas' });
-    const rotulos = svg('g', { class: 'mapa__rotulos' });
-    for (const z of datos.geo.zonas_municipales) {
-        const contorno = svg('path', { d: z.d, class: 'mapa__zona', 'fill-rule': 'evenodd' });
-        contorno.dataset.zonaMunicipal = z.numero;
-        zonas.append(titulo(contorno, `Zona municipal ${z.numero}: ${z.nombre}`));
-        const { x, y } = lugarRotulo(z.d);
-        const lineas = lineasRotulo(z.nombre);
-        const texto = svg('text', { x: Math.round(x), y: Math.round(y - ((lineas.length - 1) * 440) / 2), 'text-anchor': 'middle',
-            'dominant-baseline': 'middle', class: 'mapa__rotulo' });
-        texto.dataset.zonaMunicipal = z.numero;
-        lineas.forEach((linea, k) => {
-            const tramo = svg('tspan', { x: Math.round(x), dy: k ? 440 : 0 });
-            tramo.textContent = linea;
-            texto.append(tramo);
-        });
-        rotulos.append(texto);
-    }
-    const halos = svg('g', { class: 'mapa__halos' });
-    const puntos = svg('g', { class: 'mapa__puntos', filter: mapa.filtro });
-    const toques = svg('g', { class: 'mapa__toques' });
-    const porLocal = new Map();
-    for (const f of datos.filas) {
-        if (!porLocal.has(f.clave)) porLocal.set(f.clave, []);
-        porLocal.get(f.clave).push(f);
-    }
-    mapa.puntos = [];
-    mapa.radioLocal = new Map();
-    mapa.radio = PUNTO_M;
-    // Cada punto es un trazado: círculo, rombo o cuadrado (formaPunto), con el radio del zoom actual.
-    const lugar = new Map();
-    mapa.formaPunto = (punto, forma) => {
-        if (punto.dataset.forma === forma) return;
-        punto.dataset.forma = forma;
-        const [x, y] = lugar.get(punto);
-        punto.setAttribute('d', simbolo(x, y, mapa.radio, forma));
-    };
-    for (const [clave, filas] of porLocal) {
-        const info = datos.infoLocal.get(clave);
-        filas.forEach((f, k) => {
-            const angulo = k * 2.399963;
-            const radio = ESPIRAL_M * Math.sqrt(k + 0.5);
-            const x = Math.round(info.x + radio * Math.cos(angulo)), y = Math.round(info.y + radio * Math.sin(angulo));
-            const punto = svg('path', { d: simbolo(x, y, PUNTO_M, 'circulo'), class: 'mapa__mesa' });
-            lugar.set(punto, [x, y]);
-            punto.dataset.forma = 'circulo';
-            punto.dataset.i = f.i;
-            punto.dataset.local = clave;
-            punto.dataset.zona = f.zona;
-            punto.dataset.zm = f.zonaMunicipal ?? '';
-            puntos.append(punto);
-            mapa.puntos.push(punto);
-        });
-        const radio = Math.max(120, ESPIRAL_M * Math.sqrt(filas.length) + PUNTO_M + 40);
-        mapa.radioLocal.set(clave, radio);
-        // Modo Zona TSJE: el halo lleva el color de la zona y los puntos conservan el de su lista.
-        const halo = svg('circle', { cx: info.x, cy: info.y, r: radio, class: 'mapa__halo', fill: COLORES_ZONA[info.zona], stroke: COLORES_ZONA[info.zona] });
-        halo.dataset.zona = info.zona;
-        halo.dataset.zm = info.zona_municipal ?? '';
-        halos.append(halo);
-        const toque = svg('circle', { cx: info.x, cy: info.y, r: radio, class: 'mapa__toque' });
-        toque.dataset.local = clave;
-        toques.append(titulo(toque, `${info.nombre} · ${filas.length} mesas · zona TSJE ${info.zona_nombre}`));
-    }
-    mapa.lienzo.append(zonas, rotulos, halos, puntos, toques, svg('g', { class: 'mapa__ranking' }));
-    // Al acercar, el radio de los puntos de mesa crece menos que el mapa: se separan y se distinguen.
-    mapa.lienzo.addEventListener('zoommapa', (evento) => {
-        const r = Math.round((10 * PUNTO_M) / Math.sqrt(evento.detail.factor)) / 10;
-        if (r === mapa.radio) return;
-        mapa.radio = r;
-        mapa.lienzo.dataset.radioPunto = String(r);
-        for (const punto of mapa.puntos) {
-            const [x, y] = lugar.get(punto);
-            punto.setAttribute('d', simbolo(x, y, r, punto.dataset.forma));
-        }
-    });
-    mapa.lienzo.addEventListener('click', (evento) => {
-        const local = evento.target.closest('[data-local]')?.dataset.local;
-        if (local) alElegir(local, mapa.lienzo);
-    });
-    return mapa;
-}
+const crearMapaBase = (id, etiqueta) => mapaBase(datos, id, etiqueta);
+const crearMapaConMesas = (id, etiqueta, alElegir) => mapaConMesas(datos, id, etiqueta, alElegir);
 
 function crearMapaMesas() {
     datos.mapas.mesas = crearMapaConMesas('mapa', 'Mapa de Asunción con las zonas municipales y un punto por mesa alrededor de cada local de votación',
         seleccionarLocal);
     datos.puntos = datos.mapas.mesas.puntos;
 }
-
-function encuadre() {
-    let xs, ys;
-    if (estado.zonaMunicipal !== null) {
-        const puntos = anillosDePath(datos.zonaMunicipalPor.get(estado.zonaMunicipal).d).flat();
-        xs = puntos.map((p) => p[0]);
-        ys = puntos.map((p) => p[1]);
-    } else if (estado.zona !== null) {
-        const locales = [...datos.infoLocal.values()].filter((x) => x.zona === estado.zona);
-        xs = locales.map((x) => x.x);
-        ys = locales.map((x) => x.y);
-    } else {
-        return datos.geo.viewBox;
-    }
-    const margenM = estado.zonaMunicipal !== null ? 350 : 700;
-    let [x0, y0, x1, y1] = [Math.min(...xs) - margenM, Math.min(...ys) - margenM, Math.max(...xs) + margenM, Math.max(...ys) + margenM];
-    const [, , ancho, alto] = datos.geo.viewBox;
-    const proporcion = ancho / alto;
-    if ((x1 - x0) / (y1 - y0) < proporcion) {
-        const extra = (y1 - y0) * proporcion - (x1 - x0);
-        x0 -= extra / 2; x1 += extra / 2;
-    } else {
-        const extra = (x1 - x0) / proporcion - (y1 - y0);
-        y0 -= extra / 2; y1 += extra / 2;
-    }
-    return [Math.round(x0), Math.round(y0), Math.round(x1 - x0), Math.round(y1 - y0)];
-}
-
-// forma: la del símbolo en el mapa (círculo por omisión); el nombre de la lista siempre va en el texto.
-function itemLeyenda(color, texto, extra, forma) {
-    const li = el('li');
-    const muestra = el('span', `leyenda__muestra${extra ? ` ${extra}` : ''}${forma && forma !== 'circulo' ? ` leyenda__muestra--${forma}` : ''}`);
-    if (color) muestra.style.background = color;
-    li.append(muestra, el('span', null, texto));
-    return li;
-}
+const encuadre = () => encuadreDe(datos, estado);
 
 function renderMapaMesas() {
     const c = datos.mesas.cargos[estado.cargo];
@@ -637,66 +142,7 @@ function renderMapaMesas() {
         'Los contornos rotulados son las 6 zonas municipales oficiales (Municipalidad de Asunción), que no coinciden con las 6 zonas ' +
         'electorales del TSJE de las actas: por ejemplo, Zeballos Cué (TSJE) queda dentro de Santísima Trinidad (municipal). Tocá un local para ver sus cifras.';
 }
-
-// Agregados por barrio (lugar de los locales) para el cargo elegido.
-function agregadosBarrio() {
-    const porBarrio = new Map();
-    for (const f of datos.filas) {
-        if (!f.barrio) continue;
-        if (!porBarrio.has(f.barrio)) porBarrio.set(f.barrio, []);
-        porBarrio.get(f.barrio).push(f.i);
-    }
-    return new Map([...porBarrio].map(([b, idx]) => [b, sumar(idx, estado.cargo)]));
-}
-
-// Los mapas no tienen fondo propio: se dibujan sobre la tarjeta. Los coropléticos mezclan el color con la superficie
-// del tema activo (claro u oscuro) y la leyenda usa el mismo tono; al cambiar el tema se vuelven a pintar.
-const aRgb = (hex) => {
-    const n = parseInt(hex.trim().slice(1), 16);
-    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
-};
-const aHex = (canales) => `#${canales.map((v) => Math.round(v).toString(16).padStart(2, '0')).join('')}`;
-let paletaTema = null;
-
-function paleta() {
-    const tema = document.documentElement.dataset.theme;
-    if (paletaTema?.tema === tema) return paletaTema;
-    const css = getComputedStyle(document.documentElement);
-    const leer = (nombre, defecto) => aRgb(css.getPropertyValue(nombre).trim() || defecto);
-    const fondo = leer('--surface-solid', '#ffffff');
-    const suave = leer('--text-muted', '#64748b');
-    // Barrio sin dato: gris tenue del tema, el mismo que .leyenda__muestra--vacio en resultados.css.
-    paletaTema = { tema, fondo, sinDatos: aHex(fondo.map((v, k) => v + 0.18 * (suave[k] - v))) };
-    return paletaTema;
-}
-
-function mezclar(hex, alfa) {
-    const { fondo } = paleta();
-    return aHex(aRgb(hex).map((v, k) => fondo[k] + alfa * (v - fondo[k])));
-}
-
-function escala(valores, pasos = 5) {
-    const min = Math.min(...valores), max = Math.max(...valores);
-    const ancho = (max - min) / pasos || 1;
-    const cortes = Array.from({ length: pasos + 1 }, (_, i) => min + i * ancho);
-    return { cortes, clase: (v) => Math.min(pasos - 1, Math.floor((v - min) / ancho)) };
-}
-
-// Quintiles: cinco grupos con (casi) la misma cantidad de barrios; útil para distribuciones muy asimétricas.
-function cuantiles(valores, pasos = 5) {
-    const orden = [...valores].sort((a, b) => a - b);
-    const cortes = Array.from({ length: pasos + 1 }, (_, k) => orden[Math.round((k * (orden.length - 1)) / pasos)]);
-    const clase = (v) => {
-        let k = 0;
-        while (k < pasos - 1 && v > cortes[k + 1]) k += 1;
-        return k;
-    };
-    return { cortes, clase };
-}
-
-function opacidadPaso(paso, pasos = 5) {
-    return 0.28 + (0.7 * paso) / (pasos - 1);
-}
+const agregadosBarrio = () => agregadosDe(datos, estado.cargo);
 
 function prepararMapaBarrios(clave, id, etiqueta) {
     if (datos.mapas[clave]) return datos.mapas[clave];
@@ -708,22 +154,8 @@ function prepararMapaBarrios(clave, id, etiqueta) {
     datos.mapas[clave] = mapa;
     return mapa;
 }
-
-function pintarBarrio(path, nombre, color, opacidad, texto) {
-    path.setAttribute('fill', color ? mezclar(color, opacidad) : paleta().sinDatos);
-    path.classList.toggle('es-seleccion', nombre === estado.barrio);
-    path.replaceChildren();
-    titulo(path, texto);
-}
-
-function textoBarrio(nombre, total) {
-    const b = datos.barrioPor.get(nombre);
-    const poblacion = b?.poblacion_2022 ? ` · población 2022: ${fmt.format(b.poblacion_2022)}` : '';
-    if (!total) return `${nombre}: sin locales de votación${poblacion}`;
-    const j = ganador(total.votos);
-    const lider = j === null ? 'empate' : `${datos.listas[estado.cargo][j].sigla} ${pct.format((100 * total.votos[j]) / total.listas)} %`;
-    return `${nombre}: ${lider} · ${fmt.format(total.emitidos)} emitidos · participación ${pct.format(participacion(total))} %${poblacion}`;
-}
+const pintarBarrio = (path, nombre, color, opacidad, texto) => pintar(path, color, opacidad, texto, nombre === estado.barrio);
+const textoBarrio = (nombre, total) => textoDeBarrio(datos, nombre, total, estado.cargo);
 
 function renderMapaBarrios() {
     const mapa = prepararMapaBarrios('barrios', 'mapaBarrios', 'Barrios de Asunción coloreados por la lista más votada en sus locales');
@@ -910,25 +342,8 @@ function renderMapaIpm() {
         `${estado.cargo === '1' ? 'Intendencia' : 'Junta Municipal'} y tamaño según sus electores. Es una comparación entre agregados: no muestra ` +
         'cómo votaron las personas en situación de pobreza ni ningún otro grupo, y el barrio del local no es necesariamente el de residencia de sus electores.';
 }
-
-// Unidades para histograma y tabla; el margen se calcula con sumas de votos, no con promedios.
-function unidades(tipo) {
-    const grupos = new Map();
-    const agregar = (clave, fila, datosGrupo) => {
-        if (!grupos.has(clave)) grupos.set(clave, { ...datosGrupo, indices: [] });
-        grupos.get(clave).indices.push(fila.i);
-    };
-    for (const f of datos.filas) {
-        if (!enZona(f)) continue;
-        const info = datos.infoLocal.get(f.clave);
-        if (tipo === 'mesa') agregar(`${f.clave}-${f.mesa}`, f, { nombre: `${info.nombre} · mesa ${f.mesa}`, zona: f.zona, local: f.clave, barrio: info.barrio });
-        if (tipo === 'local') agregar(f.clave, f, { nombre: info.nombre, zona: f.zona, local: f.clave, barrio: info.barrio });
-        if (tipo === 'barrio') agregar(info.barrio ?? 'Sin barrio', f, { nombre: info.barrio ?? 'Sin barrio', barrioClave: info.barrio });
-        if (tipo === 'zona') agregar(String(f.zona), f, { nombre: datos.resumen.zonas[f.zona], zona: f.zona });
-        if (tipo === 'zona_municipal') agregar(String(f.zonaMunicipal), f, { nombre: datos.resumen.zonas_municipales[f.zonaMunicipal] ?? 'Sin zona' });
-    }
-    return [...grupos.values()].map((g) => ({ ...g, total: sumar(g.indices, estado.cargo) }));
-}
+// Unidades para histograma y tabla, con el filtro de zona del visor.
+const unidades = (tipo) => unidadesDe(datos, tipo, estado.cargo, enZona);
 
 const NOMBRES_UNIDAD = { mesa: ['mesa', 'mesas'], local: ['local', 'locales'], barrio: ['barrio', 'barrios'] };
 
@@ -1179,13 +594,18 @@ function renderVista() {
     actualizarEnlace();
 }
 
-// --- Enlace compartible: el estado va en el hash (#cargo=1&vista=mapa&local=…) -------------------------
+// --- Enlace compartible: el estado va en el hash (#eleccion=municipales&anio=2026&cargo=intendencia&vista=mapa&local=…) ---
+
+// Cargo del visor ('1', '2' o 'c' para el voto cruzado) ↔ valor del hash (intendencia | junta).
+const CARGO_HASH = { 1: 'intendencia', 2: 'junta' };
 
 let enlaceListo = false;  // La carga no escribe el hash: la dirección queda limpia hasta el primer cambio.
 
 function parametrosEnlace() {
-    const p = new URLSearchParams({ cargo: estado.cargo });
+    const p = new URLSearchParams({ eleccion: datos.contexto.eleccion.id, anio: String(datos.contexto.anio.anio),
+                                    cargo: CARGO_HASH[estado.cargo] ?? 'intendencia', modo: 'informe' });
     if (estado.cargo === 'c') {
+        p.set('analisis', 'voto-cruzado');
         const ivj = datos.ivj.estadoEnlace();
         p.set('grupo', ivj.grupo);
         p.set('metrica', ivj.metrica);
@@ -1201,19 +621,36 @@ function parametrosEnlace() {
     return p;
 }
 
-// Sin entradas nuevas en el historial: cada cambio reemplaza la dirección actual.
+// «Ver el tablero»: el mismo cargo, zona y local o barrio, con la capa que corresponde a la pestaña abierta.
+const VISTA_A_CAPA = { mapa: 'lista', barrios: 'lista', listas: 'listas', participacion: 'participacion', ipm: 'ipm', margen: 'margen', tablas: 'lista' };
+const CAPA_A_VISTA = { lista: 'mapa', listas: 'listas', participacion: 'participacion', margen: 'margen', ipm: 'ipm', zona: 'mapa' };
+
+function actualizarEnlaceTablero() {
+    const p = parametrosEnlace();
+    const capa = estado.cargo === 'c' ? 'lista' : estado.vista === 'mapa' && estado.colorMapa === 'zona' ? 'zona' : VISTA_A_CAPA[estado.vista];
+    const t = new URLSearchParams({ eleccion: p.get('eleccion'), anio: p.get('anio'), cargo: p.get('cargo'), capa });
+    for (const clave of estado.cargo === 'c' ? ['zona_municipal', 'zona'] : ['zona_municipal', 'zona', 'barrio', 'local']) {
+        if (p.has(clave)) t.set(clave, p.get(clave));
+    }
+    $('enlaceTablero').href = `#${t}`;
+}
+
+// El estado compartido (shell.js) escribe el hash con history.replaceState: sin entradas nuevas en el historial.
 function actualizarEnlace() {
+    actualizarEnlaceTablero();
     if (!enlaceListo) return;
-    const hash = `#${parametrosEnlace()}`;
-    if (hash !== location.hash) history.replaceState(null, '', `${location.pathname}${location.search}${hash}`);
+    compartido.reemplazar(Object.fromEntries(parametrosEnlace()), 'visor');
 }
 
 // Aplica el hash al estado; los valores que no existen en los datos se ignoran y quedan los de omisión.
 function leerEnlace() {
     const p = new URLSearchParams(location.hash.slice(1));
     const de = (objeto, clave) => (clave !== null && /^\d+$/.test(clave) && Object.hasOwn(objeto, clave) ? Number(clave) : null);
-    estado.cargo = ['1', '2', 'c'].includes(p.get('cargo')) ? p.get('cargo') : '1';
-    estado.vista = VISTAS.includes(p.get('vista')) ? p.get('vista') : 'mapa';
+    // También acepta los valores viejos (1, 2 y c) por si llega un enlace sin pasar por la redirección.
+    const cargo = p.get('cargo');
+    estado.cargo = p.get('analisis') === 'voto-cruzado' || cargo === 'c' ? 'c' : cargo === 'junta' || cargo === '2' ? '2' : '1';
+    estado.vista = VISTAS.includes(p.get('vista')) ? p.get('vista') : CAPA_A_VISTA[p.get('capa')] ?? 'mapa';
+    if (!p.has('vista') && p.get('capa') === 'zona') estado.colorMapa = 'zona';
     estado.zonaMunicipal = de(datos.resumen.zonas_municipales, p.get('zona_municipal'));
     estado.zona = estado.zonaMunicipal === null ? de(datos.resumen.zonas, p.get('zona')) : null;
     const local = p.get('local'), barrio = p.get('barrio');
@@ -1251,7 +688,8 @@ async function compartirEnlace(aviso) {
 }
 
 function renderTodo() {
-    marcarPestanas(document.querySelector('.selector-cargo'), (boton) => boton.dataset.cargo === estado.cargo);
+    // El cargo lo elige la barra de contexto (shell.js); el voto cruzado tiene su propio botón en el visor.
+    $('cargo-c').setAttribute('aria-pressed', String(estado.cargo === 'c'));
     // «Intendente vs Junta» reemplaza al panel de resultado y a los gráficos mientras está elegida.
     const intendenteJunta = estado.cargo === 'c';
     $('panelIvj').hidden = !intendenteJunta;
@@ -1382,48 +820,14 @@ function seleccionarBarrio(nombre, referencia) {
 
 function renderFijos() {
     const r = datos.resumen;
-    const faltan = r.cobertura.faltantes.map((f) => {
-        const info = datos.infoLocal.get(datos.claveLocal(f.zona, f.local));
-        return `mesa ${f.mesa} de ${info ? info.nombre : `local ${f.local}`} (zona ${f.zona}), ${f.estado}`;
-    });
     $('resumenLead').textContent = `Corte del ${new Date(`${r.eleccion.corte}T12:00:00`).toLocaleDateString('es-PY', { day: 'numeric', month: 'long', year: 'numeric' })}. ` +
         `${fmt.format(r.cobertura.mesas_con_acta)} de ${fmt.format(r.cobertura.mesas_esperadas)} mesas con acta en ${fmt.format(datos.infoLocal.size)} locales de votación. ` +
         `Participación: ${pct.format(100 * r.electores.participacion)} %.`;
     $('avisoTrep').textContent = r.eleccion.aviso;
     for (const [codigo, nombre] of Object.entries(r.zonas_municipales)) $('opcionesMunicipales').append(new Option(`${codigo} · ${nombre}`, `m${codigo}`));
     for (const [codigo, nombre] of Object.entries(r.zonas)) $('opcionesTsje').append(new Option(`${codigo} · ${nombre}`, `t${codigo}`));
-    const noDisponible = $('noDisponible');
-    const titulos = { pobreza_monetaria_por_barrio: 'Pobreza monetaria por barrio', historial_2021: 'Comparación histórica' };
-    for (const [clave, motivo] of Object.entries(r.no_disponible)) {
-        const card = el('details', 'info-card info-card--no-disponible plegable');
-        card.dataset.vista = clave;
-        const resumen = el('summary');
-        resumen.append(el('span', 'info-card__estado', 'No disponible'), el('h2', null, titulos[clave] ?? clave));
-        card.append(resumen, el('p', null, motivo));
-        noDisponible.append(card);
-    }
-    const fotos = datos.listas['1'].filter((x) => x.foto).length + datos.cand.bancas.electos.filter((e) => e.foto).length;
-    const items = [
-        ['Votos', `${r.eleccion.fuente}. Etapa ${r.eleccion.etapa}, corte ${r.eleccion.corte}. ${r.eleccion.corte_base}`],
-        ['Cobertura', `${fmt.format(r.cobertura.mesas_con_acta)} de ${fmt.format(r.cobertura.mesas_esperadas)} mesas por cargo` + (faltan.length ? `. Sin acta: ${faltan.join('; ')}.` : '.')],
-        ['Electores', `${r.electores.fuente}. ${r.electores.nota}`],
-        ['Locales', 'Nombre, dirección y ubicación de cada local según el catálogo de locales del padrón; sin datos de personas.'],
-        ['Mapas', datos.geo.atribucion],
-        ['Bancas', `${datos.cand.bancas.metodo}. ${datos.cand.bancas.nota}`],
-        ['Pobreza multidimensional', `${datos.ipm.fuente}. Cada barrio se une a su polígono por la clave CLAVE_BAR del INE. ` +
-            'Ñu Guasú no tiene población (parque nacional).'],
-        ['Candidaturas', `Listas según las actas; nombres en boleta, personas electas y ${fotos} fotos de una referencia pública. ` +
-            `${datos.cand.derechos_fotos.atribucion ?? ''} Derechos: ${datos.cand.derechos_fotos.base ?? datos.cand.derechos_fotos.estado}`],
-        ['Cálculo', 'Emitidos = votos a listas + blancos + nulos + no computados, verificado en cada acta. Los cargos no se suman entre sí.'],
-        ['Procedencia', `SHA-256 de cada acta en datos/procedencia.json. Generado ${r.eleccion.generado_utc}.`],
-    ];
-    const dl = el('dl', 'fuentes__lista');
-    for (const [tituloItem, texto] of items) {
-        const grupo = el('div');
-        grupo.append(el('dt', null, tituloItem), el('dd', null, texto));
-        dl.append(grupo);
-    }
-    $('fuentes').replaceChildren(dl);
+    renderNoDisponible(datos);
+    renderFuentes(datos);
 }
 
 // Secciones plegables: cerradas en celular y abiertas en escritorio, donde no se pliegan (se ven como antes).
@@ -1436,16 +840,19 @@ function prepararPlegables() {
     ajustar();
 }
 
-// Barra fija (celular y tablet): las pestañas de gráficos se pegan debajo del selector de cargo, que mide --alto-barra.
-function medirBarra() {
-    const barra = document.querySelector('.selector-cargo');
-    new ResizeObserver(() => $('visor').style.setProperty('--alto-barra', `${Math.ceil(barra.getBoundingClientRect().height)}px`)).observe(barra);
-}
-
 function eventos() {
-    for (const boton of document.querySelectorAll('[data-cargo]')) {
-        boton.addEventListener('click', () => { estado.cargo = boton.dataset.cargo; estado.orden = null; renderTodo(); });
-    }
+    // Voto cruzado: entra y sale con su botón; la barra de contexto elige Intendencia o Junta (y sale del voto cruzado).
+    $('cargo-c').addEventListener('click', () => {
+        estado.cargo = estado.cargo === 'c' ? (compartido.obtener('cargo') === 'junta' ? '2' : '1') : 'c';
+        estado.orden = null;
+        renderTodo();
+    });
+    compartido.suscribir(({ cambiadas, origen }) => {
+        if (origen !== 'barra' || !cambiadas.has('cargo')) return;
+        estado.cargo = compartido.obtener('cargo') === 'junta' ? '2' : '1';
+        estado.orden = null;
+        renderTodo();
+    });
     for (const boton of document.querySelectorAll('#pestanas [data-vista]')) {
         boton.addEventListener('click', () => { estado.vista = boton.dataset.vista; renderVista(); });
     }
@@ -1509,7 +916,6 @@ function eventos() {
         renderTodo();
     });
     $('filtroTabla').addEventListener('input', (evento) => { estado.filtro = evento.target.value; renderTabla(); });
-    pestanasConTeclado(document.querySelector('.selector-cargo'));
     pestanasConTeclado($('pestanas'));
     $('copiarEnlace').addEventListener('click', () => compartirEnlace($('avisoEnlace')));
     $('fichaEnlace').addEventListener('click', () => compartirEnlace($('fichaAviso')));
@@ -1528,12 +934,14 @@ function eventos() {
     });
 }
 
-async function iniciar() {
+// La llama inicio.js con la fuente de la sección; por ahora la vista informe solo existe para el TREP.
+export async function iniciar({ fuente = 'trep' } = {}) {
     const visor = $('visor');
     try {
-        const [resumen, mesas, locales, geo, cand, ipm] = await Promise.all(
-            ['resumen.json', 'mesas.json', 'locales.json', 'geo.json', 'candidaturas.json', 'indicadores_barrios.json'].map(cargar));
-        datos = construirModelo(resumen, mesas, locales, geo, cand, ipm);
+        const pedido = new URLSearchParams(location.hash.slice(1));
+        const { datos: modelo } = await cargarModelo({ eleccion: pedido.get('eleccion'), anio: pedido.get('anio') }, fuente);
+        if (!modelo) throw new Error('Los resultados de esta fuente aún no están publicados.');
+        datos = modelo;
         ficha = crearFicha();
         // Al pasar a escritorio (tablet que gira, ventana que se agranda) la ficha se cierra: allí se usa el panel.
         PANTALLA_ANGOSTA.addEventListener('change', () => { if (!usarFicha()) ficha.cerrar({ devolverFoco: false }); });
@@ -1541,12 +949,12 @@ async function iniciar() {
                                                   alCambiar: () => actualizarEnlace() });
         renderFijos();
         prepararPlegables();
-        medirBarra();
         crearMapaMesas();
         eventos();
         leerEnlace();
         renderTodo();
         enlaceListo = true;
+        await shellListo;  // La barra de contexto (cargos y estado de la fuente) también está lista.
         vigilarDesplazables();
         visor.dataset.listo = 'true';
     } catch (error) {
@@ -1559,5 +967,3 @@ async function iniciar() {
         visor.setAttribute('aria-busy', 'false');
     }
 }
-
-iniciar();

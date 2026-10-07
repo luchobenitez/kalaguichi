@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="es" data-theme="light">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="description" content="Kalaguichi.com: gráficos de análisis de los resultados electorales.">
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="referrer" content="no-referrer">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; connect-src 'self'; style-src 'self'; img-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+    <link rel="icon" href="../assets/img/kalaguichi-isotipo.svg" type="image/svg+xml">
+    <meta name="color-scheme" content="light dark">
+    <title>Kalaguichi.com · Análisis · Municipales 2026 en Asunción</title>
+    <link rel="stylesheet" href="../assets/css/shell.css">
+    <link rel="stylesheet" href="../assets/css/resultados.css">
+    <link rel="stylesheet" href="../assets/css/analisis.css">
+    <script type="module" src="../assets/js/sitio.js"></script>
+    <script type="module" src="../assets/js/shell.js"></script>
+    <script type="module" src="../assets/js/analisis/analisis.js"></script>
+</head>
+
+<body>
+<noscript>Los análisis necesitan JavaScript para leer las actas por mesa.</noscript>
+<div class="app-shell">
+    <div class="background-grid" aria-hidden="true"></div>
+    <div class="ambient-glow ambient-glow--orange" aria-hidden="true"></div>
+    <div class="ambient-glow ambient-glow--blue" aria-hidden="true"></div>
+
+    <header class="site-header">
+        <div class="site-header__inner">
+            <a href="../" class="brand">
+                <span class="brand__mark">
+                    <img src="../assets/img/kalaguichi-isotipo.svg" alt="">
+                </span>
+
+                <span class="brand__text">
+                    <strong>Kalaguichi.com</strong>
+                    <small>Análisis</small>
+                </span>
+            </a>
+
+            <nav class="site-nav" aria-label="Secciones del sitio">
+                <a href="../padron/" data-seccion="padron"><svg class="site-nav__icono" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"></rect><circle cx="9" cy="11" r="2"></circle><path d="M6 16c.8-1.4 1.8-2 3-2s2.2.6 3 2M14 10h4M14 14h4"></path></svg><span class="site-nav__texto">Padrón electoral</span><span class="site-nav__corto" aria-hidden="true">Padrón</span></a>
+                <a href="../trep/" data-seccion="trep"><svg class="site-nav__icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h16"></path><path d="M7 16v-5M12 16V6M17 16V8"></path></svg><span class="site-nav__texto">TREP</span><span class="site-nav__corto" aria-hidden="true">TREP</span></a>
+                <a href="../oficiales/" data-seccion="oficiales"><svg class="site-nav__icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 12l2 2 4-4"></path><path d="M12 3l7 3v5c0 4.5-3 8.2-7 10-4-1.8-7-5.5-7-10V6l7-3Z"></path></svg><span class="site-nav__texto">Resultados oficiales</span><span class="site-nav__corto" aria-hidden="true">Oficiales</span></a>
+                <a href="../analisis/" data-seccion="analisis" aria-current="page"><svg class="site-nav__icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5M4 19h16"></path><path d="M7 15l4-5 3 3 5-6"></path></svg><span class="site-nav__texto">Análisis</span><span class="site-nav__corto" aria-hidden="true">Análisis</span></a>
+                <a href="../acerca/" data-seccion="acerca"><svg class="site-nav__icono" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 11v5M12 8h.01"></path></svg><span class="site-nav__texto">Acerca de</span><span class="site-nav__corto" aria-hidden="true">Acerca</span></a>
+            </nav>
+
+            <div class="site-header__acciones">
+                <button id="compartir" type="button" class="theme-toggle" aria-label="Compartir esta página" title="Compartir esta página">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                        <circle cx="18" cy="5" r="2.5"></circle><circle cx="6" cy="12" r="2.5"></circle><circle cx="18" cy="19" r="2.5"></circle>
+                        <path stroke-linecap="round" d="M8.2 10.8l7.6-4.4M8.2 13.2l7.6 4.4"></path>
+                    </svg>
+                </button>
+                <button
+                    id="themeToggle"
+                    type="button"
+                    class="theme-toggle"
+                    aria-label="Cambiar modo de visualización"
+                    title="Cambiar modo de visualización"
+                >
+                    <svg id="sunIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                        <circle cx="12" cy="12" r="4"></circle>
+                        <path stroke-linecap="round" d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path>
+                    </svg>
+
+                    <svg id="moonIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"></path>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </header>
+    <div class="barra-contexto" id="barraContexto" data-fuente="elegible">
+        <div class="barra-contexto__inner">
+            <nav class="barra-contexto__ruta" aria-label="Elección y año">
+                <span class="barra-contexto__paso" data-contexto="eleccion">Municipales</span>
+                <span class="barra-contexto__paso" data-contexto="anio">2026</span>
+            </nav>
+            <div class="selector-cargo" role="tablist" aria-label="Cargo" id="selectorCargo"></div>
+            <p class="barra-contexto__fuente" id="estadoFuente" aria-live="polite"></p>
+        </div>
+    </div>
+    <p class="aviso-fuente" id="avisoFuente" hidden></p>
+
+    <main class="analisis" id="analisis" aria-busy="true">
+        <h1 class="visualmente-oculto" id="tituloPagina">Análisis · Municipales 2026 · Asunción</h1>
+        <p class="error-carga" id="errorCarga" role="alert" hidden></p>
+
+        <aside class="analisis__catalogo" aria-labelledby="tituloCatalogo">
+            <h2 id="tituloCatalogo">Análisis</h2>
+            <label class="campo-select analisis__elegir" for="elegirAnalisis">
+                Elegí un análisis
+                <select id="elegirAnalisis"></select>
+            </label>
+            <ul class="catalogo" id="catalogo"></ul>
+            <div class="analisis__fuente">
+                <p class="analisis__etiqueta" id="etiquetaFuente">Fuente de los datos</p>
+                <div class="segmentos" role="group" aria-labelledby="etiquetaFuente" id="selectorFuente">
+                    <button type="button" data-fuente="trep" aria-pressed="true">TREP</button>
+                    <button type="button" data-fuente="oficial" aria-pressed="false">Oficial</button>
+                </div>
+                <p class="nota" id="notaFuente"></p>
+            </div>
+            <label class="campo-select analisis__filtro" for="filtroGeo">
+                Zona o barrio
+                <select id="filtroGeo">
+                    <option value="">Toda Asunción</option>
+                </select>
+            </label>
+        </aside>
+
+        <section class="analisis__principal" aria-labelledby="tituloAnalisis">
+            <div class="analisis__cabecera">
+                <div>
+                    <p class="panel__eyebrow" id="eyebrowAnalisis"></p>
+                    <h2 id="tituloAnalisis">Análisis</h2>
+                    <p class="panel__meta" id="metaAnalisis"></p>
+                </div>
+                <div class="analisis__acciones">
+                    <button type="button" class="boton-secundario" id="descargarCsv">Descargar CSV</button>
+                    <button type="button" class="boton-secundario" id="descargarPng">Descargar gráfico (PNG)</button>
+                </div>
+            </div>
+            <div class="analisis__controles" id="controlesAnalisis"></div>
+            <div class="analisis__cuerpo" id="cuerpoAnalisis"></div>
+            <button type="button" class="boton-secundario analisis__ver-tabla" id="verTabla" aria-controls="hojaTabla" aria-expanded="false">Ver la tabla de datos</button>
+            <section class="analisis__tabla" id="hojaTabla" aria-labelledby="tituloTabla">
+                <div class="analisis__tabla-cabecera">
+                    <h3 id="tituloTabla">Tabla de datos</h3>
+                    <button type="button" class="boton-secundario analisis__cerrar-tabla" id="cerrarTabla">Cerrar</button>
+                </div>
+                <div id="tablaAnalisis"></div>
+            </section>
+        </section>
+
+        <aside class="analisis__lectura" aria-labelledby="tituloLectura">
+            <h2 id="tituloLectura">Cómo leer este análisis</h2>
+            <div id="lecturaAnalisis"></div>
+        </aside>
+    </main>
+
+    <footer class="site-footer">
+        <p>© <span id="currentYear"></span> Kalaguichi.com · Iniciativa independiente, no vinculada al TSJE.</p>
+        <p><a href="../padron/privacidad.html">Privacidad y límites de la consulta del padrón</a></p>
+    </footer>
+</div>
+
+<div class="ficha" id="ficha" role="dialog" aria-modal="false" aria-labelledby="fichaTitulo" hidden>
+    <div class="ficha__cabecera">
+        <div class="ficha__encabezado" aria-live="polite">
+            <p class="ficha__eyebrow" id="fichaEyebrow"></p>
+            <h2 class="ficha__titulo" id="fichaTitulo"></h2>
+            <p class="ficha__meta" id="fichaMeta"></p>
+        </div>
+        <button type="button" class="ficha__cerrar" id="fichaCerrar">Cerrar</button>
+    </div>
+    <div class="ficha__cuerpo" id="fichaCuerpo"></div>
+    <div class="ficha__acciones">
+        <button type="button" class="boton-secundario" id="fichaDetalle">Ver detalle</button>
+        <button type="button" class="boton-secundario" id="fichaEnlace">Copiar enlace</button>
+        <span class="aviso-enlace" id="fichaAviso" role="status" aria-live="polite"></span>
+    </div>
+</div>
+
+<!-- «Intendente vs Junta» (assets/js/analisis/voto_cruzado.js): las mismas piezas que en la vista informe del TREP. -->
+<template id="plantillaIvjControles">
+    <div class="ivj__controles">
+        <div class="segmentos" role="group" aria-label="Grupo">
+            <button type="button" data-ivj-grupo="L1" aria-pressed="true">Lista 1</button>
+            <button type="button" data-ivj-grupo="AL" aria-pressed="false">Alianza (L3 vs L2+L3)</button>
+            <button type="button" data-ivj-grupo="ambos" aria-pressed="false">Ambos</button>
+        </div>
+        <div class="segmentos" role="group" aria-label="Métrica">
+            <button type="button" data-ivj-metrica="votos" aria-pressed="true">Votos</button>
+            <button type="button" data-ivj-metrica="pct" aria-pressed="false">%</button>
+        </div>
+        <div class="segmentos" role="group" aria-label="Tipo de gráfico">
+            <button type="button" data-ivj-vista="divergentes" aria-pressed="true">Divergentes</button>
+            <button type="button" data-ivj-vista="agrupadas" aria-pressed="false">Agrupadas</button>
+        </div>
+        <label class="campo-buscar" for="buscarIvj">
+            <span>Buscar local</span>
+            <input type="search" id="buscarIvj" placeholder="Nombre del local" autocomplete="off">
+        </label>
+        <div hidden>
+            <button type="button" id="csvIvj">Descargar CSV</button>
+            <button type="button" id="pngIvj">Descargar gráfico (PNG)</button>
+        </div>
+    </div>
+</template>
+
+<template id="plantillaIvjCuerpo">
+    <p class="panel__meta" id="metaIvj"></p>
+    <div class="ivj__totales" id="totalesIvj"></div>
+    <h3 class="vista__titulo">Mapa: voto cruzado de la lista 1 a la lista 3</h3>
+    <div class="vista__cuerpo">
+        <div class="mapa" id="mapaIvj"></div>
+        <div class="vista__lateral">
+            <ul class="leyenda" id="leyendaMapaIvj"></ul>
+            <div class="ranking" id="rankingIvj"></div>
+            <p class="nota" id="notaMapaIvj"></p>
+        </div>
+    </div>
+    <div class="ivj__mesas" id="mesasIvj" hidden></div>
+    <h3 class="vista__titulo">Diferencia por local</h3>
+    <div class="ivj__movil" id="ivjMovil" hidden>
+        <div class="segmentos" role="group" aria-label="Grupo del gráfico" id="ivjAmbos" hidden>
+            <button type="button" data-ivj-ambos="L1" aria-pressed="true">Lista 1</button>
+            <button type="button" data-ivj-ambos="AL" aria-pressed="false">Alianza</button>
+        </div>
+        <button type="button" class="boton-secundario" id="ivjTodos" aria-pressed="false" aria-controls="graficosIvj">Ver todos los locales</button>
+    </div>
+    <div class="ivj__graficos" id="graficosIvj"></div>
+    <ul class="leyenda" id="leyendaIvj"></ul>
+</template>
+
+<template id="plantillaIvjTabla">
+    <h3 class="vista__titulo">Locales por tramo de diferencia (%)</h3>
+    <div class="tabla-scroll tabla-scroll--detalle">
+        <table class="tabla" id="tramosIvj"></table>
+    </div>
+    <h3 class="vista__titulo">Tabla por local</h3>
+    <div class="tabla-scroll">
+        <table class="tabla" id="tablaIvj">
+            <thead></thead>
+            <tbody></tbody>
+        </table>
+    </div>
+    <p class="nota" id="notaIvj"></p>
+</template>
+
+<template id="plantillaIvjLectura">
+    <p>Negativo: el candidato a Intendente obtuvo menos votos que su(s) lista(s) de Junta en el local (votantes de esa Junta que
+        eligieron otro Intendente o votaron en blanco o nulo). Positivo: el Intendente superó a su Junta.</p>
+    <p>Grupos: Lista 1 (Intendente L1 frente a Junta L1) y Alianza (Intendente L3 frente a Junta L2 + L3). En los datos, la
+        candidatura a Intendente de la Alianza figura como lista 4 (AJA): es la «Intendente L3».</p>
+    <p>El gráfico divergente muestra todos los locales ordenados por diferencia; el agrupado, los 20 más negativos con la Junta
+        apilada por lista. En celular se ven los 20 más negativos, con la opción de verlos todos.</p>
+    <p>Es una comparación entre totales de mesa: no identifica cómo votó cada persona.</p>
+</template>
+</body>
+</html>

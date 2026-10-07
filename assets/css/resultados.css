@@ -1,16 +1,5 @@
 /* Visor de resultados TREP 2026. Usa los tokens de padron.css y los componentes de sitio.css. */
 
-/* La barra fija de celular y tablet necesita que el contenedor de la página no sea un contenedor de desplazamiento:
-   overflow: clip recorta los brillos de fondo igual que hidden (que queda como respaldo). El encabezado del sitio
-   sigue sin quedar fijo, como hasta ahora en esta página. */
-.app-shell {
-    overflow: hidden;
-    overflow: clip;
-}
-
-.site-header {
-    position: relative;
-}
 
 .resultados {
     gap: 1.25rem;
@@ -33,7 +22,6 @@
     font-weight: 600;
 }
 
-.selector-cargo,
 .segmentos {
     display: inline-flex;
     flex-wrap: wrap;
@@ -45,7 +33,6 @@
     justify-self: start;
 }
 
-.selector-cargo button,
 .segmentos button {
     cursor: pointer;
     padding: .5rem 1rem;
@@ -56,13 +43,11 @@
     font-weight: 700;
 }
 
-.selector-cargo button[aria-selected="true"],
 .segmentos button[aria-pressed="true"] {
     background: var(--orange-500);
     color: #ffffff;
 }
 
-.selector-cargo button:focus-visible,
 .segmentos button:focus-visible,
 .ficha__cerrar:focus-visible,
 .pestanas button:focus-visible,
@@ -1539,6 +1524,33 @@ html[data-theme="dark"] .ficha .es-positiva {
     gap: .5rem;
 }
 
+@media (max-width: 640px) {
+    /* Encima de la barra inferior, más baja y compacta: deja a la vista más mapa. */
+    .ficha {
+        bottom: var(--alto-nav-inferior, 0px);
+        gap: .625rem;
+        max-height: min(48vh, 26rem);
+        padding-top: .875rem;
+    }
+
+    html.es-mapa-pantalla .ficha {
+        bottom: 0;
+    }
+}
+
+/* Botón del voto cruzado (Intendente vs Junta), propio del visor. */
+.visor__vistas {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem;
+}
+
+.visor__vistas .boton-secundario[aria-pressed="true"] {
+    border-color: var(--orange-500);
+    background: var(--orange-500);
+    color: #ffffff;
+}
+
 @media (min-width: 640px) {
     .ficha {
         right: auto;
@@ -1552,31 +1564,6 @@ html[data-theme="dark"] .ficha .es-positiva {
    fija: el selector queda pegado arriba en toda la página y las pestañas de gráficos debajo de él mientras se ven los
    gráficos. El fondo sólido (y una franja del color de la página alrededor) evita que el contenido se vea por detrás. */
 @media (max-width: 899px) {
-    .selector-cargo {
-        position: sticky;
-        top: 0;
-        z-index: 40;
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        width: 100%;
-        border-radius: 1rem;
-        background: var(--surface-solid);
-    }
-
-    .selector-cargo::before {
-        content: "";
-        position: absolute;
-        z-index: -1;
-        inset: -.5rem -1.5rem 0;
-        background: var(--page-bg);
-    }
-
-    .selector-cargo button {
-        border-radius: .75rem;
-        line-height: 1.2;
-        text-align: center;
-    }
-
     .pestanas {
         position: sticky;
         top: var(--alto-barra, 3.5rem);
@@ -1584,10 +1571,6 @@ html[data-theme="dark"] .ficha .es-positiva {
         background: var(--surface-solid);
     }
 
-    /* Destinos de «Ver detalle» y de los saltos internos: no quedan tapados por la barra fija. */
-    .resultados [id] {
-        scroll-margin-top: calc(var(--alto-barra, 3.5rem) + .75rem);
-    }
 }
 
 @media (min-width: 900px) {

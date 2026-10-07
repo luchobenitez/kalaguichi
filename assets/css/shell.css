@@ -1,0 +1,993 @@
+/* Estructura común de las cinco secciones y la portada (ADR-016): tokens de color (claro y oscuro), base,
+   encabezado con menú, compartir y tema, pie, portada y tarjetas, barra inferior en celular y barra de contexto
+   (Elección › Año › Cargo y estado de la fuente). Lo propio de cada sección va en su hoja: padron.css, resultados.css. */
+
+:root {
+    --page-bg: #f1f5f9;
+    --page-text: #0f172a;
+    --surface: rgba(255, 255, 255, 0.88);
+    --surface-solid: #ffffff;
+    --surface-soft: #f8fafc;
+    --header-bg: rgba(255, 255, 255, 0.78);
+    --border: rgba(148, 163, 184, 0.30);
+    --border-strong: #cbd5e1;
+    --text: #0f172a;
+    --text-soft: #475569;
+    --text-muted: #64748b;
+    --input-bg: #ffffff;
+    --input-text: #0f172a;
+    --placeholder: #94a3b8;
+    --focus-ring: rgba(249, 115, 22, 0.18);
+    --card-shadow: 0 24px 70px rgba(15, 23, 42, 0.15);
+    --grid-line: rgba(148, 163, 184, 0.10);
+    --glow-orange: rgba(253, 186, 116, 0.36);
+    --glow-blue: rgba(147, 197, 253, 0.30);
+    --orange-400: #fb923c;
+    --orange-500: #f97316;
+    --orange-600: #ea580c;
+    --orange-700: #c2410c;
+    --emerald-600: #059669;
+    --red-600: #dc2626;
+    --blue-600: #2563eb;
+    --violet-600: #7c3aed;
+    --amber-600: #d97706;
+}
+
+html[data-theme="dark"] {
+    --page-bg: #060d19;
+    --page-text: #e2e8f0;
+    --surface: rgba(15, 23, 42, 0.88);
+    --surface-solid: #0f172a;
+    --surface-soft: rgba(255, 255, 255, 0.05);
+    --header-bg: rgba(6, 13, 25, 0.78);
+    --border: rgba(255, 255, 255, 0.10);
+    --border-strong: rgba(255, 255, 255, 0.16);
+    --text: #f8fafc;
+    --text-soft: #cbd5e1;
+    --text-muted: #94a3b8;
+    --input-bg: rgba(255, 255, 255, 0.055);
+    --input-text: #ffffff;
+    --placeholder: #64748b;
+    --focus-ring: rgba(249, 115, 22, 0.22);
+    --card-shadow: 0 24px 70px rgba(0, 0, 0, 0.45);
+    --grid-line: rgba(148, 163, 184, 0.055);
+    --glow-orange: rgba(234, 88, 12, 0.16);
+    --glow-blue: rgba(29, 78, 216, 0.15);
+}
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+html {
+    min-height: 100%;
+    scroll-behavior: smooth;
+}
+
+body {
+    min-height: 100%;
+    margin: 0;
+    background: var(--page-bg);
+    color: var(--page-text);
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    transition: background-color .25s ease, color .25s ease;
+}
+
+a {
+    color: inherit;
+    text-decoration: none;
+}
+
+button,
+input {
+    font: inherit;
+}
+
+button {
+    border: 0;
+}
+
+svg {
+    display: block;
+}
+
+img {
+    display: block;
+    max-width: 100%;
+}
+
+.app-shell {
+    position: relative;
+    min-height: 100vh;
+    overflow: hidden;
+}
+
+.background-grid {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background-image:
+        linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
+        linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
+    background-size: 32px 32px;
+}
+
+.ambient-glow {
+    position: absolute;
+    pointer-events: none;
+    border-radius: 9999px;
+    filter: blur(64px);
+}
+
+.ambient-glow--orange {
+    width: 24rem;
+    height: 24rem;
+    left: -9rem;
+    top: -9rem;
+    background: var(--glow-orange);
+}
+
+.ambient-glow--blue {
+    width: 28rem;
+    height: 28rem;
+    right: -9rem;
+    bottom: -10rem;
+    background: var(--glow-blue);
+}
+
+.site-header {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    border-bottom: 1px solid var(--border);
+    background: var(--header-bg);
+    -webkit-backdrop-filter: blur(24px);
+    backdrop-filter: blur(24px);
+}
+
+.site-header__inner {
+    width: min(100%, 80rem);
+    height: 5rem;
+    margin: 0 auto;
+    padding: 0 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.brand {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+}
+
+.brand__mark {
+    width: 2.75rem;
+    height: 2.75rem;
+    flex: 0 0 2.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    border-radius: 1rem;
+    box-shadow: 0 10px 22px rgba(249, 115, 22, .18);
+}
+
+.brand__mark img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.brand__text {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.brand__text strong,
+.brand__text small {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.brand__text strong {
+    color: var(--text);
+    font-size: .875rem;
+    font-weight: 600;
+}
+
+.brand__text small {
+    margin-top: .1rem;
+    color: var(--text-muted);
+    font-size: .75rem;
+}
+
+.theme-toggle {
+    width: 2.75rem;
+    height: 2.75rem;
+    flex: 0 0 2.75rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--border);
+    border-radius: 1rem;
+    background: var(--surface-solid);
+    color: var(--text-soft);
+    box-shadow: 0 1px 2px rgba(15, 23, 42, .07);
+    transition: transform .2s ease, color .2s ease, border-color .2s ease, box-shadow .2s ease;
+}
+
+.theme-toggle:hover {
+    color: var(--orange-600);
+    border-color: rgba(249, 115, 22, .5);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 18px rgba(15, 23, 42, .10);
+}
+
+.theme-toggle:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 4px var(--focus-ring);
+}
+
+.theme-toggle svg {
+    width: 1.25rem;
+    height: 1.25rem;
+}
+
+#sunIcon {
+    display: none;
+}
+
+#moonIcon {
+    display: block;
+}
+
+html[data-theme="dark"] #sunIcon {
+    display: block;
+}
+
+html[data-theme="dark"] #moonIcon {
+    display: none;
+}
+
+.official-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: .5rem 1rem;
+    border: 1px solid rgba(255, 255, 255, .10);
+    border-radius: 9999px;
+    background: rgba(255, 255, 255, .10);
+    color: #fdba74;
+    font-size: .75rem;
+    font-weight: 600;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+}
+
+.site-footer {
+    position: relative;
+    z-index: 10;
+    padding: 0 1rem 1.5rem;
+    text-align: center;
+}
+
+.site-footer p {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: .75rem;
+}
+
+@media (min-width: 640px) {
+    .site-header__inner {
+            padding-left: 1.5rem;
+            padding-right: 1.5rem;
+        }
+}
+
+@media (min-width: 1024px) {
+    .site-header__inner {
+            padding-left: 2rem;
+            padding-right: 2rem;
+        }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+        *::before,
+        *::after {
+            scroll-behavior: auto !important;
+            transition-duration: .01ms !important;
+            animation-duration: .01ms !important;
+            animation-iteration-count: 1 !important;
+        }
+}
+
+/* Extensiones de la versión 0.2: se conserva el diseño del archivo recibido. */
+[hidden] { display: none !important; }
+
+.site-footer a:focus-visible { outline: 3px solid var(--orange-500); outline-offset: 4px; }
+
+.site-footer a { text-decoration: underline; text-underline-offset: 3px; }
+
+.site-footer { line-height: 1.6; }
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { scroll-behavior: auto !important;
+        animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
+
+/* --- Portada, páginas de sección y menú (antes sitio.css) --- */
+
+/* Componentes comunes: menú de secciones, portada y páginas de sección.
+   Usa los tokens, el encabezado y el pie de padron.css; se carga después de él. */
+
+.site-header__inner {
+    height: auto;
+    min-height: 5rem;
+    flex-wrap: wrap;
+    column-gap: 1rem;
+    row-gap: .5rem;
+    padding-top: .75rem;
+    padding-bottom: .75rem;
+}
+
+.site-nav {
+    order: 3;
+    width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    gap: .375rem;
+}
+
+.site-nav a {
+    padding: .5rem .875rem;
+    border: 1px solid transparent;
+    border-radius: 9999px;
+    color: var(--text-soft);
+    font-size: .8125rem;
+    font-weight: 600;
+    white-space: nowrap;
+    transition: color .2s ease, background-color .2s ease, border-color .2s ease;
+}
+
+.site-nav a:hover {
+    color: var(--orange-600);
+    background: var(--surface-soft);
+}
+
+.site-nav a[aria-current="page"] {
+    color: var(--orange-700);
+    border-color: rgba(249, 115, 22, .35);
+    background: rgba(249, 115, 22, .10);
+}
+
+html[data-theme="dark"] .site-nav a[aria-current="page"] {
+    color: var(--orange-400);
+}
+
+.site-nav a:focus-visible {
+    outline: 3px solid var(--orange-500);
+    outline-offset: 2px;
+}
+
+.portal {
+    position: relative;
+    z-index: 10;
+    width: min(100%, 80rem);
+    margin: 0 auto;
+    padding: 2rem 1rem 3rem;
+    display: grid;
+    gap: 1.5rem;
+}
+
+.portal-hero {
+    position: relative;
+    overflow: hidden;
+    padding: 2.5rem 1.5rem;
+    border-radius: 2rem;
+    color: #ffffff;
+    background: linear-gradient(135deg, #060d19 0%, #0f172a 55%, #1e293b 100%);
+    box-shadow: var(--card-shadow);
+}
+
+.portal-hero__glow {
+    position: absolute;
+    width: 18rem;
+    height: 18rem;
+    border-radius: 9999px;
+    filter: blur(64px);
+    pointer-events: none;
+}
+
+.portal-hero__glow--top {
+    right: -6rem;
+    top: -6rem;
+    background: rgba(249, 115, 22, .25);
+}
+
+.portal-hero__glow--bottom {
+    left: -6rem;
+    bottom: -6rem;
+    background: rgba(59, 130, 246, .20);
+}
+
+.portal-hero__content {
+    position: relative;
+    z-index: 1;
+    max-width: 46rem;
+}
+
+.portal-hero h1 {
+    margin: 1.5rem 0 0;
+    font-size: 2rem;
+    font-weight: 900;
+    line-height: 1.15;
+    letter-spacing: -.025em;
+}
+
+.portal-hero h1 span {
+    display: block;
+    color: var(--orange-400);
+}
+
+.portal-hero__lead {
+    max-width: 38rem;
+    margin: 1.25rem 0 0;
+    color: #cbd5e1;
+    font-size: 1rem;
+    line-height: 1.75rem;
+}
+
+.section-grid,
+.info-grid {
+    display: grid;
+    gap: 1rem;
+}
+
+.section-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: .75rem;
+    padding: 1.5rem;
+    border: 1px solid var(--border);
+    border-radius: 1.5rem;
+    background: var(--surface);
+    color: var(--text);
+    box-shadow: var(--card-shadow);
+    -webkit-backdrop-filter: blur(24px);
+    backdrop-filter: blur(24px);
+    transition: transform .2s ease, border-color .2s ease;
+}
+
+a.section-card:hover {
+    transform: translateY(-3px);
+    border-color: rgba(249, 115, 22, .5);
+}
+
+a.section-card:focus-visible {
+    outline: 3px solid var(--orange-500);
+    outline-offset: 4px;
+}
+
+.section-card__icon {
+    width: 2.75rem;
+    height: 2.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 1rem;
+    background: rgba(249, 115, 22, .12);
+    color: var(--orange-600);
+}
+
+html[data-theme="dark"] .section-card__icon {
+    color: var(--orange-400);
+}
+
+.section-card__icon svg {
+    width: 1.375rem;
+    height: 1.375rem;
+}
+
+.section-card__tag {
+    align-self: flex-start;
+    padding: .25rem .625rem;
+    border: 1px solid var(--border);
+    border-radius: 9999px;
+    background: var(--surface-soft);
+    color: var(--text-muted);
+    font-size: .6875rem;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+}
+
+.section-card h2 {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 800;
+    letter-spacing: -.01em;
+}
+
+.section-card p {
+    margin: 0;
+    color: var(--text-soft);
+    font-size: .9375rem;
+    line-height: 1.6;
+}
+
+.section-card__cta {
+    margin-top: auto;
+    padding-top: .5rem;
+    display: inline-flex;
+    align-items: center;
+    gap: .375rem;
+    color: var(--orange-600);
+    font-size: .875rem;
+    font-weight: 700;
+}
+
+html[data-theme="dark"] .section-card__cta {
+    color: var(--orange-400);
+}
+
+.section-card__cta svg {
+    width: 1rem;
+    height: 1rem;
+    transition: transform .2s ease;
+}
+
+a.section-card:hover .section-card__cta svg {
+    transform: translateX(3px);
+}
+
+.section-card--placeholder {
+    border-style: dashed;
+    background: transparent;
+    box-shadow: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+}
+
+.info-card {
+    padding: 1.5rem;
+    border: 1px solid var(--border);
+    border-radius: 1.5rem;
+    background: var(--surface);
+    color: var(--text);
+}
+
+.info-card h2 {
+    margin: 0 0 .75rem;
+    font-size: 1.0625rem;
+    font-weight: 800;
+}
+
+.info-card p,
+.info-card li {
+    color: var(--text-soft);
+    font-size: .9375rem;
+    line-height: 1.65;
+}
+
+.info-card p {
+    margin: 0;
+}
+
+/* Estado vacío o de mudanza: tarjeta con un mensaje y un enlace de acción. */
+.estado-vacio {
+    display: grid;
+    gap: .75rem;
+    max-width: 46rem;
+}
+
+.estado-vacio h1,
+.estado-vacio h2 {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 800;
+}
+
+.enlace-accion {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding: .5rem 1.125rem;
+    border-radius: 9999px;
+    background: var(--orange-500);
+    color: #ffffff;
+    font-weight: 700;
+}
+
+.enlace-accion:focus-visible {
+    outline: 3px solid var(--orange-500);
+    outline-offset: 3px;
+}
+
+.info-card ul {
+    margin: 0;
+    padding-left: 1.25rem;
+}
+
+/* Tamaño de toque: en pantallas táctiles los enlaces del menú miden al menos 44 px de alto. */
+@media (pointer: coarse) {
+    .site-nav a {
+        display: inline-flex;
+        align-items: center;
+        min-height: 44px;
+    }
+}
+
+@media (min-width: 640px) {
+    .portal {
+        padding: 3rem 1.5rem 3.5rem;
+    }
+
+    .portal-hero {
+        padding: 3rem;
+    }
+
+    .portal-hero h1 {
+        font-size: 2.5rem;
+    }
+
+    .section-grid,
+    .info-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (min-width: 900px) {
+    .site-header__inner {
+        flex-wrap: nowrap;
+        padding-top: 0;
+        padding-bottom: 0;
+    }
+
+    .site-nav {
+        order: 0;
+        width: auto;
+        margin-left: auto;
+        flex-wrap: nowrap;
+    }
+
+    .site-nav a {
+        font-size: .875rem;
+    }
+}
+
+@media (min-width: 1024px) {
+    .portal {
+        padding-left: 2rem;
+        padding-right: 2rem;
+    }
+
+    .section-grid,
+    .info-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .portal-hero h1 {
+        font-size: 3rem;
+    }
+}
+
+/* --- Estructura común: menú con íconos, compartir, barra inferior y barra de contexto --- */
+
+/* La barra de contexto fija necesita que el contenedor de la página no sea un contenedor de desplazamiento:
+   overflow: clip recorta los brillos de fondo igual que hidden (respaldo). El encabezado no queda fijo, como hasta ahora. */
+.app-shell {
+    overflow: hidden;
+    overflow: clip;
+}
+
+.site-header {
+    position: relative;
+}
+
+.site-header__acciones {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    flex: 0 0 auto;
+}
+
+.site-nav a {
+    display: inline-flex;
+    align-items: center;
+    gap: .375rem;
+}
+
+/* Íconos y textos cortos: solo en la barra inferior del celular. */
+.site-nav__icono,
+.site-nav__corto {
+    display: none;
+}
+
+.site-nav__icono {
+    width: 1.375rem;
+    height: 1.375rem;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.8;
+}
+
+/* Barra de contexto: debajo del encabezado, a todo el ancho; el contenido se alinea con el de la página. */
+.barra-contexto {
+    position: relative;
+    z-index: 40;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface-solid);
+}
+
+.barra-contexto__inner {
+    width: min(100%, 80rem);
+    margin: 0 auto;
+    padding: .5rem 1rem;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .5rem 1rem;
+}
+
+.barra-contexto__ruta {
+    display: flex;
+    align-items: center;
+    gap: .375rem;
+    color: var(--text);
+    font-size: .875rem;
+    font-weight: 700;
+}
+
+.barra-contexto__paso + .barra-contexto__paso::before {
+    content: "›";
+    margin-right: .375rem;
+    color: var(--text-muted);
+    font-weight: 600;
+}
+
+.barra-contexto__paso select {
+    min-height: 2.25rem;
+    padding: .25rem .5rem;
+    border: 1px solid var(--border-strong);
+    border-radius: .625rem;
+    background: var(--input-bg);
+    color: var(--input-text);
+    font: inherit;
+}
+
+.barra-contexto__fuente {
+    margin: 0 0 0 auto;
+    min-width: 0;
+    overflow: hidden;
+    color: var(--text-soft);
+    font-size: .8125rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.barra-contexto__fuente strong {
+    color: var(--text);
+}
+
+/* Aviso de resultados preliminares: siempre en una sola línea. */
+.aviso-fuente {
+    width: min(100%, 80rem);
+    margin: 0 auto;
+    padding: .375rem 1rem 0;
+    overflow: hidden;
+    color: var(--orange-700);
+    font-size: .8125rem;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+html[data-theme="dark"] .aviso-fuente {
+    color: #fdba74;
+}
+
+.aviso-fuente[hidden] {
+    display: none;
+}
+
+/* Cargo: control segmentado (Intendencia | Junta Municipal). */
+.selector-cargo {
+    display: inline-flex;
+    gap: .25rem;
+    padding: .25rem;
+    border: 1px solid var(--border);
+    border-radius: 9999px;
+    background: var(--surface);
+}
+
+.selector-cargo button {
+    cursor: pointer;
+    padding: .5rem 1rem;
+    border-radius: 9999px;
+    background: transparent;
+    color: var(--text-soft);
+    font-size: .875rem;
+    font-weight: 700;
+}
+
+.selector-cargo button[aria-selected="true"] {
+    background: var(--orange-500);
+    color: #ffffff;
+}
+
+.selector-cargo button:focus-visible {
+    outline: 3px solid var(--orange-500);
+    outline-offset: 2px;
+}
+
+/* Aviso breve de «Enlace copiado». */
+.aviso-global {
+    position: fixed;
+    left: 50%;
+    bottom: calc(1.25rem + env(safe-area-inset-bottom));
+    z-index: 80;
+    max-width: min(30rem, calc(100% - 2rem));
+    margin: 0;
+    padding: .625rem 1rem;
+    border: 1px solid var(--border-strong);
+    border-radius: 9999px;
+    background: var(--surface-solid);
+    color: var(--text);
+    box-shadow: var(--card-shadow);
+    font-size: .875rem;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+    translate: -50% 0;
+}
+
+.aviso-global[hidden] {
+    display: none;
+}
+
+/* Tablet vertical y celular grande: el menú va en su propio renglón y, si no entra, se desplaza a lo ancho con el
+   desvanecido de desplazables.js (clase es-fin). La barra de contexto queda fija arriba. */
+@media (max-width: 899px) {
+    .site-nav {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        scrollbar-width: none;
+    }
+
+    .site-nav:not(.es-fin) {
+        -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 3rem), transparent);
+        mask-image: linear-gradient(to right, #000 calc(100% - 3rem), transparent);
+    }
+
+    .barra-contexto {
+        position: sticky;
+        top: 0;
+    }
+
+    .resultados [id] {
+        scroll-margin-top: calc(var(--alto-barra, 3.5rem) + .75rem);
+    }
+}
+
+/* Celular: las cinco secciones en una barra inferior fija con ícono y texto corto; la barra de contexto, compacta. */
+@media (max-width: 640px) {
+    :root {
+        --alto-nav-inferior: calc(3.75rem + env(safe-area-inset-bottom));
+    }
+
+    body {
+        padding-bottom: var(--alto-nav-inferior);
+    }
+
+    /* Sin el desenfoque del encabezado: un filtro haría que la barra fija se ubique respecto del encabezado. */
+    .site-header {
+        -webkit-backdrop-filter: none;
+        backdrop-filter: none;
+    }
+
+    .site-header__inner {
+        min-height: 4rem;
+        padding-top: .5rem;
+        padding-bottom: .5rem;
+    }
+
+    .site-nav {
+        position: fixed;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        z-index: 55;
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 0;
+        width: auto;
+        padding: .25rem .25rem env(safe-area-inset-bottom);
+        overflow: visible;
+        border-top: 1px solid var(--border-strong);
+        background: var(--surface-solid);
+        -webkit-mask-image: none;
+        mask-image: none;
+    }
+
+    .site-nav a {
+        flex-direction: column;
+        justify-content: center;
+        gap: .125rem;
+        min-height: 3.5rem;
+        padding: .25rem .125rem;
+        border-radius: .75rem;
+        font-size: .6875rem;
+        line-height: 1.1;
+        text-align: center;
+    }
+
+    .site-nav__icono,
+    .site-nav__corto {
+        display: block;
+    }
+
+    /* El texto largo sigue disponible para los lectores de pantalla. */
+    .site-nav__texto {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+    }
+
+    .barra-contexto__inner {
+        gap: .375rem .75rem;
+        padding: .375rem 1rem;
+    }
+
+    .barra-contexto__ruta {
+        font-size: .8125rem;
+    }
+
+    .selector-cargo {
+        flex: 1 1 auto;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+        border-radius: 1rem;
+    }
+
+    .selector-cargo button {
+        border-radius: .75rem;
+        line-height: 1.2;
+        text-align: center;
+    }
+
+    .barra-contexto__fuente {
+        flex: 1 1 100%;
+        margin-left: 0;
+        font-size: .75rem;
+    }
+
+    .aviso-fuente {
+        padding-top: .25rem;
+        font-size: .75rem;
+    }
+
+    .aviso-global {
+        bottom: calc(var(--alto-nav-inferior) + .75rem);
+    }
+}
+
+@media (pointer: coarse) {
+    .selector-cargo button,
+    .barra-contexto__paso select {
+        min-height: 44px;
+    }
+}

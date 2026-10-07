@@ -1,0 +1,43 @@
+{
+  "version": 1,
+  "nota": "Manifiesto de las elecciones del sitio (ver LEEME.md). Los selectores de elección y año se construyen desde aquí.",
+  "elecciones": [
+    {
+      "id": "municipales",
+      "nombre": "Municipales",
+      "anios": [
+        {
+          "anio": 2026,
+          "ambito": "Asunción",
+          "cargos": [
+            "intendencia",
+            "junta"
+          ],
+          "nombres_cargo": {
+            "intendencia": "Intendencia",
+            "junta": "Junta Municipal"
+          },
+          "etiquetas_cargo": {
+            "intendencia": "Intendencia",
+            "junta": "Junta"
+          },
+          "claves_cargo": {
+            "intendencia": "1",
+            "junta": "2"
+          },
+          "fuentes": {
+            "trep": {
+              "estado": "publicado",
+              "nombre": "TREP preliminar",
+              "corte": "2026-10-04T23:48:02"
+            },
+            "oficial": {
+              "estado": "pendiente",
+              "nombre": "Cómputo oficial"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

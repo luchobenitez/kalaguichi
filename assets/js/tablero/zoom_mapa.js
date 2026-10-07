@@ -2,7 +2,8 @@
 // toque, arrastre con un puntero y pellizco con dos (Pointer Events). Límites: no se aleja más allá del encuadre
 // base ni se acerca más de 12 veces. Un arrastre de más de 6 px no cuenta como clic (no elige un local).
 // En la vista normal un dedo sigue desplazando la página: el arrastre y el pellizco táctiles solo actúan con el
-// mapa en pantalla completa (.mapa--pantalla), donde el SVG lleva touch-action: none.
+// mapa en pantalla completa (.mapa--pantalla) o en el tablero (.mapa--gestos), donde la página no se desplaza y el
+// SVG lleva touch-action: none.
 const MAXIMO = 12;
 const UMBRAL_PX = 6;
 const DOBLE_MS = 320;
@@ -34,7 +35,7 @@ export function habilitarZoom(lienzo, obtenerEncuadre) {
     let rueda = 0;
     let cuadro = 0;
 
-    const enPantalla = () => Boolean(lienzo.closest('.mapa--pantalla'));
+    const enPantalla = () => Boolean(lienzo.closest('.mapa--pantalla, .mapa--gestos'));
     const aspecto = () => {
         const r = lienzo.getBoundingClientRect();
         return r.width > 0 && r.height > 0 ? r.width / r.height : null;
@@ -199,8 +200,12 @@ export function habilitarZoom(lienzo, obtenerEncuadre) {
         }
     }, true);
 
+    // Muestra una caja del mapa ([x, y, ancho, alto]) con la proporción del lienzo, dentro del encuadre y del zoom máximo.
+    const enfocar = (caja) => aplicar(conAspecto(caja, aspecto()));
+
     aplicar(base());
-    return { acercar: () => zoomCentro(PASO), alejar: () => zoomCentro(1 / PASO), reiniciar, factor: () => factor };
+    return { acercar: () => zoomCentro(PASO), alejar: () => zoomCentro(1 / PASO), reiniciar, enfocar, factor: () => factor,
+             vista: () => (vista ? [...vista] : null) };
 }
 
 // --- Botones y pantalla completa -------------------------------------------------------------------
@@ -241,7 +246,8 @@ const ICONOS = {
 
 // Botones superpuestos (+, −, reiniciar y «Ampliar mapa») y modo de pantalla completa del contenedor .mapa.
 // leyendas(): las listas de leyenda del mapa; en pantalla completa se muestran superpuestas en un panel plegable.
-export function agregarControles(contenedor, zoom, leyendas = () => []) {
+// opciones.ampliarEnGrupo: «Ampliar mapa» va como un botón más del grupo de zoom, solo con su ícono (tablero).
+export function agregarControles(contenedor, zoom, leyendas = () => [], opciones = {}) {
     const zoomBotones = document.createElement('div');
     zoomBotones.className = 'mapa__controles';
     const mas = boton('mapa__boton--icono', 'Acercar', icono(ICONOS.mas));
@@ -251,9 +257,10 @@ export function agregarControles(contenedor, zoom, leyendas = () => []) {
     menos.addEventListener('click', zoom.alejar);
     volver.addEventListener('click', zoom.reiniciar);
     zoomBotones.append(mas, menos, volver);
-    const ampliar = boton('mapa__ampliar', 'Ampliar mapa', icono(ICONOS.ampliar));
+    const ampliar = boton(opciones.ampliarEnGrupo ? 'mapa__boton--icono' : 'mapa__ampliar', 'Ampliar mapa', icono(ICONOS.ampliar));
     const texto = document.createElement('span');
     texto.textContent = 'Ampliar mapa';
+    if (opciones.ampliarEnGrupo) texto.className = 'visualmente-oculto';
     ampliar.append(texto);
     ampliar.setAttribute('aria-pressed', 'false');
     const panel = document.createElement('details');
@@ -263,7 +270,8 @@ export function agregarControles(contenedor, zoom, leyendas = () => []) {
     resumen.textContent = 'Leyenda';
     panel.append(resumen);
     panel.hidden = true;
-    contenedor.append(zoomBotones, ampliar, panel);
+    if (opciones.ampliarEnGrupo) zoomBotones.append(ampliar);
+    contenedor.append(zoomBotones, ...(opciones.ampliarEnGrupo ? [] : [ampliar]), panel);
     let movidas = [];
 
     function entrar() {

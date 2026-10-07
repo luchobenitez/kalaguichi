@@ -1,9 +1,10 @@
 // Intendente vs Junta por local de votación (ADR 0006 del módulo): voto cruzado entre Intendencia y Junta Municipal.
-// Los números salen de datos/mesas.json y datos/locales.json. Los gráficos usan Chart.js autoalojado
+// Los números salen de mesas.json y locales.json de la fuente elegida. Los gráficos usan Chart.js autoalojado
 // (ADR-015 del proyecto), que se carga solo al abrir esta sección. El texto se asigna con textContent.
-import { salirDePantallaCompleta } from './zoom_mapa.js';
+// Lo usan la sección Análisis (con su filtro de zona o barrio, herramientas.idFiltro) y la vista informe del TREP.
+import { salirDePantallaCompleta } from '../tablero/zoom_mapa.js';
 
-const RUTA_CHART = new URL('../../../assets/vendor/chartjs/chart.umd.min.js', import.meta.url).href;
+const RUTA_CHART = new URL('../../vendor/chartjs/chart.umd.min.js', import.meta.url).href;
 // En los JSON del TREP la candidatura a Intendente de la Alianza es la lista 4 (AJA): es la «Intendente L3» del pedido.
 export const GRUPOS = [
     { id: 'L1', nombre: 'Lista 1', intendencia: ['1'], junta: ['1'], rotuloInt: 'Intendente L1', rotuloJun: 'Junta L1' },
@@ -154,6 +155,11 @@ function itemLeyenda(color, texto, clase, forma) {
 
 export function crearIntendenteJunta(datos, herramientas) {
     const modelo = construirFilas(datos);
+    // Filtro de zona o barrio: el propio (vista informe) o el de la página que lo contiene (Análisis), que lo aplica
+    // con aplicarEnlace. Fuente: nombre y momento para los textos y la descarga.
+    const idFiltro = herramientas.idFiltro ?? 'filtroIvj';
+    const filtroExterno = Boolean(herramientas.idFiltro);
+    const fuente = herramientas.fuente ?? { nombre: 'TREP preliminar', momento: `corte ${datos.resumen.eleccion.corte}` };
     const estado = { grupo: 'L1', metrica: 'votos', vista: 'divergentes', filtro: '', busqueda: '', orden: null, local: null,
                      todos: false, ambos: 'L1' };
     let mapa = null;
@@ -185,30 +191,33 @@ export function crearIntendenteJunta(datos, herramientas) {
     const ordenGrafico = (filas) => [...filas].sort((a, b) => ascendente(clave(a), clave(b)));
 
     function textoAmbito() {
-        const opcion = $('filtroIvj').selectedOptions[0];
-        return estado.filtro ? opcion.textContent : 'Toda Asunción';
+        const opcion = $(idFiltro).selectedOptions[0];
+        return estado.filtro && opcion ? opcion.textContent : 'Toda Asunción';
     }
 
     function preparar() {
         if (preparado) return;
         preparado = true;
-        const select = $('filtroIvj');
+        const select = $(idFiltro);
         const grupo = (etiqueta, opciones) => {
             const og = el('optgroup');
             og.label = etiqueta;
             for (const [valor, texto] of opciones) og.append(new Option(texto, valor));
             select.append(og);
         };
-        grupo('Zonas electorales (TSJE)', Object.entries(datos.resumen.zonas).map(([k, n]) => [`t${k}`, `Zona TSJE ${k} · ${n}`]));
-        grupo('Zonas municipales (oficiales)', Object.entries(datos.resumen.zonas_municipales).map(([k, n]) => [`m${k}`, `Zona municipal ${k} · ${n}`]));
-        grupo('Barrios', [...new Set(modelo.filas.map((f) => f.barrio).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es'))
-            .map((b) => [`b:${b}`, b]));
+        if (!filtroExterno) {
+            grupo('Zonas electorales (TSJE)', Object.entries(datos.resumen.zonas).map(([k, n]) => [`t${k}`, `Zona TSJE ${k} · ${n}`]));
+            grupo('Zonas municipales (oficiales)', Object.entries(datos.resumen.zonas_municipales).map(([k, n]) => [`m${k}`, `Zona municipal ${k} · ${n}`]));
+            grupo('Barrios', [...new Set(modelo.filas.map((f) => f.barrio).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es'))
+                .map((b) => [`b:${b}`, b]));
+        }
         const segmentos = (atributo, campo) => {
             for (const boton of document.querySelectorAll(`[${atributo}]`)) {
                 boton.addEventListener('click', () => {
                     estado[campo] = boton.getAttribute(atributo);
                     estado.orden = null;
                     render();
+                    herramientas.alCambiar?.();  // Solo los cambios del usuario van al hash; la carga no lo escribe.
                 });
             }
         };
@@ -221,7 +230,7 @@ export function crearIntendenteJunta(datos, herramientas) {
         }
         $('ivjTodos').addEventListener('click', () => { estado.todos = !estado.todos; renderGraficos(filtradas()); });
         ANGOSTO.addEventListener('change', () => { if (!$('panelIvj').hidden) renderGraficos(filtradas()); });
-        select.addEventListener('change', () => { estado.filtro = select.value; render(); });
+        if (!filtroExterno) select.addEventListener('change', () => { estado.filtro = select.value; render(); });
         let espera;
         $('buscarIvj').addEventListener('input', (evento) => {
             clearTimeout(espera);
@@ -356,10 +365,11 @@ export function crearIntendenteJunta(datos, herramientas) {
         herramientas.alCambiar?.();
     }
 
-    // Enlace compartible (resultados.js arma el hash): grupo, métrica, tipo de gráfico y local elegido.
+    // Enlace compartible (lo arma la página): grupo, métrica, tipo de gráfico y local elegido; con filtro externo, también él.
     const estadoEnlace = () => ({ grupo: estado.grupo, metrica: estado.metrica, grafico: estado.vista, local: estado.local });
 
-    function aplicarEnlace({ grupo, metrica, grafico, local }) {
+    function aplicarEnlace({ grupo, metrica, grafico, local, filtro }) {
+        if (filtroExterno) estado.filtro = filtro ?? '';
         estado.grupo = ['L1', 'AL', 'ambos'].includes(grupo) ? grupo : 'L1';
         estado.metrica = ['votos', 'pct'].includes(metrica) ? metrica : 'votos';
         estado.vista = ['divergentes', 'agrupadas'].includes(grafico) ? grafico : 'divergentes';
@@ -877,7 +887,7 @@ export function crearIntendenteJunta(datos, herramientas) {
             separacion, Math.round(28 * escala));
         ctx.fillStyle = c.suave;
         ctx.font = `${Math.round(12 * escala)}px system-ui, sans-serif`;
-        ctx.fillText(`Fuente: TSJE, TREP 2026, actas por mesa, corte ${datos.resumen.eleccion.corte}. Kalaguichi.com · descargado el ${new Date().toLocaleDateString('es-PY')}`,
+        ctx.fillText(`Fuente: TSJE, ${fuente.nombre}, actas por mesa, ${fuente.momento}. Kalaguichi.com · descargado el ${new Date().toLocaleDateString('es-PY')}`,
             separacion, Math.round(48 * escala));
         let x = separacion;
         for (const l of lienzos) {
@@ -895,7 +905,7 @@ export function crearIntendenteJunta(datos, herramientas) {
         }
         const ambito = enAmbito();
         const filas = filtradas();
-        $('metaIvj').textContent = `${textoAmbito()} · ${cantidadLocales(ambito.length)} · TREP preliminar, corte ${datos.resumen.eleccion.corte}`;
+        $('metaIvj').textContent = `${textoAmbito()} · ${cantidadLocales(ambito.length)} · ${fuente.nombre}, ${fuente.momento}`;
         renderTotales(ambito);
         renderTramos(ambito);
         renderTabla(filas);
@@ -904,7 +914,6 @@ export function crearIntendenteJunta(datos, herramientas) {
         sincronizarFicha();
         await renderGraficos(filas);
         $('panelIvj').dataset.listo = 'true';
-        herramientas.alCambiar?.();
     }
 
     return { render, modelo, estadoEnlace, aplicarEnlace };
