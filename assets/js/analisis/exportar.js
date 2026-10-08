@@ -51,25 +51,79 @@ export function descargarCsv(nombre, columnas, filas) {
     descargar(new Blob([`﻿${lineas.join('\r\n')}\r\n`], { type: 'text/csv;charset=utf-8' }), `${nombre}.csv`);
 }
 
-// PNG: el lienzo del gráfico con un título arriba y la fuente abajo, sobre el fondo del tema.
-export function descargarPng(lienzo, { nombre, titulo, fuente }) {
+// Las palabras del texto en líneas que entran en el ancho (con la fuente ya puesta en ctx).
+function partir(ctx, texto, ancho) {
+    const lineas = [];
+    let linea = '';
+    for (const palabra of texto.split(' ')) {
+        const prueba = linea ? `${linea} ${palabra}` : palabra;
+        if (linea && ctx.measureText(prueba).width > ancho) {
+            lineas.push(linea);
+            linea = palabra;
+        } else {
+            linea = prueba;
+        }
+    }
+    if (linea) lineas.push(linea);
+    return lineas;
+}
+
+// PNG: el lienzo del gráfico con un título arriba y la fuente abajo, sobre el fondo del tema; el título y la fuente se
+// parten en líneas si no entran (en celular). Un mapa (ADR-025) pasa la copia de su lienzo, su escala (píxeles por píxel
+// CSS) y la leyenda, que va debajo: [{ color, texto }].
+export function descargarPng(lienzo, { nombre, titulo, fuente, leyenda = [], escala: escalaPedida = null }) {
     const c = colores();
-    const escala = lienzo.width / (lienzo.clientWidth || lienzo.width);
-    const margen = Math.round(16 * escala);
-    const cabecera = Math.round(44 * escala), pie = Math.round(30 * escala);
+    const escala = escalaPedida ?? lienzo.width / (lienzo.clientWidth || lienzo.width);
+    const s = (n) => Math.round(n * escala);
+    const margen = s(16);
+    const medir = el('canvas').getContext('2d');
+    medir.font = `700 ${s(16)}px system-ui, sans-serif`;
+    const lineasTitulo = partir(medir, titulo, lienzo.width);
+    medir.font = `${s(11)}px system-ui, sans-serif`;
+    const lineasFuente = partir(medir, `${fuente} · Kalaguichi.com · descargado el ${new Date().toLocaleDateString('es-PY')}`, lienzo.width);
+    const cabecera = s(44) + (lineasTitulo.length - 1) * s(22);
+    const pie = s(30) + (lineasFuente.length - 1) * s(15);
+    // La leyenda: las muestras en filas que entran en el ancho del lienzo.
+    const alto = s(20);
+    const filas = [];
+    if (leyenda.length) {
+        medir.font = `${s(12)}px system-ui, sans-serif`;
+        let fila = [], ancho = 0;
+        for (const item of leyenda) {
+            const w = s(18) + medir.measureText(item.texto).width + s(16);
+            if (fila.length && ancho + w > lienzo.width) {
+                filas.push(fila);
+                fila = [];
+                ancho = 0;
+            }
+            fila.push({ ...item, x: ancho });
+            ancho += w;
+        }
+        filas.push(fila);
+    }
     const final = el('canvas');
     final.width = lienzo.width + 2 * margen;
-    final.height = lienzo.height + cabecera + pie;
+    final.height = lienzo.height + cabecera + pie + (filas.length ? filas.length * alto + s(8) : 0);
     const ctx = final.getContext('2d');
     ctx.fillStyle = c.fondo;
     ctx.fillRect(0, 0, final.width, final.height);
     ctx.fillStyle = c.texto;
-    ctx.font = `700 ${Math.round(16 * escala)}px system-ui, sans-serif`;
-    ctx.fillText(titulo, margen, Math.round(28 * escala));
+    ctx.font = `700 ${s(16)}px system-ui, sans-serif`;
+    lineasTitulo.forEach((linea, k) => ctx.fillText(linea, margen, s(28) + k * s(22)));
     ctx.drawImage(lienzo, margen, cabecera);
+    ctx.font = `${s(12)}px system-ui, sans-serif`;
+    filas.forEach((fila, k) => {
+        const y = cabecera + lienzo.height + s(8) + k * alto;
+        for (const item of fila) {
+            ctx.fillStyle = item.color;
+            ctx.fillRect(margen + item.x, y + s(3), s(12), s(12));
+            ctx.fillStyle = c.texto;
+            ctx.fillText(item.texto, margen + item.x + s(18), y + s(14));
+        }
+    });
     ctx.fillStyle = c.suave;
-    ctx.font = `${Math.round(11 * escala)}px system-ui, sans-serif`;
-    ctx.fillText(`${fuente} · Kalaguichi.com · descargado el ${new Date().toLocaleDateString('es-PY')}`, margen, final.height - Math.round(10 * escala));
+    ctx.font = `${s(11)}px system-ui, sans-serif`;
+    lineasFuente.forEach((linea, k) => ctx.fillText(linea, margen, final.height - s(10) - (lineasFuente.length - 1 - k) * s(15)));
     final.toBlob((blob) => descargar(blob, `${nombre}.png`), 'image/png');
 }
 

@@ -63,6 +63,28 @@ export function grupoDe(datos, d, sigla = d.ganadora, cargo = '2') {
     return { id: LOCALES, sigla: 'Locales', nombre: NOMBRE_LOCALES, color: datos.colores.verdes[0], forma: datos.colores.formas?.alianza ?? 'rombo' };
 }
 
+// Electores habilitados de un distrito según el padrón (ADR-025): los votos posibles, iguales en los dos cargos. No son los
+// habitantes: el padrón cuenta a las personas habilitadas para votar.
+export const electoresDe = (d) => d.electores.padron;
+// «Distritos»: el deslizador va de 0 al múltiplo de PASO_ELECTORES más alto que deja al menos un distrito con más electores.
+export const PASO_ELECTORES = 1000;
+export const maximoElectores = (distritos) => Math.max(0, Math.floor((Math.max(...distritos.map(electoresDe)) - 1) / PASO_ELECTORES) * PASO_ELECTORES);
+// Un distrito se ve con su lista si tiene más electores que el mínimo elegido (con 0, todos).
+export const superaMinimo = (d, minimo) => electoresDe(d) > minimo;
+// El mínimo pedido en el enlace, en el paso del deslizador y dentro de su rango; si no es un número, 0.
+export function minimoDelEnlace(valor, maximo) {
+    const n = /^\d+$/.test(valor ?? '') ? Number(valor) : 0;
+    return Math.min(maximo, Math.round(n / PASO_ELECTORES) * PASO_ELECTORES);
+}
+// «Electores por distrito»: tramos fijos (cada uno incluye su límite inferior).
+export const CORTES_ELECTORES = [5000, 10000, 20000, 50000, 100000];
+export const tramoElectores = (v) => CORTES_ELECTORES.filter((c) => v >= c).length;
+export function textoTramo(k, formato = new Intl.NumberFormat('es-PY')) {
+    if (k === 0) return `Menos de ${formato.format(CORTES_ELECTORES[0])}`;
+    if (k === CORTES_ELECTORES.length) return `${formato.format(CORTES_ELECTORES[k - 1])} o más`;
+    return `${formato.format(CORTES_ELECTORES[k - 1])} a ${formato.format(CORTES_ELECTORES[k] - 1)}`;
+}
+
 // Valor del componente k en el área; sin dato (Asunción, un área sin población) o intensidad sin personas pobres: null.
 export function valorIpm(datos, clave, k, area) {
     const x = datos.ipmPor.get(clave);

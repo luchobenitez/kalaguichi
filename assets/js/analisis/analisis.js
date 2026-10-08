@@ -25,6 +25,11 @@ const CATALOGO = [
       pais: true, tituloPais: 'Ganador y pobreza', descripcionPais: 'Cada distrito con el color de su lista más votada, frente a su IPM, y las curvas por partido.' },
     { id: 'lista-ipm', titulo: 'Votos de un partido y pobreza', soloPais: true,
       descripcionPais: 'El porcentaje de un partido en cada distrito donde presenta lista propia, frente al IPM.' },
+    // Los mapas del país (ADR-025): la lista más votada con un mínimo de electores y los electores de cada distrito.
+    { id: 'distritos', titulo: 'Distritos', soloPais: true,
+      descripcionPais: 'El mapa con la lista más votada de cada distrito; los que no superan un mínimo de electores, en gris.' },
+    { id: 'electores', titulo: 'Electores por distrito', soloPais: true,
+      descripcionPais: 'El mapa de los electores habilitados de cada distrito según el padrón: los votos posibles.' },
     { id: 'ranking', titulo: 'Ranking por lista', descripcion: 'Locales y barrios según el voto de cada lista.', descripcionDistrito: 'Locales según el voto de cada lista de la Junta.' },
     { id: 'trep-oficial', titulo: 'TREP vs oficial', descripcion: 'Diferencias entre las dos fuentes, por mesa y por local.', requiere: 'oficial' },
 ];
@@ -37,7 +42,8 @@ const MODULOS = { 'voto-cruzado': () => import('./voto_cruzado.js'), margen: () 
                   ranking: () => import('./ranking.js'),
                   'trep-oficial': () => import('./trep_oficial.js') };
 const MODULOS_PAIS = { 'participacion-ipm': () => import('./pais_participacion.js'), 'ganador-ipm': () => import('./pais_ganador.js'),
-                       'lista-ipm': () => import('./pais_lista.js') };
+                       'lista-ipm': () => import('./pais_lista.js'), distritos: () => import('./pais_distritos.js'),
+                       electores: () => import('./pais_electores.js') };
 const FECHA = /^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2}))?/;
 
 const estado = { analisis: 'voto-cruzado', filtro: '' };
