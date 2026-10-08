@@ -72,6 +72,7 @@ datos/<eleccion>/<anio>/nacional/
 ├── geo/distritos.geojson     límites de los distritos (INE CNPV 2022, simplificados) con clave, nombre y departamento
 ├── geo/departamentos.geojson límites de los departamentos
 ├── procedencia.json          SHA-256 de las planillas, del catálogo del TREP y de la cartografía del INE
+├── indicadores_distritos.json IPM del INE (Censo 2022) por distrito: H, A e IPM en total, urbana y rural (ADR-023)
 └── distritos/<dep>-<dis>/    comun/ (locales.json, candidaturas.json con las bancas, geo/distrito.geojson) y trep/
                               (resumen.json, mesas.json, procedencia.json): el esquema de Asunción, solo la Junta ("2")
 ```
@@ -81,6 +82,11 @@ datos/<eleccion>/<anio>/nacional/
 - «A computar» de las planillas es `nocomputados`. Las bancas son la integración oficial del TREP (el D'Hondt sobre los
   votos por lista da el mismo reparto en todos los distritos).
 - Intendencia por mesa y el IPM por barrio existen solo para Asunción (`no_disponible` de cada `resumen.json`).
+- `indicadores_distritos.json` (ADR-023) lo genera `analisis_resultados/procesamiento/ipm_distritos_datos.py` desde los
+  cuadros 1 a 3 del Anexo del IPM del INE: `distritos[<clave>]` es `{ "H" | "A" | "IPM": { "total", "urbana", "rural" } }`
+  con `null` para un área sin población (14 distritos sin rural, en `sin_poblacion_rural`); Asunción (`0-0`) es `null`
+  porque el INE publica su IPM por barrio. Trae los indicadores de `comun/indicadores_barrios.json`, la fuente y el
+  SHA-256 del anexo. El mapa del país lo lee al elegir su capa del IPM, y Análisis en «Paraguay, por distrito».
 
 ## Esquema de cada fuente (`trep/` y `oficial/`)
 

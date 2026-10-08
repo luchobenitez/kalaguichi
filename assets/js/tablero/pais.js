@@ -3,18 +3,24 @@
 // de calles. Usa las piezas del tablero de un distrito: panel de pestañas (Resultados, Bancas, Filtros, Capas y Método)
 // en columna, cajón u hoja (hoja.js), bandeja con la tabla y el ranking de distritos, la ficha en pantalla completa
 // (ficha.js) y los controles del mapa. Tocar un distrito muestra su resumen y el enlace a su tablero. El estado va en el
-// hash: departamento, elegido, mapa (la capa), partido, panel y bandeja. Sin HTML desde datos: todo con textContent.
+// hash: departamento, elegido, mapa (la capa), partido, ipm y area (la capa del IPM, ADR-023), panel y bandeja. Sin HTML
+// desde datos: todo con textContent.
 import { vigilarDesplazables } from '../desplazables.js';
 import { indiceNacional, geoNacional, archivoNacional, carpetaNacional } from '../datos.js';
 import { estado as compartido, listo as shellListo } from '../shell.js';
 import { ASUNCION, TABLERO_DE_DISTRITO, hashDe } from '../ambito.js';
 import { crearDialogo } from '../dialogo.js';
-import { $, el, cantidad, fmt, pct } from './util.js';
-import { PARTICIPACION_COLOR, mezclar, escala, opacidadPaso, paleta, itemLeyenda } from './mapa.js';
+import { $, el, cantidad, fmt, pct, pct2 } from './util.js';
+import { PARTICIPACION_COLOR, IPM_COLOR, mezclar, escala, cuantiles, opacidadPaso, paleta, itemLeyenda } from './mapa.js';
 import { crearMapaPais } from './mapa_pais.js';
 import { crearPanel, crearBandeja } from './hoja.js';
 
-const CAPAS = ['ganadora', 'participacion', 'ventaja', 'partido'];
+const CAPAS = ['ganadora', 'participacion', 'ventaja', 'partido', 'ipm'];
+// Pobreza multidimensional por distrito (INE, Censo 2022; ADR-023): el componente y el área.
+const IPM = ['H', 'A', 'IPM'];
+const AREAS = ['total', 'urbana', 'rural'];
+const EN_AREA = { total: '', urbana: ' (área urbana)', rural: ' (área rural)' };
+const EN_FRASE = { H: 'incidencia (H)', A: 'intensidad (A)', IPM: 'IPM (H × A)' };
 const PANELES = ['resultados', 'bancas', 'filtros', 'capas', 'metodo'];
 const BANDEJAS = ['tabla', 'ranking'];
 const ELEMENTOS = ['departamentos', 'distritos', 'nombres'];
@@ -27,7 +33,8 @@ const NOMBRE_LOCALES = 'Alianzas y movimientos locales';
 // Porcentaje de los votos a listas desde el que un partido tiene fila propia en los resultados del país.
 const MINIMO_FILA = 1;
 const TITULOS_CAPA = { ganadora: 'Lista más votada de la Junta, por distrito', participacion: 'Participación por distrito',
-                       ventaja: 'Ventaja del primero sobre el segundo', partido: 'Votos de un partido, por distrito' };
+                       ventaja: 'Ventaja del primero sobre el segundo', partido: 'Votos de un partido, por distrito',
+                       ipm: 'Pobreza multidimensional por distrito' };
 const colador = new Intl.Collator('es', { sensitivity: 'base' });
 const normalizar = (t) => String(t ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 // «04/10/2026 23:48» desde «2026-10-04T23:48:02» (hora de Paraguay, sin zona): sin pasar por Date, que la cambiaría.
@@ -51,7 +58,12 @@ let ficha = null;
 let dialogos = null;
 let enlaceListo = false;
 let opcionesFiltro = null;  // Departamento con el que se armó la lista de distritos de Filtros.
-const estado = { departamento: null, elegido: null, capa: 'ganadora', partido: 'ANR', opacidad: OPACIDAD_POR_OMISION,
+// indicadores_distritos.json (47 KB): se lee la primera vez que se elige la capa del IPM o se abre la fuente.
+let ipm = null;
+let ipmPor = new Map();
+let ipmEnCurso = null;
+let ipmFallo = false;
+const estado = { departamento: null, elegido: null, capa: 'ganadora', partido: 'ANR', ipm: 'H', area: 'total', opacidad: OPACIDAD_POR_OMISION,
                  ver: { departamentos: true, distritos: true, nombres: true }, panel: 'resultados', bandeja: null, orden: null,
                  ordenRanking: 'desc', filtro: '' };
 
@@ -64,6 +76,30 @@ const nombreDep = (codigo) => porDep.get(codigo)?.nombre ?? '';
 const participacionDe = (d) => (d.participacion === null || d.participacion === undefined ? null : 100 * d.participacion);
 const pctDe = (d, sigla) => (d.votos_listas && d.listas[sigla] ? (100 * d.votos[sigla]) / d.votos_listas : null);
 const tramo = (v) => (v < TRAMOS_VENTAJA[0] ? 0 : v < TRAMOS_VENTAJA[1] ? 1 : 2);
+// Valor del componente en el área: sin dato (Asunción, un área sin población) o intensidad sin personas pobres (H = 0), null.
+const ipmDe = (d, k = estado.ipm, area = estado.area) => {
+    const x = ipmPor.get(d.clave);
+    const v = x?.[k]?.[area];
+    return v === null || v === undefined || (k === 'A' && x.H[area] === 0) ? null : v;
+};
+const formatoIpm = (k = estado.ipm) => (k === 'A' ? pct : pct2);
+const indicadorIpm = (k = estado.ipm) => ipm.indicadores.find((x) => x.id === k);
+// Por qué un distrito no tiene el valor en la capa del IPM.
+const sinIpm = (d) => (d.clave === ASUNCION ? 'su IPM es por barrio (en su tablero)'
+    : ipmPor.get(d.clave)?.H?.[estado.area] === null ? `sin población ${estado.area}` : 'sin dato');
+
+function cargarIpm() {
+    ipmEnCurso ??= archivoNacional(contexto.eleccion.id, contexto.anio.anio, 'indicadores_distritos.json').then((datos) => {
+        ipm = datos;
+        ipmPor = new Map(Object.entries(datos.distritos));
+        return true;
+    }, (error) => {
+        console.warn(error);
+        ipmFallo = true;
+        return false;
+    });
+    return ipmEnCurso;
+}
 const opacidad = () => estado.opacidad / 100;
 const tableroDisponible = (clave) => clave === ASUNCION || TABLERO_DE_DISTRITO;
 const enlaceTablero = (clave) => hashDe({ distrito: clave }, { cargoDisponible: (c) => c === 'junta' || clave === ASUNCION,
@@ -281,7 +317,18 @@ function renderDistrito(d) {
     const faltan = d.mesas.esperadas - d.mesas.con_acta;
     $('notaResultados').textContent = (faltan ? `Falta el acta de ${cantidad(faltan, 'mesa', 'mesas')}. ` : '') +
         (d.clave === ASUNCION ? 'Asunción tiene además Intendencia y los resultados por mesa, local, barrio y zona en su tablero.'
-            : 'Resultados de la Junta Municipal del distrito según las planillas del TREP; Intendencia por mesa existe solo para Asunción.');
+            : 'Resultados de la Junta Municipal del distrito según las planillas del TREP; Intendencia por mesa existe solo para Asunción.') +
+        (estado.capa === 'ipm' && ipm ? ` ${textoIpmDistrito(d)}` : '');
+}
+
+// El IPM del distrito (total del distrito), en la nota de sus resultados.
+function textoIpmDistrito(d) {
+    if (d.clave === ASUNCION) return 'Pobreza multidimensional: el INE la publica por barrio para Asunción (capa del IPM en su tablero).';
+    const valor = (k) => {
+        const v = ipmDe(d, k, 'total');
+        return v === null ? 'sin dato' : `${formatoIpm(k).format(v)} %`;
+    };
+    return `Pobreza multidimensional (INE, Censo 2022), total del distrito: incidencia ${valor('H')}, intensidad ${valor('A')} e IPM ${valor('IPM')}.`;
 }
 
 // --- Panel: bancas --------------------------------------------------------------------------------------------------
@@ -400,6 +447,16 @@ function elegirSugerencia(clave) {
 function renderCapas() {
     for (const radio of document.querySelectorAll('input[name="mapa"]')) radio.checked = radio.value === estado.capa;
     $('detallePartido').hidden = estado.capa !== 'partido';
+    $('detalleIpm').hidden = estado.capa !== 'ipm';
+    for (const boton of document.querySelectorAll('[data-ipm]')) boton.setAttribute('aria-pressed', String(boton.dataset.ipm === estado.ipm));
+    for (const boton of document.querySelectorAll('[data-area]')) boton.setAttribute('aria-pressed', String(boton.dataset.area === estado.area));
+    // Los gráficos del IPM por distrito en Análisis (ADR-023), con el componente, el área y el departamento elegidos.
+    const analisis = new URLSearchParams({ eleccion: contexto.eleccion.id, anio: String(contexto.anio.anio), cargo: 'junta', ambito: 'pais',
+                                           analisis: 'participacion-ipm' });
+    if (estado.departamento !== null) analisis.set('departamento', String(estado.departamento));
+    if (estado.ipm !== 'H') analisis.set('ipm', estado.ipm);
+    if (estado.area !== 'total') analisis.set('area', estado.area);
+    $('enlaceAnalisisIpm').href = `../analisis/#${analisis}`;
     const sPartido = $('capaPartido');
     if (!sPartido.options.length) {
         for (const p of [...partidos.values()].sort((a, b) => b.distritos - a.distritos || colador.compare(a.sigla, b.sigla))) {
@@ -495,7 +552,48 @@ function pintarPartido(leyenda) {
         'En gris, los distritos donde no presentó lista propia (puede ir dentro de una alianza).';
 }
 
-const PINTORES = { ganadora: pintarGanadora, participacion: pintarParticipacion, ventaja: pintarVentaja, partido: pintarPartido };
+// IPM por distrito (INE, Censo 2022), en quintiles de los distritos a la vista; sin dato, en gris.
+function pintarIpm(leyenda) {
+    if (!ipm) {
+        mapa.pintar(claves, (clave) => ({ color: paleta().sinDatos, atenuado: !enFiltro(porClave.get(clave)) }));
+        if (ipmFallo) $('notaCapa').textContent = 'No fue posible leer la pobreza multidimensional por distrito. Revisá la conexión o el servidor local.';
+        else {
+            $('notaCapa').textContent = 'Cargando la pobreza multidimensional por distrito…';
+            cargarIpm().then(() => renderTodo());
+        }
+        return;
+    }
+    const ind = indicadorIpm();
+    const formato = formatoIpm();
+    const valores = visibles().map((d) => ipmDe(d)).filter((v) => v !== null);
+    const { cortes, clase } = cuantiles(valores.length ? valores : [0]);
+    const conteo = new Array(5).fill(0);
+    const gris = paleta().sinDatos;
+    let sin = 0;
+    mapa.pintar(claves, (clave) => {
+        const d = porClave.get(clave);
+        const v = ipmDe(d);
+        if (v === null) {
+            if (enFiltro(d)) sin += 1;
+            return { color: gris, atenuado: !enFiltro(d) };
+        }
+        const k = clase(v);
+        if (enFiltro(d)) conteo[k] += 1;
+        return { color: mezclar(IPM_COLOR, opacidadPaso(k)), atenuado: !enFiltro(d) };
+    });
+    if (valores.length) {
+        for (let k = 0; k < 5; k++) {
+            leyenda.append(itemRelleno(mezclar(IPM_COLOR, opacidadPaso(k)), `${formato.format(cortes[k])} a ${formato.format(cortes[k + 1])} % · ${cantidad(conteo[k], 'distrito', 'distritos')}`));
+        }
+    }
+    if (sin) leyenda.append(itemRelleno(gris, `Sin dato: ${cantidad(sin, 'distrito', 'distritos')}`));
+    $('notaCapa').textContent = `${ind.nombre}${EN_AREA[estado.area]}: ${ind.descripcion} Distritos en quintiles: cinco grupos con casi la misma ` +
+        'cantidad de distritos a la vista (INE, Censo 2022). En gris, sin dato: Asunción (el INE publica su IPM por barrio, en su tablero)' +
+        (estado.area === 'rural' ? ' y los distritos sin población rural' : '') + '. Es una comparación entre agregados: no muestra cómo votaron las ' +
+        'personas en situación de pobreza ni ningún otro grupo.';
+}
+
+const PINTORES = { ganadora: pintarGanadora, participacion: pintarParticipacion, ventaja: pintarVentaja, partido: pintarPartido, ipm: pintarIpm };
 
 function renderMapa() {
     if (!mapa) return;
@@ -503,7 +601,8 @@ function renderMapa() {
     mapa.fijarElementos(estado.ver);
     const leyenda = $('leyenda');
     leyenda.replaceChildren();
-    $('tituloLeyenda').textContent = estado.capa === 'partido' ? `Votos de ${estado.partido} por distrito` : TITULOS_CAPA[estado.capa];
+    $('tituloLeyenda').textContent = estado.capa === 'partido' ? `Votos de ${estado.partido} por distrito`
+        : estado.capa === 'ipm' && ipm ? `${indicadorIpm().nombre} por distrito${EN_AREA[estado.area]}` : TITULOS_CAPA[estado.capa];
     PINTORES[estado.capa](leyenda);
     if (estado.departamento !== null) leyenda.append(el('li', 'leyenda__nota', `Fuera de ${nombreDep(estado.departamento)}, atenuados.`));
     leyenda.append(el('li', 'leyenda__nota', `Relleno al ${fmt.format(estado.opacidad)} %, sin mapa base de calles.`));
@@ -522,6 +621,10 @@ function textoDistrito(clave) {
     if (estado.capa === 'partido') {
         const v = pctDe(d, estado.partido);
         return v === null ? `${base}: sin lista propia de ${estado.partido}` : `${base}: ${estado.partido} ${pct.format(v)} %`;
+    }
+    if (estado.capa === 'ipm' && ipm) {
+        const v = ipmDe(d);
+        return v === null ? `${base}: ${sinIpm(d)}` : `${base}: ${indicadorIpm().nombre}${EN_AREA[estado.area]} ${formatoIpm().format(v)} %`;
     }
     return `${base}: ${d.ganadora} ${pct.format(d.pct_ganadora)} %${d.segunda ? ` · ventaja ${pct.format(d.ventaja)} puntos` : ''}`;
 }
@@ -551,6 +654,7 @@ function columnasTabla() {
         { id: 'ganadora', titulo: 'Más votada', texto: true }, { id: 'pct', titulo: '% más votada' }, { id: 'ventaja', titulo: 'Ventaja' },
         { id: 'participacion', titulo: 'Particip.' }];
     if (estado.capa === 'partido') columnas.push({ id: 'partido', titulo: `% ${estado.partido}` });
+    if (estado.capa === 'ipm' && ipm) columnas.push({ id: 'ipm', titulo: `${indicadorIpm().nombre}${estado.area === 'total' ? '' : ` ${estado.area}`}` });
     columnas.push({ id: 'mesas', titulo: 'Mesas' }, { id: 'electores', titulo: 'Electores' }, { id: 'bancas', titulo: 'Bancas' });
     return columnas;
 }
@@ -564,6 +668,7 @@ function valorTabla(d, id) {
         case 'ventaja': return d.ventaja ?? -Infinity;
         case 'participacion': return participacionDe(d) ?? -Infinity;
         case 'partido': return pctDe(d, estado.partido) ?? -Infinity;
+        case 'ipm': return ipmDe(d) ?? -Infinity;
         case 'mesas': return d.mesas.con_acta;
         case 'electores': return d.electores.en_mesas_con_acta;
         default: return d.bancas.total;
@@ -624,6 +729,7 @@ function renderTabla() {
             else if (c.id === 'ventaja') td.textContent = d.segunda ? `${pct.format(d.ventaja)}` : 'única';
             else if (c.id === 'participacion') td.textContent = participacionDe(d) === null ? '—' : `${pct.format(participacionDe(d))} %`;
             else if (c.id === 'partido') td.textContent = pctDe(d, estado.partido) === null ? '—' : `${pct.format(pctDe(d, estado.partido))} %`;
+            else if (c.id === 'ipm') td.textContent = ipmDe(d) === null ? '—' : `${formatoIpm().format(ipmDe(d))} %`;
             else if (c.id === 'mesas') td.textContent = d.mesas.con_acta === d.mesas.esperadas ? fmt.format(d.mesas.con_acta) : `${fmt.format(d.mesas.con_acta)}/${fmt.format(d.mesas.esperadas)}`;
             else if (c.id === 'electores') td.textContent = fmt.format(d.electores.en_mesas_con_acta);
             else td.textContent = fmt.format(d.bancas.total);
@@ -634,7 +740,9 @@ function renderTabla() {
     $('tabla').tBodies[0].replaceChildren(fragmento);
     $('notaTabla').textContent = `${cantidad(filas.length, 'distrito', 'distritos')}${estado.departamento === null ? '' : ` de ${nombreDep(estado.departamento)}`}. ` +
         'Porcentajes y ventaja (en puntos) sobre los votos a listas de la Junta Municipal; participación sobre los electores de las mesas con acta. ' +
-        'Mesas: con acta / esperadas cuando falta alguna. Tocá un distrito para verlo en el mapa.';
+        'Mesas: con acta / esperadas cuando falta alguna.' +
+        (estado.capa === 'ipm' && ipm ? ` ${indicadorIpm().nombre}${EN_AREA[estado.area]}: INE, Censo 2022 («—», sin dato).` : '') +
+        ' Tocá un distrito para verlo en el mapa.';
 }
 
 function metricaRanking() {
@@ -646,6 +754,9 @@ function metricaRanking() {
         ventaja: { titulo: 'Distritos por ventaja del primero', valor: (d) => (d.segunda ? d.ventaja : null), color: (d) => d.gana.color,
                    texto: (v, d) => `${pct.format(v)} pts ${d.ganadora}` },
         partido: { titulo: `Distritos por votos de ${p.sigla}`, valor: (d) => pctDe(d, p.sigla), color: () => p.color, texto: (v) => `${pct.format(v)} %` },
+        ipm: ipm ? { titulo: `Distritos por ${EN_FRASE[estado.ipm]}${EN_AREA[estado.area]}`, valor: (d) => ipmDe(d), color: () => IPM_COLOR,
+                     texto: (v) => `${formatoIpm().format(v)} %` }
+            : { titulo: 'Distritos por pobreza multidimensional', valor: () => null, color: () => IPM_COLOR, texto: () => '' },
     }[estado.capa];
 }
 
@@ -673,7 +784,8 @@ function renderRanking() {
         li.append(boton);
         return li;
     }));
-    $('notaRanking').textContent = `Ordenado según la capa del mapa. ${cantidad(filas.length, 'distrito', 'distritos')}. Tocá uno para verlo en el mapa.`;
+    $('notaRanking').textContent = `Ordenado según la capa del mapa. ${cantidad(filas.length, 'distrito', 'distritos')}` +
+        (estado.capa === 'ipm' && ipm ? ' con dato del INE (Censo 2022); sin Asunción, cuyo IPM es por barrio' : '') + '. Tocá uno para verlo en el mapa.';
 }
 
 // Lleva la fila elegida a la vista dentro de su caja, sin mover la página.
@@ -715,9 +827,10 @@ async function abrirFicha(d) {
         cuerpo.append(li);
     }
     const v = participacionDe(d);
+    const pobreza = estado.capa === 'ipm' && ipm ? ` · ${textoDistrito(d.clave).slice(`${d.nombre} (${d.departamento_nombre}): `.length)}` : '';
     $('fichaDetalle').textContent = d.clave === ASUNCION ? 'Abrir Asunción mesa por mesa' : 'Abrir el tablero';
     ficha.abrir({ eyebrow: `Distrito · ${d.departamento_nombre} · Junta Municipal`, titulo: d.nombre,
-                  meta: `${fmt.format(d.mesas.con_acta)} de ${fmt.format(d.mesas.esperadas)} mesas con acta${v === null ? '' : ` · participación ${pct.format(v)} %`}`,
+                  meta: `${fmt.format(d.mesas.con_acta)} de ${fmt.format(d.mesas.esperadas)} mesas con acta${v === null ? '' : ` · participación ${pct.format(v)} %`}${pobreza}`,
                   cuerpo, detalle: tableroDisponible(d.clave) ? () => location.assign(new URL(enlaceTablero(d.clave), location.href).href) : null }, 'pais');
 }
 
@@ -796,7 +909,18 @@ async function contenidoFuente() {
         console.warn(error);
     }
     caja.append(procedencia);
-    caja.append(seccion('No disponible', el('p', null, 'Intendencia por mesa y la pobreza multidimensional (IPM) por barrio existen solo para Asunción.')));
+    if (await cargarIpm()) {
+        const huella = el('code', 'huella', /^[0-9a-f]{64}$/.test(ipm.archivo?.sha256 ?? '') ? ipm.archivo.sha256 : '—');
+        caja.append(seccion('Pobreza multidimensional (IPM)', listaDef([
+            ['Fuente', `${ipm.fuente}. Incidencia, intensidad e IPM de ${fmt.format([...ipmPor.values()].filter(Boolean).length)} distritos, en total y por área (urbana y rural).`],
+            ['Unión', 'Cada distrito del anexo se unió con su distrito del TSJE por el nombre, dentro del departamento.'],
+            ['Asunción', ipm.notas.asuncion.replace(' (comun/indicadores_barrios.json)', '')],
+            ['Sin población', `${ipm.notas.sin_poblacion} Son ${cantidad(ipm.sin_poblacion_rural.length, 'distrito', 'distritos')}.`],
+            [ipm.archivo?.nombre ?? 'Anexo', huella],
+        ])));
+    }
+    caja.append(seccion('No disponible', el('p', null, 'Intendencia por mesa existe solo para Asunción, igual que la pobreza multidimensional (IPM) por barrio; ' +
+        'en el país, el IPM va por distrito.')));
     return caja;
 }
 
@@ -816,6 +940,15 @@ function contenidoMetodo() {
         ['Colores', 'Los partidos con su color (ANR rojo, PLRA azul y un color fijo para cada uno de los demás); las alianzas y los movimientos ' +
                     'locales en verde, con tonos distintos si un distrito tiene más de uno.'],
         ['Tramos', 'Participación y votos de un partido: cinco tramos de igual ancho entre el menor y el mayor de los distritos a la vista.'],
+    ])));
+    caja.append(seccion('Pobreza multidimensional (IPM)', listaDef([
+        ['Incidencia (H)', 'Porcentaje de personas en situación de pobreza multidimensional (INE, Censo 2022).'],
+        ['Intensidad (A)', 'Promedio de privaciones entre las personas en situación de pobreza multidimensional.'],
+        ['IPM', 'Incidencia por intensidad: H × A / 100.'],
+        ['Área', 'El total del distrito, o solo su área urbana o rural; un área sin población (los distritos solo urbanos no tienen rural) va sin dato.'],
+        ['Quintiles', 'En el mapa, los distritos a la vista se agrupan en cinco grupos con casi la misma cantidad de distritos.'],
+        ['Lectura', 'Es una comparación entre agregados: no muestra cómo votaron las personas en situación de pobreza ni ningún otro grupo. El IPM es ' +
+                    'del Censo 2022 y los votos, de 2026.'],
     ])));
     return caja;
 }
@@ -876,6 +1009,8 @@ function parametrosEnlace() {
     if (estado.elegido) p.set('elegido', estado.elegido);
     if (estado.capa !== 'ganadora') p.set('mapa', estado.capa);
     if (estado.capa === 'partido') p.set('partido', estado.partido);
+    if (estado.capa === 'ipm' && estado.ipm !== 'H') p.set('ipm', estado.ipm);
+    if (estado.capa === 'ipm' && estado.area !== 'total') p.set('area', estado.area);
     if (estado.panel !== 'resultados') p.set('panel', estado.panel);
     if (estado.bandeja) p.set('bandeja', estado.bandeja);
     return p;
@@ -897,6 +1032,8 @@ function leerEnlace() {
     if (estado.elegido && estado.departamento !== null && !enFiltro(porClave.get(estado.elegido))) estado.departamento = porClave.get(estado.elegido).departamento;
     estado.capa = CAPAS.includes(p.get('mapa')) ? p.get('mapa') : 'ganadora';
     estado.partido = partidos.has(p.get('partido')) ? p.get('partido') : 'ANR';
+    estado.ipm = IPM.includes(p.get('ipm')) ? p.get('ipm') : 'H';
+    estado.area = AREAS.includes(p.get('area')) ? p.get('area') : 'total';
     estado.panel = PANELES.includes(p.get('panel')) ? p.get('panel') : 'resultados';
     estado.bandeja = BANDEJAS.includes(p.get('bandeja')) ? p.get('bandeja') : null;
 }
@@ -942,7 +1079,9 @@ function eventos() {
     $('capas').addEventListener('change', (evento) => {
         if (evento.target.name !== 'mapa') return;
         estado.capa = evento.target.value;
-        estado.orden = estado.orden?.id === 'partido' && estado.capa !== 'partido' ? null : estado.orden;
+        estado.orden = ['partido', 'ipm'].includes(estado.orden?.id) && estado.capa !== estado.orden.id ? null : estado.orden;
+        // La nota de los resultados de un distrito trae su IPM con la capa del IPM.
+        renderResultados();
         renderCapas();
         renderMapa();
         renderBandeja();
@@ -954,6 +1093,17 @@ function eventos() {
         renderBandeja();
         actualizarEnlace();
     });
+    for (const [atributo, clave] of [['ipm', 'ipm'], ['area', 'area']]) {
+        for (const boton of document.querySelectorAll(`[data-${atributo}]`)) {
+            boton.addEventListener('click', () => {
+                estado[clave] = boton.dataset[atributo];
+                renderCapas();
+                renderMapa();
+                renderBandeja();
+                actualizarEnlace();
+            });
+        }
+    }
     $('opacidadCapa').addEventListener('input', (evento) => {
         estado.opacidad = Number(evento.target.value);
         $('valorOpacidad').textContent = `${fmt.format(estado.opacidad)} %`;
@@ -1038,8 +1188,9 @@ function eventos() {
         }
     });
     // Un enlace pegado en la misma pestaña (o el hash editado a mano) cambia la vista sin recargar.
-    window.addEventListener('hashchange', () => {
+    window.addEventListener('hashchange', async () => {
         leerEnlace();
+        if (estado.capa === 'ipm') await cargarIpm();
         aplicarPaneles();
         renderTodo();
         mapa.encuadrar(cajaDelEstado()).catch(() => {});
@@ -1088,6 +1239,7 @@ export async function iniciar({ contexto: ctx } = {}) {
         dialogos = { fuente: crearDialogo({ titulo: 'Fuente', contenido: contenidoFuente }), metodo: crearDialogo({ titulo: 'Método', contenido: contenidoMetodo }) };
         eventos();
         leerEnlace();
+        if (estado.capa === 'ipm') await cargarIpm();
         aplicarPaneles({ altura: estado.panel !== 'resultados' || estado.elegido ? 'medio' : 'peek' });
         renderTodo();
         enlaceListo = true;

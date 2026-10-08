@@ -234,6 +234,20 @@
                             <select id="capaPartido"></select>
                         </label>
                     </div>
+                    <label class="capas__opcion"><input type="radio" name="mapa" value="ipm"><span>Pobreza multidimensional (IPM)</span></label>
+                    <div class="capas__detalle" id="detalleIpm" hidden>
+                        <div class="segmentos" role="group" aria-label="Componente del IPM">
+                            <button type="button" data-ipm="H" aria-pressed="true">Incidencia</button>
+                            <button type="button" data-ipm="A" aria-pressed="false">Intensidad</button>
+                            <button type="button" data-ipm="IPM" aria-pressed="false">IPM</button>
+                        </div>
+                        <div class="segmentos" role="group" aria-label="Área del distrito">
+                            <button type="button" data-area="total" aria-pressed="true">Total</button>
+                            <button type="button" data-area="urbana" aria-pressed="false">Urbana</button>
+                            <button type="button" data-area="rural" aria-pressed="false">Rural</button>
+                        </div>
+                        <a class="boton-secundario" id="enlaceAnalisisIpm" href="../analisis/">Gráficos por distrito (Análisis)</a>
+                    </div>
                 </fieldset>
                 <div class="capas__opacidad">
                     <label for="opacidadCapa">Opacidad de la capa temática</label>

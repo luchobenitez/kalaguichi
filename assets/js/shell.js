@@ -269,7 +269,11 @@ function seleccion(etiqueta, clase) {
 
 // lista: lista.json; ambito: { distrito, departamento }. conPais: la página tiene el mapa del país (TREP), que atiende
 // el departamento sin recargar; en las demás, elegir un departamento solo acota la lista de distritos.
-function pasosDeAmbito(barra, lista, ambito, { conPais }) {
+// modoPais: 'mapa' (el mapa del país del TREP), 'analisis' (el ámbito «Paraguay, por distrito» de Análisis) o null (un
+// distrito siempre).
+function pasosDeAmbito(barra, lista, ambito, { modoPais }) {
+    const conPais = Boolean(modoPais);
+    const enAnalisis = modoPais === 'analisis';
     const pasoDep = barra.querySelector('[data-contexto="departamento"]');
     const pasoDis = barra.querySelector('[data-contexto="distrito"]');
     const porDep = new Map(lista.departamentos.map((d) => [d.codigo, { ...d, distritos: [] }]));
@@ -283,8 +287,8 @@ function pasosDeAmbito(barra, lista, ambito, { conPais }) {
     // En celular no se ve el departamento: el distrito lista todos, agrupados por departamento.
     const celular = matchMedia('(max-width: 640px)');
     function rellenarDistritos(dep) {
-        // El mapa del país está en TREP: en las demás secciones el distrito es siempre uno.
-        sDis.replaceChildren(...(conPais ? [new Option(ambito.distrito ? 'Ver el mapa del país' : 'Todos los distritos', '')] : []));
+        // El país: el mapa en TREP y «Paraguay, por distrito» en Análisis; en las demás secciones el distrito es siempre uno.
+        sDis.replaceChildren(...(conPais ? [new Option(ambito.distrito && !enAnalisis ? 'Ver el mapa del país' : 'Todos los distritos', '')] : []));
         const grupos = dep === null || dep === undefined || celular.matches ? [...porDep.values()] : [porDep.get(dep)].filter(Boolean);
         for (const d of grupos) {
             const destino = grupos.length > 1 ? Object.assign(document.createElement('optgroup'), { label: d.nombre }) : sDis;
@@ -303,19 +307,20 @@ function pasosDeAmbito(barra, lista, ambito, { conPais }) {
             estado.cambiar({ departamento: dep, elegido: null }, { origen: 'barra' });
             rellenarDistritos(dep);
         } else if (conPais) {
-            ir(hashDeAmbito({ departamento: dep }, { eleccion: contextoActual.eleccion.id, anio: contextoActual.anio.anio }));
+            ir(hashDeAmbito({ departamento: dep }, { eleccion: contextoActual.eleccion.id, anio: contextoActual.anio.anio,
+                                                     conservar: enAnalisis ? ['analisis'] : [], pais: enAnalisis }));
         } else {
             rellenarDistritos(dep);
             sDis.focus();
         }
     });
     sDis.addEventListener('change', () => {
-        // En Análisis, el análisis y la fuente siguen al cambiar de distrito.
-        const contexto = { eleccion: contextoActual.eleccion.id, anio: contextoActual.anio.anio, conservar: conPais ? [] : ['analisis'] };
+        // En Análisis, el análisis sigue al cambiar de distrito o al pasar al país.
+        const contexto = { eleccion: contextoActual.eleccion.id, anio: contextoActual.anio.anio, conservar: modoPais === 'mapa' ? [] : ['analisis'] };
         if (sDis.value) ir(hashDeAmbito({ distrito: sDis.value }, { cargoDisponible: (c) => c === 'junta' || sDis.value === ASUNCION_AMBITO, ...contexto }));
-        else if (conPais) ir(hashDeAmbito({ departamento: sDep.value === '' ? null : Number(sDep.value) }, contexto));
+        else if (conPais) ir(hashDeAmbito({ departamento: sDep.value === '' ? null : Number(sDep.value) }, { ...contexto, pais: enAnalisis }));
     });
-    // El mapa del país cambia el departamento desde su panel de filtros: la barra lo sigue.
+    // El mapa del país (o el filtro de Análisis en el país) cambia el departamento: la barra lo sigue.
     estado.suscribir(({ cambiadas, origen }) => {
         if (origen === 'barra' || !cambiadas.has('departamento') || ambito.distrito !== null) return;
         const dep = estado.obtener('departamento');
@@ -349,7 +354,7 @@ function selectorFijo(contenedor, etiqueta, opciones, actual, alElegir) {
 
 async function barraDeContexto(barra) {
     const { manifiesto, elegir, cargarEleccion, listaDistritos, indiceNacional } = await import('./datos.js');
-    const { ambitoDe, hashDe, ASUNCION } = await import('./ambito.js');
+    const { ambitoDe, ambitoDeAnalisis, hashDe, ASUNCION } = await import('./ambito.js');
     hashDeAmbito = hashDe;
     ASUNCION_AMBITO = ASUNCION;
     const m = await manifiesto();
@@ -363,11 +368,14 @@ async function barraDeContexto(barra) {
     const conAmbito = Boolean(barra.querySelector('[data-contexto="distrito"]')) && Boolean(anio.nacional?.fuentes?.includes(fuente));
     const lista = conAmbito ? await listaDistritos(eleccion.id, anio.anio).catch((error) => { console.warn(error); return null; }) : null;
     let ambito = null;
-    const conPais = Boolean(document.getElementById('plantillaPais'));
+    // El país: el mapa del TREP (plantillaPais) o «Paraguay, por distrito» de Análisis (data-pais="analisis", ADR-023).
+    const modoPais = document.getElementById('plantillaPais') ? 'mapa' : barra.dataset.pais ?? null;
+    const conPais = Boolean(modoPais);
     if (lista) {
         const pedido = ambitoDe(location.hash);
         const existe = (clave) => Boolean(clave) && lista.distritos.some(([k]) => k === clave);
-        if (existe(pedido.distrito)) ambito = pedido;
+        if (modoPais === 'analisis') ambito = ambitoDeAnalisis(location.hash, existe);
+        else if (existe(pedido.distrito)) ambito = pedido;
         else if (conPais) ambito = { distrito: null, departamento: pedido.distrito ? null : pedido.departamento };
         else {
             // Sin el mapa del país (Análisis): un distrito siempre; el elegido en el país o, si no, Asunción.
@@ -385,7 +393,7 @@ async function barraDeContexto(barra) {
     selectorFijo(barra.querySelector('[data-contexto="anio"]'), 'Año',
         eleccion.anios.map((a) => ({ valor: String(a.anio), texto: String(a.anio) })), String(anio.anio),
         (valor) => { estado.cambiar({ anio: valor }, { origen: 'barra' }); location.reload(); });
-    if (lista) pasosDeAmbito(barra, lista, ambito, { conPais });
+    if (lista) pasosDeAmbito(barra, lista, ambito, { modoPais });
     const selector = $('selectorCargo');
     const disponibles = cargosDisponibles(anio);
     selector.replaceChildren(...anio.cargos.map((cargo) => {

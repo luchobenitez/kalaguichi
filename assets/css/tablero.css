@@ -533,6 +533,11 @@ html[data-theme="dark"] .ruta-geo__paso {
     font-size: .8125rem;
 }
 
+/* El enlace a los gráficos de la capa (el IPM por distrito en Análisis): a su ancho, no al de la columna. */
+.capas__detalle .boton-secundario {
+    justify-self: start;
+}
+
 .tablero__filtros .nota {
     margin: 0;
 }

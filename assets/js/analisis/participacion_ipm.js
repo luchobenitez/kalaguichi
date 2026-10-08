@@ -3,31 +3,12 @@
 import { cargarChart, colores, fondo, descargarCsv, descargarPng, nombreArchivo, renderTablaOrdenable, alOrdenar } from './exportar.js';
 import { participacion, agregadosBarrio } from '../tablero/modelo.js';
 import { IPM_COLOR } from '../tablero/mapa.js';
-import { el, fmt, pct, pct2, cantidad } from '../tablero/util.js';
+import { el, pct, pct2, cantidad } from '../tablero/util.js';
+import { tendencia, fuerza } from './tendencia.js';
+
+export { tendencia };
 
 const COMPONENTES = [['H', 'Incidencia'], ['A', 'Intensidad'], ['IPM', 'IPM']];
-
-// Recta por mínimos cuadrados y correlación de Pearson.
-export function tendencia(puntos) {
-    const n = puntos.length;
-    if (n < 2) return null;
-    const mx = puntos.reduce((a, p) => a + p.x, 0) / n, my = puntos.reduce((a, p) => a + p.y, 0) / n;
-    let sxx = 0, syy = 0, sxy = 0;
-    for (const p of puntos) {
-        sxx += (p.x - mx) ** 2;
-        syy += (p.y - my) ** 2;
-        sxy += (p.x - mx) * (p.y - my);
-    }
-    if (!sxx || !syy) return null;
-    const pendiente = sxy / sxx;
-    return { pendiente, ordenada: my - pendiente * mx, r: sxy / Math.sqrt(sxx * syy) };
-}
-
-function fuerza(r) {
-    const a = Math.abs(r);
-    const grado = a < 0.1 ? 'prácticamente nula' : a < 0.3 ? 'débil' : a < 0.5 ? 'moderada' : 'fuerte';
-    return a < 0.1 ? grado : `${grado} y ${r < 0 ? 'negativa' : 'positiva'}`;
-}
 
 export function crear(ctx) {
     const { datos } = ctx;
