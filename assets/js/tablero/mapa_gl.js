@@ -1,6 +1,7 @@
-// Mapa con MapLibre GL JS (ADR-021, etapas 3 y 4) para el tablero y los análisis. Mapa base: un extracto de OpenStreetMap
-// de Asunción (PMTiles de Protomaps en datos/mapa_base/) con los estilos claro y oscuro del sitio (assets/mapa/), que siguen
-// el tema, o ninguno (solo el distrito y el río). Orden de dibujo: mapa base → relleno temático semitransparente (barrios,
+// Mapa con MapLibre GL JS (ADR-021, etapas 3 y 4) para el tablero y los análisis. Mapa base: en Asunción, un extracto de
+// OpenStreetMap (PMTiles de Protomaps en datos/mapa_base/) con los estilos claro y oscuro del sitio (assets/mapa/); en los
+// demás distritos, el mapa base del país (rutas, ríos, arroyos y lugares; ADR-026, base_pais.js); los dos siguen el tema y
+// se pueden apagar (queda el distrito, y en Asunción el río). Orden de dibujo: mapa base → relleno temático semitransparente (barrios,
 // zonas municipales o halos de la zona TSJE) → límites → calles y nombres del mapa base → puntos de locales o mesas → la
 // selección resaltada. En el tablero (puntosPorLocal) los puntos van agrupados por local al alejar y, desde el zoom 14, una
 // mesa por punto en espiral alrededor de su local; en los análisis, una mesa por punto siempre. Forma además de color en
@@ -9,6 +10,7 @@
 // mueve con dos dedos (o Ctrl + rueda) para que la página no quede atrapada. MapLibre (1 MB) y pmtiles se cargan solo al
 // crear el primer mapa, y todo se pide al mismo origen. Sin HTML desde datos: los textos van con textContent.
 import { agregarControles } from './zoom_mapa.js';
+import { FUENTE_BASE, fuenteBase, capasBase, verBase, enlaceOsm } from './base_pais.js';
 
 const RAIZ = new URL('../../../', import.meta.url);
 // Las plantillas de tipografías llevan llaves: se arman como texto (URL() las codificaría).
@@ -82,12 +84,15 @@ function estiloBase(oscuro) {
     return estilos[nombre];
 }
 
-// Fuera de Asunción no hay mapa base (ADR-022): un estilo propio con el fondo del tema y las mismas tipografías.
-// Fuera del distrito, el fondo del mapa del país (mapa_pais.js); dentro, la tierra de SIN_BASE.
+// Fuera de Asunción, el mapa base del país (ADR-026): el fondo del tema, el agua, los ríos, los arroyos, las rutas y los
+// nombres de lugares de datos/mapa_base/pais.pmtiles, con las mismas tipografías. Fuera del distrito, el fondo del mapa del
+// país (mapa_pais.js); dentro, la tierra de SIN_BASE (la base del país no trae tierra).
 const FONDO_SIN_BASE = { claro: '#dbe4ee', oscuro: '#030712' };
-function estiloSinBase(oscuro) {
-    return Promise.resolve({ version: 8, glyphs: absoluta('assets/vendor/mapa/fonts/{fontstack}/{range}.pbf'), sources: {},
-                             layers: [{ id: 'k-fondo', type: 'background', paint: { 'background-color': FONDO_SIN_BASE[oscuro ? 'oscuro' : 'claro'] } }] });
+function estiloPais(oscuro) {
+    const base = capasBase(oscuro, { lugares: true });
+    return Promise.resolve({ version: 8, glyphs: absoluta('assets/vendor/mapa/fonts/{fontstack}/{range}.pbf'), sources: { [FUENTE_BASE]: fuenteBase(absoluta) },
+                             layers: [{ id: 'k-fondo', type: 'background', paint: { 'background-color': FONDO_SIN_BASE[oscuro ? 'oscuro' : 'claro'] } },
+                                      ...base.lineas, ...base.rotulos] });
 }
 const conUbicacion = (info) => Number.isFinite(info?.lat) && Number.isFinite(info?.lon);
 
@@ -160,9 +165,9 @@ export function crearMapaGL(datos, contenedor, opciones = {}) {
     let baseAplicada = null;  // Las capas del mapa base se recorren solo cuando cambia la opción (o el estilo).
     const mesas = posicionesMesas(datos);
     const geoBase = new URL('geo/', datos.contexto.comun);
-    // Asunción tiene su mapa base y su cartografía; los demás distritos (ADR-022), solo su límite.
-    const conMapaBase = Boolean(datos.conBarrios);
-    if (!conMapaBase) estado.base = false;
+    // Asunción tiene su mapa base de calles y su cartografía; los demás distritos (ADR-022 y ADR-026), su límite y el mapa
+    // base del país.
+    const conCartografia = Boolean(datos.conBarrios);
     let map = null;
     let caja = null;     // Encuadre del distrito.
     const api = { map: null, mesas, contenedor };
@@ -170,19 +175,14 @@ export function crearMapaGL(datos, contenedor, opciones = {}) {
     // La atribución obligatoria del mapa base, más las fuentes de la cartografía propia (siempre a la vista).
     const atribucion = opciones.atribucion ?? Object.assign(document.createElement('p'), { className: 'mapa__atribucion' });
     if (!opciones.atribucion) contenedor.append(atribucion);
-    if (conMapaBase) {
-        const osm = document.createElement('a');
-        osm.href = 'https://www.openstreetmap.org/copyright';
-        osm.textContent = '© colaboradores de OpenStreetMap';
-        osm.rel = 'noopener noreferrer';
-        osm.target = '_blank';
-        atribucion.replaceChildren(osm, ' (ODbL) · Protomaps · INE · Municipalidad de Asunción');
+    if (conCartografia) {
+        atribucion.replaceChildren(enlaceOsm(), ' (ODbL) · Protomaps · INE · Municipalidad de Asunción');
         atribucion.title = 'Mapa base: © colaboradores de OpenStreetMap (ODbL), con el esquema y el estilo de Protomaps. Barrios y límite: ' +
             'INE (CNPV 2022). Zonas municipales, río, manzanas y cauces: Municipalidad de Asunción.';
     } else {
-        atribucion.textContent = 'Límite: INE (CNPV 2022) · Locales: padrón · Resultados: TREP (Justicia Electoral)';
-        atribucion.title = 'Límite referencial del distrito: INE, Cartografía digital del CNPV 2022. Ubicación de los locales: catálogo de locales ' +
-            'del padrón. Sin mapa base de calles fuera de Asunción.';
+        atribucion.replaceChildren(enlaceOsm(), ' (ODbL) · Protomaps · Límite: INE (CNPV 2022) · Locales: padrón · Resultados: TREP (Justicia Electoral)');
+        atribucion.title = 'Mapa base: rutas, ríos, arroyos y lugares de OpenStreetMap (ODbL), del build de Protomaps. Límite referencial del ' +
+            'distrito: INE, Cartografía digital del CNPV 2022. Ubicación de los locales: catálogo de locales del padrón.';
     }
 
     // Globo de ayuda al pasar el puntero (texto plano).
@@ -212,12 +212,16 @@ export function crearMapaGL(datos, contenedor, opciones = {}) {
         if (!map?.getLayer('k-barrios-relleno')) return;
         if (baseAplicada !== estado.base) {
             baseAplicada = estado.base;
-            for (const capa of map.getStyle().layers) {
-                if (capa.source === 'protomaps') map.setLayoutProperty(capa.id, 'visibility', estado.base ? 'visible' : 'none');
+            if (!conCartografia) verBase(map, estado.base);
+            else {
+                for (const capa of map.getStyle().layers) {
+                    if (capa.source === 'protomaps') map.setLayoutProperty(capa.id, 'visibility', estado.base ? 'visible' : 'none');
+                }
             }
         }
-        ver('k-distrito-relleno', !estado.base);
-        ver('k-rio', !estado.base);
+        // Asunción, sin su mapa base: el distrito y el río propios. Los demás distritos, siempre su tierra (la base no la trae).
+        ver('k-distrito-relleno', !conCartografia || !estado.base);
+        ver('k-rio', conCartografia && !estado.base);
         // Los nombres de barrios del mapa base no se repiten con los propios (INE).
         ver('places_subplace', false);
         const o = estado.opacidad;
@@ -259,7 +263,8 @@ export function crearMapaGL(datos, contenedor, opciones = {}) {
         map.addSource('k-mesas', { type: 'geojson', data: coleccion(estado.mesas ?? []) });
         map.addSource('k-locales', { type: 'geojson', data: coleccion([]) });
         map.addSource('k-marca', { type: 'geojson', data: coleccion([]) });
-        const antes = map.getLayer(ANTES_DE_CALLES) ? ANTES_DE_CALLES : undefined;
+        // Debajo de las calles del mapa base de Asunción o del agua del mapa base del país.
+        const antes = [ANTES_DE_CALLES, 'kb-agua'].find((id) => map.getLayer(id));
         const fondo = SIN_BASE[oscuro ? 'oscuro' : 'claro'];
         // Sin mapa base: el distrito y el río como fondo propio.
         map.addLayer({ id: 'k-distrito-relleno', type: 'fill', source: 'k-distrito', layout: { visibility: 'none' }, paint: { 'fill-color': fondo.tierra } }, antes);
@@ -323,7 +328,7 @@ export function crearMapaGL(datos, contenedor, opciones = {}) {
 
     async function cambiarTema() {
         if (!map) return;
-        const estilo = await (conMapaBase ? estiloBase : estiloSinBase)(temaOscuro());
+        const estilo = await (conCartografia ? estiloBase : estiloPais)(temaOscuro());
         const geo = api.geo;
         map.setStyle(estilo, { diff: false });
         map.once('style.load', () => {
@@ -374,15 +379,15 @@ export function crearMapaGL(datos, contenedor, opciones = {}) {
     api.listo = (async () => {
         const vacio = Promise.resolve(coleccion([]));
         const [maplibregl, estilo, distrito, barrios, zonas, etiquetas, rio] = await Promise.all([
-            cargarMotor(), (conMapaBase ? estiloBase : estiloSinBase)(temaOscuro()),
-            ...['distrito', 'barrios', 'zonas_municipales', 'etiquetas', 'rio'].map((n) => (conMapaBase || n === 'distrito' ? leerJson(new URL(`${n}.geojson`, geoBase)) : vacio))]);
+            cargarMotor(), (conCartografia ? estiloBase : estiloPais)(temaOscuro()),
+            ...['distrito', 'barrios', 'zonas_municipales', 'etiquetas', 'rio'].map((n) => (conCartografia || n === 'distrito' ? leerJson(new URL(`${n}.geojson`, geoBase)) : vacio))]);
         api.geo = { distrito, barrios, zonas, etiquetas, rio };
         caja = cajaDeCoordenadas(coordenadas(distrito.features[0].geometry));
-        // Sin mapa base, la vista no se aleja más que el doble del distrito (los del Chaco miden cientos de kilómetros).
+        // Fuera de Asunción, la vista no se aleja más que el doble del distrito (los del Chaco miden cientos de kilómetros).
         const [[x0, y0], [x1, y1]] = caja;
-        const limites = conMapaBase ? LIMITES : [[x0 - (x1 - x0), y0 - (y1 - y0)], [x1 + (x1 - x0), y1 + (y1 - y0)]];
+        const limites = conCartografia ? LIMITES : [[x0 - (x1 - x0), y0 - (y1 - y0)], [x1 + (x1 - x0), y1 + (y1 - y0)]];
         map = new maplibregl.Map({
-            container: contenedor, style: estilo, bounds: caja, fitBoundsOptions: { padding: 16 }, maxBounds: limites, minZoom: conMapaBase ? 10 : 5, maxZoom: 18.5,
+            container: contenedor, style: estilo, bounds: caja, fitBoundsOptions: { padding: 16 }, maxBounds: limites, minZoom: conCartografia ? 10 : 5, maxZoom: 18.5,
             attributionControl: false, dragRotate: false, pitchWithRotate: false, touchPitch: false, cooperativeGestures: Boolean(opciones.gestosCooperativos),
             locale: { ...TEXTOS_MAPLIBRE, 'Map.Title': opciones.etiqueta ?? 'Mapa de Asunción' },
         });
@@ -472,9 +477,9 @@ export function crearMapaGL(datos, contenedor, opciones = {}) {
         estado.marca = conUbicacion(info) ? punto(info.lon, info.lat, { clave, radio_m: radioLocal(datos.porLocal.get(clave)?.length ?? 1) + 40 }) : null;
         aplicar();
     };
-    // Mapa base (calles) o ninguno; opacidad de la capa temática (0 a 1); elementos visibles.
+    // Mapa base (las calles de Asunción o el del país) o ninguno; opacidad de la capa temática (0 a 1); elementos visibles.
     api.fijarBase = (conBase) => {
-        estado.base = conMapaBase && Boolean(conBase);
+        estado.base = Boolean(conBase);
         if (map) aplicarAspecto();
     };
     api.fijarOpacidad = (valor) => {

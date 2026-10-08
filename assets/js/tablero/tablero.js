@@ -65,7 +65,8 @@ const lugar = () => datos.lugar.nombre;
 const esAsuncion = () => datos.lugar.clave === ASUNCION;
 const capasDisponibles = () => (datos.conBarrios ? CAPAS : CAPAS_SIN_BARRIOS);
 const unidadesDisponibles = () => (datos.conBarrios ? UNIDADES : UNIDADES_SIN_BARRIOS);
-const basePorOmision = () => (datos.conBarrios ? 'calles' : 'ninguno');
+// Con mapa base en todos los distritos: las calles de Asunción o el mapa base del país (ADR-026).
+const basePorOmision = () => 'calles';
 const nombreZonaTsje = (info) => info.zona_nombre ?? `zona ${info.zona}`;
 function colorZona(codigo) {
     if (COLORES_ZONA[codigo]) return COLORES_ZONA[codigo];
@@ -555,7 +556,7 @@ function renderMapaPuntos() {
         encuadreMostrado = clave;
         mapa.listo.then(() => mapa.encuadrar(cajaDeZona())).catch(() => {});
     }
-    mapa.fijarBase(false);
+    mapa.fijarBase(estado.base === 'calles');
     mapa.fijarOpacidad(opacidad());
     mapa.fijarElementos({ ...estado.ver, puntos: true });
     const leyenda = $('leyenda');
@@ -572,7 +573,7 @@ function renderMapaPuntos() {
     // Los locales con acta del cargo (una mesa puede tener acta solo del otro; ADR-024) que no tienen ubicación.
     const sinUbicacion = [...datos.porLocal].filter(([k, filas]) => filas.some((f) => datos.conActa(f.i, estado.cargo)) && !Number.isFinite(infoDe(k)?.lat)).length;
     if (sinUbicacion) leyenda.append(el('li', 'leyenda__nota', `${cantidad(sinUbicacion, 'local', 'locales')} sin ubicación en el padrón: en la tabla, no en el mapa.`));
-    leyenda.append(el('li', 'leyenda__nota', 'Sin mapa base de calles fuera de Asunción.'));
+    leyenda.append(el('li', 'leyenda__nota', estado.base === 'calles' ? 'Mapa base: rutas, ríos, arroyos y lugares de OpenStreetMap.' : 'Sin mapa base.'));
     leyenda.append(itemLeyenda(null, 'Contorno: límite del distrito (INE)', 'leyenda__muestra--limite'));
     mapa.marcar(estado.local);
 }
@@ -1116,7 +1117,7 @@ function leerEnlace() {
     estado.ipm = IPM.includes(p.get('ipm')) ? p.get('ipm') : 'H';
     const opacidadPedida = Number(p.get('opacidad'));
     estado.opacidad = p.has('opacidad') && Number.isInteger(opacidadPedida) && opacidadPedida >= 0 && opacidadPedida <= 100 ? opacidadPedida : OPACIDAD_POR_OMISION;
-    estado.base = datos.conBarrios && BASES.includes(p.get('base')) ? p.get('base') : basePorOmision();
+    estado.base = BASES.includes(p.get('base')) ? p.get('base') : basePorOmision();
     // «ninguno» apaga todos los elementos; un valor sin elementos conocidos vuelve a los de por omisión.
     const pedidos = (p.get('ver') ?? '').split(',').filter((k) => ELEMENTOS.includes(k));
     const ver = pedidos.length || p.get('ver') === 'ninguno' ? pedidos : VER_POR_OMISION.split(',');
@@ -1282,7 +1283,6 @@ function renderFijos() {
         $('detalleIpm').hidden = true;
         for (const valor of ['ipm', 'zona_municipal']) document.querySelector(`input[name="capa"][value="${valor}"]`)?.closest('label')?.remove();
         for (const valor of ['limites', 'nombres', 'manzanas']) document.querySelector(`input[name="ver"][value="${valor}"]`)?.closest('label')?.remove();
-        document.querySelector('.capas--base')?.remove();
         for (const valor of ['barrio', 'zona_municipal']) $('unidadTabla').querySelector(`option[value="${valor}"]`)?.remove();
         document.querySelector('[data-ranking="barrio"]')?.remove();
         for (const [valor, texto] of [['lista', 'Lista más votada por local'], ['listas', 'Votos por lista, por local'], ['participacion', 'Participación por local'],
@@ -1341,7 +1341,6 @@ export async function iniciar({ fuente: deLaSeccion = 'trep' } = {}) {
             alElegir: (nombre) => { estado.bandeja = nombre; renderBandeja(); actualizarEnlace(); },
             alCambiar: (abierta) => { estado.bandeja = abierta ? bandeja.panel() : null; renderBandeja(); actualizarEnlace(); },
         });
-        if (!datos.conBarrios) estado.base = 'ninguno';
         eventos();
         leerEnlace();
         // Celular: la hoja asoma con la selección; con un local elegido o con otra pestaña, a media altura.

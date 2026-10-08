@@ -74,7 +74,7 @@ let ipmPor = new Map();
 let ipmEnCurso = null;
 let ipmFallo = false;
 const estado = { cargo: '1', departamento: null, elegido: null, capa: 'ganadora', partido: 'ANR', ipm: 'H', area: 'total', opacidad: OPACIDAD_POR_OMISION,
-                 ver: { departamentos: true, distritos: true, nombres: true }, panel: 'resultados', bandeja: null, orden: null,
+                 ver: { departamentos: true, distritos: true, nombres: true, base: true }, panel: 'resultados', bandeja: null, orden: null,
                  ordenRanking: 'desc', filtro: '' };
 
 // --- Modelo -------------------------------------------------------------------------------------------------------
@@ -649,7 +649,8 @@ function renderMapa() {
         : estado.capa === 'ipm' && ipm ? `${indicadorIpm().nombre} por distrito${EN_AREA[estado.area]}` : tituloCapa(estado.capa);
     PINTORES[estado.capa](leyenda);
     if (estado.departamento !== null) leyenda.append(el('li', 'leyenda__nota', `Fuera de ${nombreDep(estado.departamento)}, atenuados.`));
-    leyenda.append(el('li', 'leyenda__nota', `Relleno al ${fmt.format(estado.opacidad)} %, sin mapa base de calles.`));
+    leyenda.append(el('li', 'leyenda__nota', `Relleno al ${fmt.format(estado.opacidad)} %` +
+        `${estado.ver.base ? ', con las rutas, los ríos y los arroyos de OpenStreetMap encima' : ''}.`));
     leyenda.append(itemLeyenda(null, 'Límite de departamento', 'leyenda__muestra--limite'));
     mapa.elegir(estado.elegido);
 }
@@ -944,6 +945,8 @@ async function contenidoFuente() {
         ['Electores', `Recuento agregado del padrón por mesa, sin datos de personas: ${fmt.format(t.padron)} electores en el padrón y ` +
                       `${fmt.format(t.electores)} en las mesas con acta.`],
         ['Límites', 'INE, Cartografía digital del CNPV 2022 (límites referenciales), simplificados para el mapa del país; Licencia de Uso de Información Pública.'],
+        ['Mapa base', 'Rutas, ríos, arroyos, espejos de agua y nombres de lugares de OpenStreetMap (© colaboradores de OpenStreetMap, ODbL 1.0), del build de ' +
+                      'Protomaps del 08/10/2026, con más detalle al acercar; el navegador pide solo las partes a la vista. Se apaga en Capas.'],
         ['Códigos', 'Los códigos del TSJE y del INE no coinciden: cada distrito del TSJE se unió con su par del INE por el nombre, dentro del departamento.'],
         ['Nombres', 'Los del INE, con tildes; el TSJE los escribe en mayúsculas y a veces abreviados.'],
     ])));

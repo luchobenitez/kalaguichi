@@ -1,9 +1,11 @@
-// Mapa del país por distrito (ADR-022) con MapLibre, sin mapa base de calles: los límites de los distritos y de los
-// departamentos del INE (CNPV 2022, simplificados), el relleno de cada distrito (color y atenuado, que pinta pais.js),
-// los nombres de los departamentos al alejar y los de los distritos al acercar. Mismo motor, worker y tipografías que el
-// mapa de un distrito (mapa_gl.js), con sus controles (zoom_mapa.js); todo se pide al mismo origen. Sin HTML desde datos.
+// Mapa del país por distrito (ADR-022) con MapLibre: los límites de los distritos y de los departamentos del INE (CNPV
+// 2022, simplificados), el relleno de cada distrito (color y atenuado, que pinta pais.js), el mapa base del país encima
+// (agua, ríos, arroyos y rutas de OpenStreetMap; ADR-026, base_pais.js), los nombres de los departamentos al alejar y los
+// de los distritos al acercar. Mismo motor, worker y tipografías que el mapa de un distrito (mapa_gl.js), con sus
+// controles (zoom_mapa.js); todo se pide al mismo origen. Sin HTML desde datos.
 import { cargarMotor, absoluta, TEXTOS_MAPLIBRE } from './mapa_gl.js';
 import { agregarControles } from './zoom_mapa.js';
+import { FUENTE_BASE, fuenteBase, capasBase, aplicarTemaBase, verBase, enlaceOsm } from './base_pais.js';
 
 // La vista no sale de Paraguay y sus alrededores (el país va de -62,6 a -54,3 de longitud y de -27,6 a -19,3 de latitud).
 const LIMITES = [[-67.5, -31], [-49.5, -16]];
@@ -23,15 +25,16 @@ const caja = ([x0, y0, x1, y1]) => [[x0, y0], [x1, y1]];
 // pais (caja [x0, y0, x1, y1]), alTocar(clave), texto(clave) (globo al pasar el puntero), alCambiarTema(), margen() y
 // controles (opciones de agregarControles).
 export function crearMapaPais(geo, etiquetas, contenedor, opciones = {}) {
-    const estado = { pintura: new Map(), elegido: null, hover: null, opacidad: 0.85, elementos: { departamentos: true, distritos: true, nombres: true } };
+    const estado = { pintura: new Map(), elegido: null, hover: null, opacidad: 0.85,
+                     elementos: { departamentos: true, distritos: true, nombres: true, base: true } };
     let map = null;
     const api = { map: null, contenedor };
 
     const atribucion = opciones.atribucion ?? Object.assign(document.createElement('p'), { className: 'mapa__atribucion' });
     if (!opciones.atribucion) contenedor.append(atribucion);
-    atribucion.textContent = 'Límites: INE (CNPV 2022) · Resultados: TREP (Justicia Electoral)';
-    atribucion.title = 'Límites referenciales de los distritos y los departamentos: INE, Cartografía digital del CNPV 2022, simplificados. ' +
-        'Resultados preliminares del TREP de la Junta Municipal (Justicia Electoral). Sin mapa base de calles.';
+    atribucion.replaceChildren(enlaceOsm(), ' (ODbL) · Protomaps · Límites: INE (CNPV 2022) · Resultados: TREP (Justicia Electoral)');
+    atribucion.title = 'Mapa base: rutas, ríos y arroyos de OpenStreetMap (ODbL), del build de Protomaps. Límites referenciales de los distritos ' +
+        'y los departamentos: INE, Cartografía digital del CNPV 2022, simplificados. Resultados preliminares del TREP (Justicia Electoral).';
 
     const globo = document.createElement('div');
     globo.className = 'mapa__globo';
@@ -43,6 +46,7 @@ export function crearMapaPais(geo, etiquetas, contenedor, opciones = {}) {
 
     function estilo() {
         const t = tema();
+        const base = capasBase(temaOscuro());
         return {
             version: 8,
             glyphs: absoluta('assets/vendor/mapa/fonts/{fontstack}/{range}.pbf'),
@@ -51,6 +55,7 @@ export function crearMapaPais(geo, etiquetas, contenedor, opciones = {}) {
                 'k-departamentos': { type: 'geojson', data: geo.departamentos },
                 'k-nombres-distritos': { type: 'geojson', data: coleccion(etiquetas.distritos.map((d) => punto(d.centro, { nombre: d.nombre, clave: d.clave }))) },
                 'k-nombres-departamentos': { type: 'geojson', data: coleccion(etiquetas.departamentos.map((d) => punto(d.centro, { nombre: d.nombre }))) },
+                [FUENTE_BASE]: fuenteBase(absoluta),
             },
             layers: [
                 { id: 'k-fondo', type: 'background', paint: { 'background-color': t.fondo } },
@@ -58,6 +63,8 @@ export function crearMapaPais(geo, etiquetas, contenedor, opciones = {}) {
                 { id: 'k-relleno', type: 'fill', source: 'k-distritos',
                   paint: { 'fill-color': ['coalesce', ['feature-state', 'color'], t.tierra],
                            'fill-opacity': ['case', ['boolean', ['feature-state', 'atenuado'], false], estado.opacidad * 0.22, estado.opacidad] } },
+                // El mapa base sobre el relleno, como referencia: agua, ríos, arroyos y rutas (debajo de los límites).
+                ...base.lineas,
                 { id: 'k-distritos-borde', type: 'line', source: 'k-distritos',
                   paint: { 'line-color': t.distrito, 'line-opacity': 0.85, 'line-width': ['interpolate', ['linear'], ['zoom'], 5, 0.25, 8, 0.8, 11, 1.4] } },
                 { id: 'k-departamentos-borde', type: 'line', source: 'k-departamentos', layout: { 'line-join': 'round' },
@@ -67,6 +74,8 @@ export function crearMapaPais(geo, etiquetas, contenedor, opciones = {}) {
                 { id: 'k-elegido', type: 'line', source: 'k-distritos', layout: { 'line-join': 'round' },
                   paint: { 'line-color': t.elegido, 'line-width': ['interpolate', ['linear'], ['zoom'], 5, 2, 10, 3.5],
                            'line-opacity': ['case', ['boolean', ['feature-state', 'elegido'], false], 1, 0] } },
+                // Los nombres de los ríos y los números de ruta, al acercar (los de los distritos van encima).
+                ...base.rotulos,
                 { id: 'k-nombres-departamentos', type: 'symbol', source: 'k-nombres-departamentos', maxzoom: ZOOM_NOMBRES,
                   layout: { 'text-field': ['get', 'nombre'], 'text-font': ['Noto Sans Medium'], 'text-size': ['interpolate', ['linear'], ['zoom'], 5, 11, 7, 13],
                             'text-transform': 'uppercase', 'text-letter-spacing': 0.06, 'text-max-width': 8, 'text-padding': 4 },
@@ -97,6 +106,7 @@ export function crearMapaPais(geo, etiquetas, contenedor, opciones = {}) {
         ver('k-distritos-borde', e.distritos);
         ver('k-nombres-departamentos', e.nombres);
         ver('k-nombres-distritos', e.nombres);
+        verBase(map, e.base);
     }
 
     function aplicarTema() {
@@ -112,6 +122,7 @@ export function crearMapaPais(geo, etiquetas, contenedor, opciones = {}) {
             map.setPaintProperty(id, 'text-color', t.tinta);
             map.setPaintProperty(id, 'text-halo-color', t.halo);
         }
+        aplicarTemaBase(map, temaOscuro());
         opciones.alCambiarTema?.();
     }
 

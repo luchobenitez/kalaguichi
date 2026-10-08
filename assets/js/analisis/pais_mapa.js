@@ -1,9 +1,10 @@
 // Mapa de Paraguay por distrito para los análisis del país (ADR-025, tarea M29): el mismo mapa del TREP
-// (tablero/mapa_pais.js: MapLibre, sin mapa base de calles, límites del INE), en la caja del análisis, con la leyenda y el
+// (tablero/mapa_pais.js: MapLibre, límites del INE y el mapa base del país de ADR-026), en la caja del análisis, con la leyenda y el
 // dato del distrito debajo. El globo sigue al puntero; un toque muestra el dato en la línea de abajo (también para
 // lectores de pantalla). El departamento del filtro se encuadra y los distritos de afuera se atenúan. Sin HTML desde datos.
 import { geoNacional } from '../datos.js';
 import { crearMapaPais } from '../tablero/mapa_pais.js';
+import { enlaceOsm } from '../tablero/base_pais.js';
 import { el } from '../tablero/util.js';
 
 let geoEnCurso = null;
@@ -41,9 +42,9 @@ export function crearMapaAnalisis(ctx, { etiqueta, atribucion, texto, alCambiarT
                         mapa.elegir(clave);
                         dato.textContent = texto(clave) ?? '';
                     } });
-        // La atribución es la del análisis (crearMapaPais pone la del TREP).
-        pie.textContent = atribucion.texto;
-        pie.title = atribucion.titulo;
+        // La atribución es la del análisis (crearMapaPais pone la del TREP), con la del mapa base.
+        pie.replaceChildren(enlaceOsm(), ' (ODbL) · Protomaps · ', atribucion.texto);
+        pie.title = `Mapa base: rutas, ríos y arroyos de OpenStreetMap (ODbL), del build de Protomaps. ${atribucion.titulo}`;
         return mapa.listo;
     }).then(() => true, (error) => {
         caja.append(el('p', 'mapa__sin-mapa', 'No se pudo mostrar el mapa en este navegador (necesita WebGL). La tabla sigue disponible.'));

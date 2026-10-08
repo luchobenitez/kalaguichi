@@ -31,7 +31,7 @@ export function crear(ctx) {
         etiqueta: 'Mapa de Paraguay por distrito coloreado según sus electores habilitados (padrón), en seis tramos',
         atribucion: { texto: 'Límites: INE (CNPV 2022) · Electores: padrón',
                       titulo: 'Límites referenciales del INE (CNPV 2022), simplificados. Electores habilitados de cada distrito según el padrón ' +
-                              '(recuento por mesa, sin datos de personas). Sin mapa base de calles.' },
+                              '(recuento por mesa, sin datos de personas).' },
         texto: textoDistrito,
         alCambiarTema: () => renderMapa(),
     });

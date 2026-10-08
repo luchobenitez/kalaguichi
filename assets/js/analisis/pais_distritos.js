@@ -62,7 +62,7 @@ export function crear(ctx) {
         etiqueta: 'Mapa de Paraguay por distrito con la lista más votada de los distritos que superan el mínimo de electores; los demás, en gris',
         atribucion: { texto: 'Límites: INE (CNPV 2022) · Electores: padrón · Resultados: TREP (Justicia Electoral)',
                       titulo: 'Límites referenciales del INE (CNPV 2022), simplificados. Electores habilitados de cada distrito según el padrón. ' +
-                              'Resultados preliminares del TREP (Justicia Electoral). Sin mapa base de calles.' },
+                              'Resultados preliminares del TREP (Justicia Electoral).' },
         texto: textoDistrito,
         alCambiarTema: () => { renderMapa(); renderResumen(); },
     });

@@ -119,7 +119,7 @@ async function contenidoFuenteDistrito(datos, fuente) {
             'sin datos de personas.' +
             (sinUbicacion ? ` ${cantidad(sinUbicacion, 'local no tiene', 'locales no tienen')} ubicación en el padrón: están en la tabla, no en el mapa.` : '')],
         ['Límite del distrito', 'INE, Cartografía digital del CNPV 2022 (límites referenciales), simplificado; Licencia de Uso de Información ' +
-            'Pública. Sin mapa base de calles fuera de Asunción. Los códigos del TSJE y del INE no coinciden: el distrito se unió a su par del INE ' +
+            'Pública. Mapa base: rutas, ríos, arroyos y lugares de OpenStreetMap (ODbL), del build de Protomaps. Los códigos del TSJE y del INE no coinciden: el distrito se unió a su par del INE ' +
             'por el nombre.'],
         ['Listas y bancas', `${datos.cand.fuente?.listas ?? 'Planillas del TREP'}. ${datos.cand.bancas.nota ?? ''}`],
     ]);

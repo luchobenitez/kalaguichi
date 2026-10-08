@@ -85,5 +85,99 @@
   ],
   "licencia": "Datos © colaboradores de OpenStreetMap, ODbL 1.0 (https://www.openstreetmap.org/copyright); esquema y build de Protomaps (https://protomaps.com).",
   "actualizado_utc": "2026-10-07T12:39:22+00:00"
+ },
+ "pais": {
+  "origen": "https://build.protomaps.com/20261008.pmtiles",
+  "comando": "python scripts/mapa_base.py pais --pmtiles RUTA --build 20261008",
+  "herramienta": "pmtiles 1.31.2, commit a3e4951ea6a0477b784c27c1dcbfd9c130878c5a, built at 2026-07-22T18:59:03Z",
+  "region": "departamentos del INE (CNPV 2022) unidos, con 0.08° de margen (unos 9 km)",
+  "extracto": {
+   "zoom": [
+    0,
+    13
+   ],
+   "bytes": 52324250,
+   "sha256": "c4d2b8af813b92af735adaf53ebfefbfa2779007eeb303cb3e7e19c9f81217ce"
+  },
+  "generador": "scripts/mapa_base/pais.mjs (geojson-vt y vt-pbf de node_modules)",
+  "zoom": [
+   4,
+   12
+  ],
+  "esquema_protomaps": "4.15.2",
+  "osm_al": "2026-10-08T04:00:00Z",
+  "capas": {
+   "roads": "autopista y troncal desde z4, primaria z6, secundaria z8, terciaria z9, local y calle z11 (ref y nombre)",
+   "water": "espejos de agua de 1 km² o más desde z4, de 5 ha z9, de media hectárea z11; ríos con nombre z5, sin nombre z9; arroyos con nombre z10, sin nombre z11; canales z11",
+   "places": "ciudades z7, pueblos z9, localidades z10, caseríos z11, barrios z12"
+  },
+  "objetos_fuente": {
+   "roads": 117153,
+   "water": 49592,
+   "places": 3154
+  },
+  "teselas": {
+   "4": 2,
+   "5": 4,
+   "6": 8,
+   "7": 13,
+   "8": 33,
+   "9": 107,
+   "10": 367,
+   "11": 1407,
+   "12": 4752
+  },
+  "bytes_por_zoom": {
+   "4": 13607,
+   "5": 47517,
+   "6": 77456,
+   "7": 112250,
+   "8": 215341,
+   "9": 527456,
+   "10": 892305,
+   "11": 3810851,
+   "12": 6748455
+  },
+  "por_vista": {
+   "pais_z4": {
+    "zoom": 4,
+    "teselas": 2,
+    "bytes": 13607
+   },
+   "pais_z5": {
+    "zoom": 5,
+    "teselas": 4,
+    "bytes": 47517
+   },
+   "pais_z6": {
+    "zoom": 6,
+    "teselas": 8,
+    "bytes": 77456
+   },
+   "central_z9": {
+    "zoom": 9,
+    "teselas": 6,
+    "bytes": 88727
+   },
+   "luque_z11": {
+    "zoom": 11,
+    "teselas": 4,
+    "bytes": 280620
+   },
+   "luque_z12": {
+    "zoom": 12,
+    "teselas": 9,
+    "bytes": 275946
+   },
+   "mariscal_estigarribia_z8": {
+    "zoom": 8,
+    "teselas": 9,
+    "bytes": 12439
+   }
+  },
+  "bytes": 12458420,
+  "sha256": "1b2c7adef95cd39ae3503df828b5227a6a15681de469638c5c94805974d3b4f4",
+  "licencia": "Datos © colaboradores de OpenStreetMap, ODbL 1.0 (https://www.openstreetmap.org/copyright); esquema y build de Protomaps (https://protomaps.com). Base de datos derivada: la misma licencia.",
+  "actualizado_utc": "2026-10-08T22:32:35+00:00"
  }
 }
