@@ -16,7 +16,7 @@ import { $, el } from '../tablero/util.js';
 // Asunción), dos listas para el margen o el cómputo oficial publicado. pais: también existe en «Paraguay, por distrito»
 // (ADR-023), con su módulo en MODULOS_PAIS; soloPais: solo allí.
 const CATALOGO = [
-    { id: 'voto-cruzado', titulo: 'Intendente vs Junta', descripcion: 'Voto cruzado por local: Lista 1 y Alianza (L3 frente a L2 + L3).', requiere: 'intendencia' },
+    { id: 'voto-cruzado', titulo: 'Intendente vs Junta', descripcion: 'Voto cruzado por local: Lista 1 y Alianza (L3 frente a L2 + L3).', requiere: 'asuncion' },
     { id: 'margen', titulo: 'Distribución del margen', descripcion: 'ANR − AJA por mesa, local o barrio, en tramos de 5 puntos.', requiere: 'margen',
       descripcionDistrito: 'Las dos listas más votadas de la Junta, por mesa o local, en tramos de 5 puntos.' },
     { id: 'participacion-ipm', titulo: 'Participación y pobreza', descripcion: 'Participación frente al IPM por barrio, con su tendencia.', requiere: 'ipm',
@@ -29,6 +29,7 @@ const CATALOGO = [
     { id: 'trep-oficial', titulo: 'TREP vs oficial', descripcion: 'Diferencias entre las dos fuentes, por mesa y por local.', requiere: 'oficial' },
 ];
 const MOTIVOS = { oficial: 'Disponible cuando se publique el cómputo oficial.', intendencia: 'Necesita Intendencia por mesa: solo Asunción.',
+                  asuncion: 'Compara la lista 1 y la Alianza de Asunción con sus listas de la Junta: solo Asunción.',
                   ipm: 'Necesita el IPM por barrio del INE: solo Asunción (por distrito, en Paraguay).', margen: 'Este distrito tiene una sola lista en la Junta.',
                   distrito: 'Es por mesa o local: elegí un distrito en la barra.', pais: 'Compara distritos: elegí Paraguay en la barra.' };
 const MODULOS = { 'voto-cruzado': () => import('./voto_cruzado.js'), margen: () => import('./margen.js'),
@@ -46,8 +47,9 @@ let oficialPublicada = false;
 let enlaceListo = false;
 let turno = 0;
 
-// Fuera de Asunción, solo la Junta (ADR-022).
-const cargo = () => (datos?.pais || compartido.obtener('cargo') === 'junta' || !datos?.listas['1'] ? '2' : '1');
+// El cargo de la barra; donde no hay Intendencia, la Junta (ADR-022 y ADR-024). En el país, la Intendencia si el índice la trae.
+const cargo = () => (datos?.pais ? (compartido.obtener('cargo') === 'junta' || !datos.porCargo['1'] ? '2' : '1')
+    : compartido.obtener('cargo') === 'junta' || !datos?.listas['1'] ? '2' : '1');
 const lugar = () => datos.lugar.nombre;
 const esAsuncion = () => datos.lugar.clave === ASUNCION;
 const esPais = () => Boolean(datos?.pais);
@@ -56,11 +58,12 @@ const esPais = () => Boolean(datos?.pais);
 function motivo(item) {
     if (esPais()) {
         if (item.pais || item.soloPais) return null;
-        if (item.requiere === 'intendencia') return MOTIVOS.intendencia;
+        if (item.requiere === 'intendencia' || item.requiere === 'asuncion') return MOTIVOS[item.requiere];
         return item.requiere === 'oficial' && !oficialPublicada ? MOTIVOS.oficial : MOTIVOS.distrito;
     }
     if (item.soloPais) return MOTIVOS.pais;
-    const falta = { oficial: !oficialPublicada, intendencia: !datos?.listas['1'], ipm: !datos?.conIpm, margen: !datos?.margen }[item.requiere];
+    const falta = { oficial: !oficialPublicada, intendencia: !datos?.listas['1'], asuncion: !esAsuncion() || !datos?.listas['1'], ipm: !datos?.conIpm,
+                    margen: !datos?.margen }[item.requiere];
     return falta ? MOTIVOS[item.requiere] : null;
 }
 const tituloDe = (item) => (esPais() && item.tituloPais) || item.titulo;
@@ -103,7 +106,8 @@ function filtroDelHash(p) {
 function parametrosEnlace() {
     const { eleccion, anio } = datos.contexto;
     if (esPais()) {
-        const p = new URLSearchParams({ eleccion: eleccion.id, anio: String(anio.anio), cargo: 'junta', ambito: 'pais', analisis: estado.analisis });
+        const p = new URLSearchParams({ eleccion: eleccion.id, anio: String(anio.anio), cargo: cargo() === '1' ? 'intendencia' : 'junta', ambito: 'pais',
+                                        analisis: estado.analisis });
         if (estado.filtro) p.set('departamento', estado.filtro.slice(1));
         for (const [clave, valor] of Object.entries(actual()?.modulo.estadoEnlace() ?? {})) if (valor !== null && valor !== undefined) p.set(clave, valor);
         return p;
@@ -407,8 +411,9 @@ async function iniciarPais(p, { eleccion, anio }) {
     const info = anio.fuentes?.trep ?? {};
     ficha = crearFicha();
     ctxBase = { datos, fuente: 'trep', pedido: { eleccion: eleccion.id, anio: anio.anio, distrito: null }, anio, ficha, nombreFuente: info.nombre ?? 'TREP',
-                momentoFuente: `corte ${conFecha(info.corte ?? datos.indice.eleccion?.corte)}`, cargo: () => '2',
-                nombreCargo: () => anio.nombres_cargo?.junta ?? 'Junta Municipal', filtro: () => estado.filtro, enFiltro, textoFiltro,
+                momentoFuente: `corte ${conFecha(info.corte ?? datos.indice.eleccion?.corte)}`, cargo, delCargo: () => datos.porCargo[cargo()],
+                nombreCargo: () => (cargo() === '1' ? anio.nombres_cargo?.intendencia ?? 'Intendencia' : anio.nombres_cargo?.junta ?? 'Junta Municipal'),
+                filtro: () => estado.filtro, enFiltro, textoFiltro,
                 textoFuente: () => `TSJE · ${ctxBase.nombreFuente}, ${ctxBase.momentoFuente}`, alCambiar: () => actualizarEnlace(), lugar };
     await armar(p);
 }

@@ -1,5 +1,6 @@
-// Mapa del país (ADR-022, tarea M15): el TREP abre en Paraguay por distrito, con el color de la lista más votada de la
-// Junta Municipal en cada uno (los partidos con su color; las alianzas y los movimientos locales en verde), sin mapa base
+// Mapa del país (ADR-022, tarea M15): el TREP abre en Paraguay por distrito, con el color de la lista más votada del cargo
+// de la barra en cada uno (Intendencia o Junta Municipal, ADR-024; los partidos con su color; las alianzas, los
+// movimientos locales y las listas solo de Intendencia en verde), sin mapa base
 // de calles. Usa las piezas del tablero de un distrito: panel de pestañas (Resultados, Bancas, Filtros, Capas y Método)
 // en columna, cajón u hoja (hoja.js), bandeja con la tabla y el ranking de distritos, la ficha en pantalla completa
 // (ficha.js) y los controles del mapa. Tocar un distrito muestra su resumen y el enlace a su tablero. El estado va en el
@@ -32,9 +33,15 @@ const LOCALES = '~locales';
 const NOMBRE_LOCALES = 'Alianzas y movimientos locales';
 // Porcentaje de los votos a listas desde el que un partido tiene fila propia en los resultados del país.
 const MINIMO_FILA = 1;
-const TITULOS_CAPA = { ganadora: 'Lista más votada de la Junta, por distrito', participacion: 'Participación por distrito',
-                       ventaja: 'Ventaja del primero sobre el segundo', partido: 'Votos de un partido, por distrito',
-                       ipm: 'Pobreza multidimensional por distrito' };
+// Los dos cargos (ADR-024): '1' Intendencia y '2' Junta Municipal, con la clave del hash y cómo se nombran en una frase.
+const CARGOS = { '1': { clave: 'intendencia', nombre: 'Intendencia', de: 'de la Intendencia', planilla: 'las planillas uninominales del TREP' },
+                 '2': { clave: 'junta', nombre: 'Junta Municipal', de: 'de la Junta', planilla: 'las planillas del TREP de la Junta' } };
+const cargoDe = (clave) => (clave === 'junta' || clave === '2' ? '2' : '1');
+const TITULOS_CAPA = { participacion: 'Participación por distrito', ventaja: 'Ventaja del primero sobre el segundo',
+                       partido: 'Votos de un partido, por distrito', ipm: 'Pobreza multidimensional por distrito' };
+// En la leyenda, el grupo verde (en los dos cargos).
+const LOCAL_EN_LEYENDA = 'Alianza o movimiento local';
+const tituloCapa = (capa) => (capa === 'ganadora' ? `Lista más votada ${CARGOS[estado.cargo].de}, por distrito` : TITULOS_CAPA[capa]);
 const colador = new Intl.Collator('es', { sensitivity: 'base' });
 const normalizar = (t) => String(t ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 // «04/10/2026 23:48» desde «2026-10-04T23:48:02» (hora de Paraguay, sin zona): sin pasar por Date, que la cambiaría.
@@ -51,6 +58,9 @@ let porDep = new Map();
 let claves = [];
 let colores = null;
 let partidos = new Map();   // sigla → { sigla, nombre, color, distritos }
+// Los distritos de cada cargo, con los mismos campos (votos, listas, ganadora…): el de la barra es el que se muestra.
+let porCargo = {};
+let opcionesPartido = null;  // Cargo con el que se armó la lista de partidos de Capas.
 let mapa = null;
 let panel = null;
 let bandeja = null;
@@ -63,7 +73,7 @@ let ipm = null;
 let ipmPor = new Map();
 let ipmEnCurso = null;
 let ipmFallo = false;
-const estado = { departamento: null, elegido: null, capa: 'ganadora', partido: 'ANR', ipm: 'H', area: 'total', opacidad: OPACIDAD_POR_OMISION,
+const estado = { cargo: '1', departamento: null, elegido: null, capa: 'ganadora', partido: 'ANR', ipm: 'H', area: 'total', opacidad: OPACIDAD_POR_OMISION,
                  ver: { departamentos: true, distritos: true, nombres: true }, panel: 'resultados', bandeja: null, orden: null,
                  ordenRanking: 'desc', filtro: '' };
 
@@ -102,29 +112,52 @@ function cargarIpm() {
 }
 const opacidad = () => estado.opacidad / 100;
 const tableroDisponible = (clave) => clave === ASUNCION || TABLERO_DE_DISTRITO;
-const enlaceTablero = (clave) => hashDe({ distrito: clave }, { cargoDisponible: (c) => c === 'junta' || clave === ASUNCION,
-                                                              eleccion: contexto.eleccion.id, anio: contexto.anio.anio });
+const enlaceTablero = (clave) => hashDe({ distrito: clave }, { cargoDisponible: (c) => cargosDelPais().includes(c) || clave === ASUNCION,
+                                                              eleccion: contexto.eleccion.id, anio: contexto.anio.anio, cargo: CARGOS[estado.cargo].clave });
+// Los cargos que el manifiesto declara para el país (ADR-024).
+const cargosDelPais = () => contexto.anio.nacional?.cargos ?? ['junta'];
 
 function preparar(datos) {
     indice = datos;
     porDep = new Map(datos.departamentos.map((d) => [d.codigo, d]));
-    distritos = datos.distritos.map((d) => ({ ...d, gana: d.listas[d.ganadora] }));
-    porClave = new Map(distritos.map((d) => [d.clave, d]));
-    claves = distritos.map((d) => d.clave);
-    partidos = new Map();
-    for (const d of distritos) {
-        for (const [sigla, x] of Object.entries(d.listas)) {
-            if (x.tipo !== 'partido') continue;
-            const p = partidos.get(sigla) ?? { sigla, nombre: x.nombre, color: colores?.partidos?.[sigla] ?? x.color, distritos: 0 };
-            p.distritos += 1;
-            partidos.set(sigla, p);
+    // La Junta: los campos de cada registro; la Intendencia: su bloque, con los mismos nombres (las bancas son de la Junta).
+    const junta = datos.distritos.map((d) => ({ ...d, gana: d.listas[d.ganadora] }));
+    const intendencia = datos.distritos.filter((d) => d.intendencia).map((d) => {
+        const i = d.intendencia;
+        return { ...d, votos: i.votos, votos_listas: i.votos_listas, blancos: i.blancos, nulos: i.nulos, nocomputados: i.nocomputados, emitidos: i.emitidos,
+                 participacion: i.participacion, ganadora: i.ganadora, segunda: i.segunda, pct_ganadora: i.pct_ganadora, ventaja: i.ventaja, listas: i.listas,
+                 mesas: { esperadas: d.mesas.esperadas, con_acta: i.mesas.con_acta },
+                 electores: { padron: d.electores.padron, en_mesas_con_acta: i.electores_en_mesas_con_acta }, gana: i.listas[i.ganadora] };
+    });
+    porCargo = {};
+    for (const [cargo, lista] of [['2', junta], ['1', intendencia]]) {
+        if (!lista.length) continue;
+        const delCargo = new Map();
+        for (const d of lista) {
+            for (const [sigla, x] of Object.entries(d.listas)) {
+                if (x.tipo !== 'partido') continue;
+                const p = delCargo.get(sigla) ?? { sigla, nombre: x.nombre, color: colores?.partidos?.[sigla] ?? x.color, distritos: 0 };
+                p.distritos += 1;
+                delCargo.set(sigla, p);
+            }
         }
+        porCargo[cargo] = { distritos: lista, porClave: new Map(lista.map((d) => [d.clave, d])), partidos: delCargo };
     }
+    usarCargo(estado.cargo);
+}
+
+// Cambia los distritos que se muestran a los del cargo (el que haya, si falta).
+function usarCargo(cargo) {
+    estado.cargo = porCargo[cargo] ? cargo : porCargo['1'] ? '1' : '2';
+    ({ distritos, porClave, partidos } = porCargo[estado.cargo]);
+    claves = distritos.map((d) => d.clave);
 }
 
 // Suma de un grupo de distritos (el país o un departamento): totales y votos, bancas y distritos ganados por partido, con
 // las alianzas y los movimientos locales juntos.
-function agregar(lista) {
+function agregar(lista, cargo = estado.cargo) {
+    const conBancas = cargo === '2';
+    const colorPartido = (sigla) => porCargo[cargo].partidos.get(sigla)?.color;
     const t = { distritos: lista.length, mesas: 0, esperadas: 0, locales: 0, electores: 0, padron: 0, emitidos: 0, listas: 0, blancos: 0,
                 nulos: 0, nocomputados: 0, bancas: 0 };
     const grupos = new Map();
@@ -139,18 +172,18 @@ function agregar(lista) {
         t.blancos += d.blancos;
         t.nulos += d.nulos;
         t.nocomputados += d.nocomputados;
-        t.bancas += d.bancas.total;
+        if (conBancas) t.bancas += d.bancas.total;
         const presentes = new Set();
         for (const [sigla, x] of Object.entries(d.listas)) {
             const g = grupoDe(x, sigla);
             if (!grupos.has(g)) {
                 grupos.set(g, g === LOCALES
                     ? { clave: g, sigla: null, nombre: NOMBRE_LOCALES, color: colores.verdes[0], votos: 0, bancas: 0, ganados: 0, distritos: 0 }
-                    : { clave: g, sigla, nombre: x.nombre, color: partidos.get(sigla)?.color ?? x.color, votos: 0, bancas: 0, ganados: 0, distritos: 0 });
+                    : { clave: g, sigla, nombre: x.nombre, color: colorPartido(sigla) ?? x.color, votos: 0, bancas: 0, ganados: 0, distritos: 0 });
             }
             const r = grupos.get(g);
             r.votos += d.votos[sigla];
-            r.bancas += d.bancas.reparto[sigla] ?? 0;
+            if (conBancas) r.bancas += d.bancas.reparto[sigla] ?? 0;
             if (d.ganadora === sigla) r.ganados += 1;
             presentes.add(g);
         }
@@ -246,16 +279,17 @@ function renderResultados() {
     }
     const t = agregar(visibles());
     const pais = estado.departamento === null;
-    $('eyebrowTotales').textContent = pais ? 'Todo el país · Junta Municipal' : 'Departamento · Junta Municipal';
+    const junta = estado.cargo === '2';
+    $('eyebrowTotales').textContent = `${pais ? 'Todo el país' : 'Departamento'} · ${CARGOS[estado.cargo].nombre}`;
     $('tituloTotales').textContent = pais ? contexto.anio.nacional?.nombre ?? 'Paraguay' : nombreDep(estado.departamento);
-    $('metaTotales').textContent = `${cantidad(t.distritos, 'distrito', 'distritos')} · ${fmt.format(t.mesas)} de ${fmt.format(t.esperadas)} mesas con acta · ` +
-        `${fmt.format(t.bancas)} bancas`;
+    $('metaTotales').textContent = `${cantidad(t.distritos, 'distrito', 'distritos')} · ${fmt.format(t.mesas)} de ${fmt.format(t.esperadas)} mesas con acta` +
+        (junta ? ` · ${fmt.format(t.bancas)} bancas` : '');
     $('abrirDistrito').hidden = true;
     $('limpiarSeleccion').hidden = pais;
     $('limpiarSeleccion').textContent = 'Ver todo el país';
     const ganados = $('ganados');
     ganados.hidden = false;
-    apilada(ganados, 'Distritos ganados (lista más votada de la Junta)',
+    apilada(ganados, `Distritos ganados (lista más votada ${CARGOS[estado.cargo].de})`,
         t.grupos.filter((g) => g.ganados).sort((a, b) => b.ganados - a.ganados)
             .map((g) => ({ clave: g.clave, texto: g.clave === LOCALES ? NOMBRE_LOCALES : g.sigla, color: g.color, n: g.ganados })),
         t.distritos, ['distrito', 'distritos']);
@@ -264,32 +298,34 @@ function renderResultados() {
     const filas = propias.map((g) => filaResultado({
         sigla: textoSigla(g), color: g.color, nombre: g.clave === LOCALES ? NOMBRE_LOCALES : g.nombre,
         valor: `${fmt.format(g.votos)} votos`, parte: g.votos, total: t.listas,
-        pie: g.clave === LOCALES
-            ? `${cantidad(g.distritos, 'distrito', 'distritos')} con alguna · ganan ${fmt.format(g.ganados)} · ${cantidad(g.bancas, 'banca', 'bancas')}`
-            : `Lista propia en ${fmt.format(g.distritos)} de ${fmt.format(t.distritos)} · gana ${fmt.format(g.ganados)} · ${cantidad(g.bancas, 'banca', 'bancas')}`,
+        pie: (g.clave === LOCALES
+            ? `${cantidad(g.distritos, 'distrito', 'distritos')} con alguna · ganan ${fmt.format(g.ganados)}`
+            : `Lista propia en ${fmt.format(g.distritos)} de ${fmt.format(t.distritos)} · gana ${fmt.format(g.ganados)}`) +
+            (junta ? ` · ${cantidad(g.bancas, 'banca', 'bancas')}` : ''),
     }));
     if (resto.length) {
         const votos = resto.reduce((s, g) => s + g.votos, 0);
         const bancas = resto.reduce((s, g) => s + g.bancas, 0);
         filas.push(filaResultado({ sigla: '+', color: colores.otro, nombre: `Otros ${resto.length} partidos`, valor: `${fmt.format(votos)} votos`,
-            parte: votos, total: t.listas, pie: `${resto.map((g) => g.sigla).join(', ')} · ${cantidad(bancas, 'banca', 'bancas')}` }));
+            parte: votos, total: t.listas, pie: `${resto.map((g) => g.sigla).join(', ')}${junta ? ` · ${cantidad(bancas, 'banca', 'bancas')}` : ''}` }));
     }
     $('listaResultados').replaceChildren(...filas);
     renderParticipacion(t.emitidos, t.electores);
     $('diferencia').replaceChildren();
     renderOtros(t);
     const plra = t.grupos.find((g) => g.sigla === 'PLRA');
-    $('notaResultados').textContent = `Votos de la Junta Municipal sumados por partido en ${pais ? 'los distritos del país' : `los distritos de ${nombreDep(estado.departamento)}`}. ` +
-        'Las alianzas y los movimientos locales (cada uno de un solo distrito) van juntos, en verde. ' +
+    $('notaResultados').textContent = `Votos ${CARGOS[estado.cargo].de} sumados por partido en ${pais ? 'los distritos del país' : `los distritos de ${nombreDep(estado.departamento)}`}. ` +
+        `Las alianzas y los movimientos locales (cada uno de un solo distrito)${junta ? '' : ' y las listas solo de Intendencia'} van juntos, en verde. ` +
         (plra ? `Un partido puede ir dentro de una alianza donde no presenta lista propia: el PLRA la presenta en ${fmt.format(plra.distritos)} de ${fmt.format(t.distritos)} distritos. ` : '') +
         'Porcentajes sobre los votos a listas.';
 }
 
 function renderDistrito(d) {
-    $('eyebrowTotales').textContent = `Distrito · ${d.departamento_nombre} · Junta Municipal`;
+    const junta = estado.cargo === '2';
+    $('eyebrowTotales').textContent = `Distrito · ${d.departamento_nombre} · ${CARGOS[estado.cargo].nombre}`;
     $('tituloTotales').textContent = d.nombre;
-    $('metaTotales').textContent = `${fmt.format(d.mesas.con_acta)} de ${fmt.format(d.mesas.esperadas)} mesas con acta · ${cantidad(d.locales, 'local', 'locales')} · ` +
-        `${cantidad(d.bancas.total, 'banca', 'bancas')}`;
+    $('metaTotales').textContent = `${fmt.format(d.mesas.con_acta)} de ${fmt.format(d.mesas.esperadas)} mesas con acta · ${cantidad(d.locales, 'local', 'locales')}` +
+        (junta ? ` · ${cantidad(d.bancas.total, 'banca', 'bancas')}` : ` · ${cantidad(Object.keys(d.votos).length, 'candidatura', 'candidaturas')}`);
     const abrir = $('abrirDistrito');
     abrir.hidden = !tableroDisponible(d.clave);
     abrir.href = enlaceTablero(d.clave);
@@ -300,8 +336,10 @@ function renderDistrito(d) {
     const orden = Object.keys(d.votos).sort((a, b) => d.votos[b] - d.votos[a]);
     $('listaResultados').replaceChildren(...orden.map((s) => {
         const x = d.listas[s];
-        return filaResultado({ sigla: s.slice(0, 5), color: x.color, nombre: x.nombre, valor: `${fmt.format(d.votos[s])} votos`,
-            parte: d.votos[s], total: d.votos_listas, pie: `Lista ${x.numLista} · ${cantidad(d.bancas.reparto[s] ?? 0, 'banca', 'bancas')}` });
+        // Intendencia: el nombre de la candidatura y, al pie, su lista; Junta: la lista y sus bancas.
+        return filaResultado({ sigla: s.slice(0, 5), color: x.color, nombre: junta ? x.nombre : x.candidato ?? x.nombre, valor: `${fmt.format(d.votos[s])} votos`,
+            parte: d.votos[s], total: d.votos_listas,
+            pie: junta ? `Lista ${x.numLista} · ${cantidad(d.bancas.reparto[s] ?? 0, 'banca', 'bancas')}` : `${x.nombre} · lista ${x.numLista}` });
     }));
     renderParticipacion(d.emitidos, d.electores.en_mesas_con_acta);
     const dif = $('diferencia');
@@ -316,8 +354,8 @@ function renderDistrito(d) {
                   electores: d.electores.en_mesas_con_acta });
     const faltan = d.mesas.esperadas - d.mesas.con_acta;
     $('notaResultados').textContent = (faltan ? `Falta el acta de ${cantidad(faltan, 'mesa', 'mesas')}. ` : '') +
-        (d.clave === ASUNCION ? 'Asunción tiene además Intendencia y los resultados por mesa, local, barrio y zona en su tablero.'
-            : 'Resultados de la Junta Municipal del distrito según las planillas del TREP; Intendencia por mesa existe solo para Asunción.') +
+        (d.clave === ASUNCION ? 'Asunción tiene además los resultados por mesa, local, barrio y zona en su tablero.'
+            : `Resultados ${CARGOS[estado.cargo].de} del distrito según ${CARGOS[estado.cargo].planilla}; mesa por mesa, en su tablero.`) +
         (estado.capa === 'ipm' && ipm ? ` ${textoIpmDistrito(d)}` : '');
 }
 
@@ -334,7 +372,9 @@ function textoIpmDistrito(d) {
 // --- Panel: bancas --------------------------------------------------------------------------------------------------
 
 function renderBancas() {
-    const d = estado.elegido ? porClave.get(estado.elegido) : null;
+    // Las bancas son de la Junta, sea cual sea el cargo de la barra.
+    const J = porCargo['2'];
+    const d = estado.elegido ? J.porClave.get(estado.elegido) : null;
     const nota = 'Integración oficial de cada Junta Municipal según el TREP; el D\'Hondt sobre los votos por lista da el mismo reparto en los ' +
         `${fmt.format(distritos.length)} distritos.`;
     if (d) {
@@ -350,7 +390,7 @@ function renderBancas() {
         $('notaBancas').textContent = nota;
         return;
     }
-    const t = agregar(visibles());
+    const t = agregar(J.distritos.filter(enFiltro), '2');
     const pais = estado.departamento === null;
     const conBancas = t.grupos.filter((g) => g.bancas).sort((a, b) => b.bancas - a.bancas);
     $('eyebrowBancas').textContent = pais ? 'Todo el país · reparto oficial' : `${nombreDep(estado.departamento)} · reparto oficial`;
@@ -451,18 +491,21 @@ function renderCapas() {
     for (const boton of document.querySelectorAll('[data-ipm]')) boton.setAttribute('aria-pressed', String(boton.dataset.ipm === estado.ipm));
     for (const boton of document.querySelectorAll('[data-area]')) boton.setAttribute('aria-pressed', String(boton.dataset.area === estado.area));
     // Los gráficos del IPM por distrito en Análisis (ADR-023), con el componente, el área y el departamento elegidos.
-    const analisis = new URLSearchParams({ eleccion: contexto.eleccion.id, anio: String(contexto.anio.anio), cargo: 'junta', ambito: 'pais',
+    const analisis = new URLSearchParams({ eleccion: contexto.eleccion.id, anio: String(contexto.anio.anio), cargo: CARGOS[estado.cargo].clave, ambito: 'pais',
                                            analisis: 'participacion-ipm' });
     if (estado.departamento !== null) analisis.set('departamento', String(estado.departamento));
     if (estado.ipm !== 'H') analisis.set('ipm', estado.ipm);
     if (estado.area !== 'total') analisis.set('area', estado.area);
     $('enlaceAnalisisIpm').href = `../analisis/#${analisis}`;
     const sPartido = $('capaPartido');
-    if (!sPartido.options.length) {
+    if (opcionesPartido !== estado.cargo) {
+        opcionesPartido = estado.cargo;
+        sPartido.replaceChildren();
         for (const p of [...partidos.values()].sort((a, b) => b.distritos - a.distritos || colador.compare(a.sigla, b.sigla))) {
             sPartido.append(new Option(`${p.sigla} · lista propia en ${cantidad(p.distritos, 'distrito', 'distritos')}`, p.sigla));
         }
     }
+    if (!partidos.has(estado.partido)) estado.partido = partidos.has('ANR') ? 'ANR' : [...partidos.keys()][0];
     sPartido.value = estado.partido;
     $('opacidadCapa').value = String(estado.opacidad);
     $('valorOpacidad').textContent = `${fmt.format(estado.opacidad)} %`;
@@ -484,15 +527,16 @@ function pintarGanadora(leyenda) {
         const d = porClave.get(clave);
         if (enFiltro(d)) {
             const g = grupoDe(d.gana, d.ganadora);
-            const c = conteo.get(g) ?? { n: 0, color: g === LOCALES ? colores.verdes[0] : d.gana.color, texto: g === LOCALES ? 'Alianza o movimiento local' : `${d.ganadora} más votada` };
+            const c = conteo.get(g) ?? { n: 0, color: g === LOCALES ? colores.verdes[0] : d.gana.color, texto: g === LOCALES ? LOCAL_EN_LEYENDA : `${d.ganadora} más votada` };
             c.n += 1;
             conteo.set(g, c);
         }
         return { color: d.gana.color, atenuado: !enFiltro(d) };
     });
     for (const c of [...conteo.values()].sort((a, b) => b.n - a.n)) leyenda.append(itemRelleno(c.color, `${c.texto}: ${cantidad(c.n, 'distrito', 'distritos')}`));
-    $('notaCapa').textContent = 'Cada distrito, con el color de la lista más votada de su Junta Municipal: los partidos con su color y las alianzas y los ' +
-        'movimientos locales en verde (tonos distintos si un distrito tiene más de uno). Tocá un distrito para ver sus cifras.';
+    $('notaCapa').textContent = `Cada distrito, con el color de la lista más votada ${CARGOS[estado.cargo].de}: los partidos con su color y las alianzas y los ` +
+        `movimientos locales${estado.cargo === '1' ? ' (y las listas solo de Intendencia)' : ''} en verde (tonos distintos si un distrito tiene más de ` +
+        'uno). Tocá un distrito para ver sus cifras.';
 }
 
 function pintarParticipacion(leyenda) {
@@ -516,7 +560,7 @@ function pintarVentaja(leyenda) {
         const k = tramo(d.ventaja ?? 0);
         if (enFiltro(d)) {
             const g = grupoDe(d.gana, d.ganadora);
-            const c = conteo.get(`${g}|${k}`) ?? { g, k, n: 0, color: g === LOCALES ? colores.verdes[0] : d.gana.color, sigla: g === LOCALES ? 'Alianza o movimiento local' : d.ganadora };
+            const c = conteo.get(`${g}|${k}`) ?? { g, k, n: 0, color: g === LOCALES ? colores.verdes[0] : d.gana.color, sigla: g === LOCALES ? LOCAL_EN_LEYENDA : d.ganadora };
             c.n += 1;
             conteo.set(`${g}|${k}`, c);
         }
@@ -527,7 +571,7 @@ function pintarVentaja(leyenda) {
     for (const c of [...conteo.values()].sort((a, b) => total.get(b.g) - total.get(a.g) || b.k - a.k)) {
         leyenda.append(itemRelleno(mezclar(c.color, opacidadPaso(c.k, 3)), `${c.sigla} primera ${TEXTO_TRAMO[c.k]}: ${cantidad(c.n, 'distrito', 'distritos')}`));
     }
-    $('notaCapa').textContent = 'Ventaja = 100 × (votos del primero − votos del segundo) / votos a listas de la Junta, en puntos. Color de la lista que va primera ' +
+    $('notaCapa').textContent = `Ventaja = 100 × (votos del primero − votos del segundo) / votos a listas ${CARGOS[estado.cargo].de}, en puntos. Color de la lista que va primera ` +
         'en cada distrito, más intenso cuanto mayor la ventaja: menos de 10, de 10 a 25 y 25 puntos o más.';
 }
 
@@ -548,7 +592,7 @@ function pintarPartido(leyenda) {
         for (let k = 0; k < cortes.length - 1; k++) leyenda.append(itemRelleno(mezclar(p.color, opacidadPaso(k)), `${pct.format(cortes[k])} a ${pct.format(cortes[k + 1])} %`));
     }
     if (sin) leyenda.append(itemRelleno(gris, `Sin lista propia de ${p.sigla}: ${cantidad(sin, 'distrito', 'distritos')}`));
-    $('notaCapa').textContent = `Votos de ${p.sigla} (${p.nombre}) sobre los votos a listas de la Junta de cada distrito, en cinco tramos de igual ancho. ` +
+    $('notaCapa').textContent = `Votos de ${p.sigla} (${p.nombre}) sobre los votos a listas ${CARGOS[estado.cargo].de} de cada distrito, en cinco tramos de igual ancho. ` +
         'En gris, los distritos donde no presentó lista propia (puede ir dentro de una alianza).';
 }
 
@@ -602,7 +646,7 @@ function renderMapa() {
     const leyenda = $('leyenda');
     leyenda.replaceChildren();
     $('tituloLeyenda').textContent = estado.capa === 'partido' ? `Votos de ${estado.partido} por distrito`
-        : estado.capa === 'ipm' && ipm ? `${indicadorIpm().nombre} por distrito${EN_AREA[estado.area]}` : TITULOS_CAPA[estado.capa];
+        : estado.capa === 'ipm' && ipm ? `${indicadorIpm().nombre} por distrito${EN_AREA[estado.area]}` : tituloCapa(estado.capa);
     PINTORES[estado.capa](leyenda);
     if (estado.departamento !== null) leyenda.append(el('li', 'leyenda__nota', `Fuera de ${nombreDep(estado.departamento)}, atenuados.`));
     leyenda.append(el('li', 'leyenda__nota', `Relleno al ${fmt.format(estado.opacidad)} %, sin mapa base de calles.`));
@@ -655,7 +699,8 @@ function columnasTabla() {
         { id: 'participacion', titulo: 'Particip.' }];
     if (estado.capa === 'partido') columnas.push({ id: 'partido', titulo: `% ${estado.partido}` });
     if (estado.capa === 'ipm' && ipm) columnas.push({ id: 'ipm', titulo: `${indicadorIpm().nombre}${estado.area === 'total' ? '' : ` ${estado.area}`}` });
-    columnas.push({ id: 'mesas', titulo: 'Mesas' }, { id: 'electores', titulo: 'Electores' }, { id: 'bancas', titulo: 'Bancas' });
+    columnas.push({ id: 'mesas', titulo: 'Mesas' }, { id: 'electores', titulo: 'Electores' });
+    if (estado.cargo === '2') columnas.push({ id: 'bancas', titulo: 'Bancas' });
     return columnas;
 }
 
@@ -739,7 +784,7 @@ function renderTabla() {
     }
     $('tabla').tBodies[0].replaceChildren(fragmento);
     $('notaTabla').textContent = `${cantidad(filas.length, 'distrito', 'distritos')}${estado.departamento === null ? '' : ` de ${nombreDep(estado.departamento)}`}. ` +
-        'Porcentajes y ventaja (en puntos) sobre los votos a listas de la Junta Municipal; participación sobre los electores de las mesas con acta. ' +
+        `Porcentajes y ventaja (en puntos) sobre los votos a listas ${CARGOS[estado.cargo].de}; participación sobre los electores de las mesas con acta. ` +
         'Mesas: con acta / esperadas cuando falta alguna.' +
         (estado.capa === 'ipm' && ipm ? ` ${indicadorIpm().nombre}${EN_AREA[estado.area]}: INE, Censo 2022 («—», sin dato).` : '') +
         ' Tocá un distrito para verlo en el mapa.';
@@ -823,13 +868,14 @@ async function abrirFicha(d) {
         const li = el('li');
         const muestra = el('span', 'tabla__muestra');
         muestra.style.background = d.listas[s].color;
-        li.append(muestra, el('strong', null, s), ` ${pct.format(pctDe(d, s))} % · ${fmt.format(d.votos[s])} votos`);
+        const candidato = estado.cargo === '1' ? d.listas[s].candidato : null;
+        li.append(muestra, el('strong', null, s), `${candidato ? ` ${candidato}` : ''} ${pct.format(pctDe(d, s))} % · ${fmt.format(d.votos[s])} votos`);
         cuerpo.append(li);
     }
     const v = participacionDe(d);
     const pobreza = estado.capa === 'ipm' && ipm ? ` · ${textoDistrito(d.clave).slice(`${d.nombre} (${d.departamento_nombre}): `.length)}` : '';
     $('fichaDetalle').textContent = d.clave === ASUNCION ? 'Abrir Asunción mesa por mesa' : 'Abrir el tablero';
-    ficha.abrir({ eyebrow: `Distrito · ${d.departamento_nombre} · Junta Municipal`, titulo: d.nombre,
+    ficha.abrir({ eyebrow: `Distrito · ${d.departamento_nombre} · ${CARGOS[estado.cargo].nombre}`, titulo: d.nombre,
                   meta: `${fmt.format(d.mesas.con_acta)} de ${fmt.format(d.mesas.esperadas)} mesas con acta${v === null ? '' : ` · participación ${pct.format(v)} %`}${pobreza}`,
                   cuerpo, detalle: tableroDisponible(d.clave) ? () => location.assign(new URL(enlaceTablero(d.clave), location.href).href) : null }, 'pais');
 }
@@ -864,7 +910,13 @@ async function contenidoFuente() {
         ['Fuente', e.fuente],
         ['Corte', `${corte ? fechaLarga(corte) : fechaLarga(e.corte)}. ${e.corte_base}`],
         ['Aviso', e.aviso],
-        ['Cargo', `Junta Municipal en los ${fmt.format(distritos.length)} distritos. Intendencia por mesa existe solo para Asunción (en su tablero).`],
+        ['Cargo', `${cargosDelPais().length > 1 ? 'Intendencia y Junta Municipal' : 'Junta Municipal'} en los ${fmt.format(distritos.length)} distritos; ` +
+                  `las cifras de esta vista son ${CARGOS[estado.cargo].de}.`],
+        ...(porCargo['1'] ? [['Intendencia', 'Planillas uninominales del TREP (Justicia Electoral): una fila por mesa y lista. Cada lista tiene una ' +
+                                             'candidatura; su sigla y su nombre salen de la planilla del TSJE con los resultados de Intendencia por ' +
+                                             'distrito, que coincide voto por voto con la uninominal.'],
+                             ['Nombres', 'Los de las candidaturas a Intendencia salen del padrón electoral (nombres y apellidos), buscados por la ' +
+                                         'cédula que trae la planilla; la cédula no se guarda ni se publica. En Asunción, los nombres de la boleta.']] : []),
     ])));
     const tablaFaltan = el('table', 'tabla-compacta');
     tablaFaltan.append(el('caption', null, 'Distritos con mesas sin acta'));
@@ -885,7 +937,7 @@ async function contenidoFuente() {
     }
     const cajaTabla = el('div', 'tabla-compacta__caja');
     cajaTabla.append(tablaFaltan);
-    caja.append(seccion('Cobertura', el('p', null, `${fmt.format(t.mesas)} de ${fmt.format(t.esperadas)} mesas con acta en ${fmt.format(t.distritos)} distritos; ` +
+    caja.append(seccion('Cobertura', el('p', null, `${CARGOS[estado.cargo].nombre}: ${fmt.format(t.mesas)} de ${fmt.format(t.esperadas)} mesas con acta en ${fmt.format(t.distritos)} distritos; ` +
         `${cantidad(t.esperadas - t.mesas, 'mesa', 'mesas')} sin acta en ${cantidad(faltan.length, 'distrito', 'distritos')}. Una mesa sin acta no se completa ni se estima.`),
     ...(faltan.length ? [cajaTabla] : [])));
     caja.append(seccion('Electores y límites', listaDef([
@@ -900,7 +952,8 @@ async function contenidoFuente() {
     const procedencia = seccion('Procedencia (SHA-256)', el('p', null, 'Huellas de las planillas del TSJE, del catálogo del TREP y de la cartografía del INE: '), enlace);
     try {
         const p = await archivoNacional(contexto.eleccion.id, contexto.anio.anio, 'procedencia.json');
-        const items = Object.entries(p.fuentes?.planillas ?? {}).map(([nombre, huella]) => {
+        const items = [...Object.entries(p.fuentes?.planillas ?? {}),
+                       ...(p.fuentes?.intendencia ? [[p.fuentes.intendencia.planilla, p.fuentes.intendencia.sha256]] : [])].map(([nombre, huella]) => {
             const codigo = el('code', 'huella', /^[0-9a-f]{64}$/.test(huella) ? huella : '—');
             return [nombre, codigo];
         });
@@ -919,15 +972,16 @@ async function contenidoFuente() {
             [ipm.archivo?.nombre ?? 'Anexo', huella],
         ])));
     }
-    caja.append(seccion('No disponible', el('p', null, 'Intendencia por mesa existe solo para Asunción, igual que la pobreza multidimensional (IPM) por barrio; ' +
-        'en el país, el IPM va por distrito.')));
+    caja.append(seccion('No disponible', el('p', null, 'La pobreza multidimensional (IPM) por barrio existe solo para Asunción; en el país, el IPM va por ' +
+        'distrito.')));
     return caja;
 }
 
 function contenidoMetodo() {
     const caja = el('div', 'dialogo__contenido');
     caja.append(seccion('Cifras de cada distrito', listaDef([
-        ['Lista más votada', 'La que tiene más votos a listas de la Junta Municipal en el distrito.'],
+        ['Lista más votada', 'La que tiene más votos a listas del cargo de la barra (Intendencia o Junta Municipal) en el distrito.'],
+        ['Intendencia', 'Una candidatura por lista y sin bancas. Las alianzas y los movimientos locales van en verde, como en la Junta.'],
         ['Participación', 'Votos emitidos / electores habilitados de las mesas con acta (recuento del padrón por mesa).'],
         ['Ventaja', '100 × (votos del primero − votos del segundo) / votos a listas, en puntos.'],
         ['Votos de un partido', 'Sus votos sobre los votos a listas del distrito; sin lista propia, el distrito va en gris.'],
@@ -1004,7 +1058,7 @@ function limpiar() {
 // --- Enlace compartible ---------------------------------------------------------------------------------------------
 
 function parametrosEnlace() {
-    const p = new URLSearchParams({ eleccion: contexto.eleccion.id, anio: String(contexto.anio.anio), cargo: 'junta' });
+    const p = new URLSearchParams({ eleccion: contexto.eleccion.id, anio: String(contexto.anio.anio), cargo: CARGOS[estado.cargo].clave });
     if (estado.departamento !== null) p.set('departamento', String(estado.departamento));
     if (estado.elegido) p.set('elegido', estado.elegido);
     if (estado.capa !== 'ganadora') p.set('mapa', estado.capa);
@@ -1025,6 +1079,10 @@ function actualizarEnlace() {
 // (TABLERO_DE_DISTRITO en false), distrito=<clave> abre el país con ese distrito elegido.
 function leerEnlace() {
     const p = new URLSearchParams(location.hash.slice(1));
+    // El cargo (ADR-024): el del hash si el país lo tiene; si no, el primero que declara el manifiesto (como la barra).
+    const disponibles = cargosDelPais();
+    usarCargo(cargoDe(disponibles.includes(p.get('cargo')) ? p.get('cargo') : p.get('cargo') === '1' || p.get('cargo') === '2'
+        ? CARGOS[p.get('cargo')].clave : disponibles[0]));
     const dep = p.get('departamento');
     estado.departamento = /^\d{1,2}$/.test(dep ?? '') && porDep.has(Number(dep)) ? Number(dep) : null;
     const elegido = p.get('elegido') ?? (!TABLERO_DE_DISTRITO && p.get('distrito') !== ASUNCION ? p.get('distrito') : null);
@@ -1066,6 +1124,14 @@ function abrirBusqueda() {
 function eventos() {
     // El departamento de la barra de contexto (shell.js).
     compartido.suscribir(({ cambiadas, origen }) => {
+        // El cargo de la barra (ADR-024): las cifras de cada distrito pasan a las de ese cargo.
+        if (origen === 'barra' && cambiadas.has('cargo')) {
+            usarCargo(cargoDe(compartido.obtener('cargo')));
+            if (estado.orden?.id === 'bancas' && estado.cargo !== '2') estado.orden = null;
+            renderTodo();
+            actualizarEnlace();
+            return;
+        }
         if (origen !== 'barra' || !cambiadas.has('departamento')) return;
         elegirDepartamento(compartido.obtener('departamento'));
     });

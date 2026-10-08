@@ -38,7 +38,7 @@ export function crear(ctx) {
     const formato = (v) => formatoIpm(estado.ipm, v);
 
     function calcular() {
-        todos = datos.distritos.filter(ctx.enFiltro).map((d) => ({
+        todos = ctx.delCargo().distritos.filter(ctx.enFiltro).map((d) => ({
             d, nombre: d.nombre, departamento: d.departamento_nombre, x: valorIpm(datos, d.clave, estado.ipm, estado.area),
             y: d.participacion === null || d.participacion === undefined ? null : 100 * d.participacion, motivo: sinIpm(datos, d.clave, estado.area) }));
         puntos = todos.filter((p) => p.x !== null && p.y !== null);
@@ -61,12 +61,12 @@ export function crear(ctx) {
         const fuera = todos.length - puntos.length;
         nota.textContent = `${cantidad(todos.length, 'distrito', 'distritos')}` +
             (fuera ? `; ${cantidad(fuera, 'queda', 'quedan')} fuera del gráfico por no tener el dato del INE` : '') +
-            '. Participación = emitidos / electores habilitados de las mesas con acta, en la Junta Municipal.';
+            `. Participación = emitidos / electores habilitados de las mesas con acta, en ${ctx.nombreCargo()}.`;
     }
 
     function renderLectura() {
         const partes = [el('p', null, `Cada punto es un distrito: más a la derecha, mayor ${frase()} (${ind().descripcion.replace(/\.$/, '').toLowerCase()}); ` +
-            'más arriba, mayor participación en la elección de la Junta Municipal.')];
+            `más arriba, mayor participación en la elección de ${ctx.nombreCargo()}.`)];
         if (ajuste) {
             partes.push(el('p', null, `La línea es la tendencia lineal: ${ajuste.pendiente >= 0 ? 'sube' : 'baja'} ${pct2.format(Math.abs(ajuste.pendiente))} ` +
                 `puntos de participación por cada punto de ${enFrase(datos, estado.ipm)}. Correlación r = ${pct2.format(ajuste.r)}: ${fuerza(ajuste.r)}, ` +

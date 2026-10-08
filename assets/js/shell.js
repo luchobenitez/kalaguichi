@@ -307,7 +307,7 @@ function pasosDeAmbito(barra, lista, ambito, { modoPais }) {
             estado.cambiar({ departamento: dep, elegido: null }, { origen: 'barra' });
             rellenarDistritos(dep);
         } else if (conPais) {
-            ir(hashDeAmbito({ departamento: dep }, { eleccion: contextoActual.eleccion.id, anio: contextoActual.anio.anio,
+            ir(hashDeAmbito({ departamento: dep }, { eleccion: contextoActual.eleccion.id, anio: contextoActual.anio.anio, cargo: contextoActual.cargo,
                                                      conservar: enAnalisis ? ['analisis'] : [], pais: enAnalisis }));
         } else {
             rellenarDistritos(dep);
@@ -316,8 +316,12 @@ function pasosDeAmbito(barra, lista, ambito, { modoPais }) {
     });
     sDis.addEventListener('change', () => {
         // En Análisis, el análisis sigue al cambiar de distrito o al pasar al país.
-        const contexto = { eleccion: contextoActual.eleccion.id, anio: contextoActual.anio.anio, conservar: modoPais === 'mapa' ? [] : ['analisis'] };
-        if (sDis.value) ir(hashDeAmbito({ distrito: sDis.value }, { cargoDisponible: (c) => c === 'junta' || sDis.value === ASUNCION_AMBITO, ...contexto }));
+        const contexto = { eleccion: contextoActual.eleccion.id, anio: contextoActual.anio.anio, cargo: contextoActual.cargo,
+                           conservar: modoPais === 'mapa' ? [] : ['analisis'] };
+        // El cargo sigue si el distrito lo tiene: Asunción, los dos; los demás, los que el manifiesto declara para el país (ADR-024).
+        const delPais = contextoActual.anio.nacional?.cargos ?? ['junta'];
+        if (sDis.value) ir(hashDeAmbito({ distrito: sDis.value }, { cargoDisponible: (c) => c === 'junta' || delPais.includes(c) || sDis.value === ASUNCION_AMBITO,
+                                                                    ...contexto }));
         else if (conPais) ir(hashDeAmbito({ departamento: sDep.value === '' ? null : Number(sDep.value) }, { ...contexto, pais: enAnalisis }));
     });
     // El mapa del país (o el filtro de Análisis en el país) cambia el departamento: la barra lo sigue.
@@ -446,21 +450,31 @@ async function barraDeContexto(barra) {
     if (info.estado !== 'publicado') {
         linea.append(' · aún no publicado');
     } else {
-        // El país: las mesas de todos los distritos (índice nacional); Asunción y los demás distritos, su resumen.
-        let resumen;
+        // El país: las mesas de todos los distritos (índice nacional); Asunción y los demás distritos, su resumen. Las actas
+        // son las del cargo de la barra (ADR-024: una mesa puede tener acta de un cargo y no del otro).
+        let resumen, cobertura;
+        const claveCargo = () => anio.claves_cargo?.[contextoActual?.cargo] ?? '2';
         if (ambito && ambito.distrito === null) {
             const indice = await indiceNacional(eleccion.id, anio.anio);
-            const suma = (k) => indice.distritos.reduce((s, d) => s + d.mesas[k], 0);
-            resumen = { cobertura: { mesas_con_acta: suma('con_acta'), mesas_esperadas: suma('esperadas') }, eleccion: indice.eleccion };
+            const suma = (fn) => indice.distritos.reduce((s, d) => s + fn(d), 0);
+            resumen = { eleccion: indice.eleccion };
+            cobertura = () => ({ mesas_con_acta: suma((d) => (claveCargo() === '1' && d.intendencia ? d.intendencia.mesas.con_acta : d.mesas.con_acta)),
+                                 mesas_esperadas: suma((d) => d.mesas.esperadas) });
         } else {
             const cargado = await cargarEleccion({ eleccion: eleccion.id, anio: anio.anio, distrito: ambito?.distrito ?? null }, fuente, { fuente: ['resumen.json'] });
             resumen = cargado.datos['resumen.json'];
+            cobertura = () => ({ mesas_con_acta: resumen.cobertura.por_cargo?.[claveCargo()]?.mesas_con_acta ?? resumen.cobertura.mesas_con_acta,
+                                 mesas_esperadas: resumen.cobertura.mesas_esperadas });
         }
-        const cob = resumen.cobertura;
         // Las actas no entran en el celular (shell.css): allí las muestra el panel de resultados.
         const actas = document.createElement('span');
         actas.className = 'barra-contexto__actas';
-        actas.textContent = ` · ${fmt.format(cob.mesas_con_acta)}/${fmt.format(cob.mesas_esperadas)} actas`;
+        const pintarActas = () => {
+            const cob = cobertura();
+            actas.textContent = ` · ${fmt.format(cob.mesas_con_acta)}/${fmt.format(cob.mesas_esperadas)} actas`;
+        };
+        pintarActas();
+        estado.suscribir(({ cambiadas }) => { if (cambiadas.has('cargo')) pintarActas(); });
         linea.append(actas);
         const momento = info.corte ?? info.fecha;
         if (momento) linea.append(` · ${fuente === 'trep' ? 'corte' : 'cómputo'} ${fecha(momento)}`);

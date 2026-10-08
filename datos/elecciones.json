@@ -12,12 +12,13 @@
           "nacional": {
             "nombre": "Paraguay",
             "cargos": [
+              "intendencia",
               "junta"
             ],
             "fuentes": [
               "trep"
             ],
-            "nota": "La Junta Municipal de los 263 distritos (planillas del TREP del TSJE); Intendencia por mesa, solo en Asunción."
+            "nota": "La Intendencia y la Junta Municipal de los 263 distritos, mesa por mesa (planillas del TREP del TSJE; ADR-024)."
           },
           "cargos": [
             "intendencia",

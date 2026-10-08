@@ -12,9 +12,12 @@ const POR_OMISION = 'ANR';
 
 export function crear(ctx) {
     const { datos } = ctx;
-    // Partidos con lista propia en algún distrito, de más a menos distritos.
-    const partidos = [...datos.partidos.values()].sort((a, b) => b.distritos - a.distritos || a.sigla.localeCompare(b.sigla, 'es'));
-    const estado = { partido: datos.partidos.has(POR_OMISION) ? POR_OMISION : partidos[0].sigla, ipm: 'H', area: 'total', orden: { id: 'ipm', dir: -1 } };
+    // Partidos con lista propia en algún distrito del cargo de la barra, de más a menos distritos.
+    const delCargo = () => ctx.delCargo().partidos;
+    const ordenados = () => [...delCargo().values()].sort((a, b) => b.distritos - a.distritos || a.sigla.localeCompare(b.sigla, 'es'));
+    const omision = () => (delCargo().has(POR_OMISION) ? POR_OMISION : ordenados()[0].sigla);
+    const estado = { partido: omision(), ipm: 'H', area: 'total', orden: { id: 'ipm', dir: -1 } };
+    let opcionesDe = null;
     let grafico = null;
     let todos = [];
     let puntos = [];
@@ -26,7 +29,13 @@ export function crear(ctx) {
     selector.id = 'partidoPais';
     const campo = el('label', 'campo-select', 'Partido ');
     campo.htmlFor = 'partidoPais';
-    for (const p of partidos) selector.append(new Option(`${p.sigla} · lista propia en ${cantidad(p.distritos, 'distrito', 'distritos')}`, p.sigla));
+    // Las opciones son las del cargo: se rearman cuando la barra lo cambia.
+    function opciones() {
+        if (opcionesDe === ctx.cargo()) return;
+        opcionesDe = ctx.cargo();
+        selector.replaceChildren(...ordenados().map((p) => new Option(`${p.sigla} · lista propia en ${cantidad(p.distritos, 'distrito', 'distritos')}`, p.sigla)));
+        if (!delCargo().has(estado.partido)) estado.partido = omision();
+    }
     campo.append(selector);
     selector.addEventListener('change', () => {
         estado.partido = selector.value;
@@ -51,7 +60,7 @@ export function crear(ctx) {
     const lectura = el('div');
     ctx.lectura.append(lectura);
 
-    const partido = () => datos.partidos.get(estado.partido);
+    const partido = () => delCargo().get(estado.partido);
     const ind = () => indicador(datos, estado.ipm);
     const frase = () => `${enFrase(datos, estado.ipm)}${textoArea(estado.area)}`;
     const formato = (v) => formatoIpm(estado.ipm, v);
@@ -60,7 +69,7 @@ export function crear(ctx) {
 
     function calcular() {
         const s = estado.partido;
-        const enFiltro = datos.distritos.filter(ctx.enFiltro);
+        const enFiltro = ctx.delCargo().distritos.filter(ctx.enFiltro);
         sinLista = enFiltro.filter((d) => !d.listas[s]);
         todos = enFiltro.filter((d) => d.listas[s] && d.votos_listas).map((d) => ({
             d, nombre: d.nombre, departamento: d.departamento_nombre, x: valorIpm(datos, d.clave, estado.ipm, estado.area),
@@ -85,12 +94,12 @@ export function crear(ctx) {
         const fuera = todos.length - puntos.length;
         nota.textContent = `${cantidad(todos.length, 'distrito', 'distritos')} con lista propia de ${estado.partido}` +
             (fuera ? `; ${cantidad(fuera, 'queda', 'quedan')} fuera del gráfico por no tener el dato del INE` : '') +
-            `. Porcentaje = votos de ${estado.partido} / votos a listas de la Junta Municipal del distrito.`;
+            `. Porcentaje = votos de ${estado.partido} / votos a listas de ${ctx.nombreCargo()} del distrito.`;
     }
 
     function renderLectura() {
         const p = partido();
-        const partes = [el('p', null, `Cada punto es un distrito donde ${p.sigla} (${p.nombre}) presentó lista propia a la Junta Municipal: más a la ` +
+        const partes = [el('p', null, `Cada punto es un distrito donde ${p.sigla} (${p.nombre}) presentó lista propia a ${ctx.nombreCargo()}: más a la ` +
             `derecha, mayor ${frase()}; más arriba, mayor porcentaje de ${p.sigla} sobre los votos a listas.`)];
         if (ajuste) {
             partes.push(el('p', null, `La línea es la tendencia lineal: ${ajuste.pendiente >= 0 ? 'sube' : 'baja'} ${pct2.format(Math.abs(ajuste.pendiente))} ` +
@@ -144,6 +153,7 @@ export function crear(ctx) {
     }
 
     async function render() {
+        opciones();
         selector.value = estado.partido;
         marcar();
         calcular();
@@ -164,7 +174,7 @@ export function crear(ctx) {
         estadoEnlace: () => ({ partido: estado.partido === POR_OMISION ? null : estado.partido, ...ipmAlEnlace(estado) }),
         aplicarEnlace(p) {
             Object.assign(estado, ipmDelEnlace(p));
-            estado.partido = datos.partidos.has(p.get('partido')) ? p.get('partido') : datos.partidos.has(POR_OMISION) ? POR_OMISION : partidos[0].sigla;
+            estado.partido = delCargo().has(p.get('partido')) ? p.get('partido') : omision();
         },
     };
 }

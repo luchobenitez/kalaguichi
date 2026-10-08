@@ -425,8 +425,12 @@ export function crearMapaGL(datos, contenedor, opciones = {}) {
     // --- Pintar: cada llamada guarda el estado y lo aplica cuando el mapa está listo -----------------------------------
 
     // fn(mesa) → { color, forma, atenuado, texto }; null las oculta.
+    // fn(m) → { color, forma, … } o null: la mesa no se dibuja (sin acta del cargo).
     api.pintarMesas = (fn) => {
-        estado.mesas = fn ? mesas.map((m) => punto(m.lon, m.lat, { i: m.i, clave: m.clave, ...fn(m) })) : [];
+        estado.mesas = fn ? mesas.flatMap((m) => {
+            const p = fn(m);
+            return p ? [punto(m.lon, m.lat, { i: m.i, clave: m.clave, ...p })] : [];
+        }) : [];
         aplicar();
     };
     // fn(barrio) → { color, opacidad, texto, seleccion }; color null: solo el contorno.
@@ -443,17 +447,23 @@ export function crearMapaGL(datos, contenedor, opciones = {}) {
         estado.zonas = { ...base, features: base.features.map((f) => ({ ...f, properties: { ...f.properties, ...fn(f.properties) } })) };
         aplicar();
     };
-    // Locales encima (capa del IPM): fn(clave, info) → { color, forma, escala, atenuado, texto }; null los quita.
+    // Locales encima (capa del IPM): fn(clave, info) → { color, forma, escala, atenuado, texto } o null (el local no se
+    // dibuja: sin actas del cargo); fn null los quita a todos.
     api.pintarLocales = (fn) => {
         estado.locales = fn ? [...datos.infoLocal.entries()].filter(([clave, info]) => conUbicacion(info) && datos.porLocal.has(clave))
-            .map(([clave, info]) => punto(info.lon, info.lat, { clave, ...fn(clave, info) })) : null;
+            .flatMap(([clave, info]) => {
+                const p = fn(clave, info);
+                return p ? [punto(info.lon, info.lat, { clave, ...p })] : [];
+            }) : null;
         aplicar();
     };
-    // Halos de la zona TSJE: fn(clave, info) → { color, atenuado }; null los quita.
+    // Halos de la zona TSJE: fn(clave, info) → { color, atenuado } o null (sin halo: el local no tiene acta del cargo); fn null
+    // los quita a todos.
     api.pintarHalos = (fn) => {
-        estado.halos = fn ? [...datos.porLocal.entries()].filter(([clave]) => conUbicacion(datos.infoLocal.get(clave))).map(([clave, filas]) => {
+        estado.halos = fn ? [...datos.porLocal.entries()].filter(([clave]) => conUbicacion(datos.infoLocal.get(clave))).flatMap(([clave, filas]) => {
             const info = datos.infoLocal.get(clave);
-            return punto(info.lon, info.lat, { clave, radio_m: radioLocal(filas.length), ...fn(clave, info) });
+            const p = fn(clave, info);
+            return p ? [punto(info.lon, info.lat, { clave, radio_m: radioLocal(filas.length), ...p })] : [];
         }) : null;
         aplicar();
     };

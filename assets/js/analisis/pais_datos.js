@@ -1,5 +1,6 @@
-// Ámbito «Paraguay, por distrito» de Análisis (ADR-023, tarea M21): los distritos son las unidades, con la Junta Municipal
-// del índice nacional (distritos.json), la pobreza multidimensional del INE por distrito (indicadores_distritos.json: H, A e
+// Ámbito «Paraguay, por distrito» de Análisis (ADR-023, tarea M21): los distritos son las unidades, con la Intendencia y la
+// Junta Municipal del índice nacional (distritos.json; ADR-024: porCargo['1'] y porCargo['2'], con los mismos campos), la
+// pobreza multidimensional del INE por distrito (indicadores_distritos.json: H, A e
 // IPM en el total del distrito o en su área urbana o rural) y los colores de los partidos (colores.json). Asunción no tiene
 // IPM distrital (el INE lo publica por barrio): queda fuera de los gráficos, con el motivo en la nota. Sin HTML desde datos.
 import { indiceNacional, archivoNacional } from '../datos.js';
@@ -23,26 +24,40 @@ export async function cargarPais(eleccion, anio) {
 
 // Los datos del país desde los tres archivos (también para las pruebas, sin fetch).
 export function armarPais(indice, ipm, colores) {
-    const distritos = indice.distritos.map((d) => ({ ...d, gana: d.listas[d.ganadora] }));
-    const partidos = new Map();
-    for (const d of distritos) {
-        for (const [sigla, x] of Object.entries(d.listas)) {
-            if (x.tipo !== 'partido') continue;
-            const p = partidos.get(sigla) ?? { sigla, nombre: x.nombre, color: colores.partidos?.[sigla] ?? x.color, forma: x.forma, distritos: 0 };
-            p.distritos += 1;
-            partidos.set(sigla, p);
+    // La Junta: los campos de cada registro; la Intendencia: su bloque, con los mismos nombres.
+    const junta = indice.distritos.map((d) => ({ ...d, gana: d.listas[d.ganadora] }));
+    const intendencia = indice.distritos.filter((d) => d.intendencia).map((d) => {
+        const i = d.intendencia;
+        return { ...d, votos: i.votos, votos_listas: i.votos_listas, blancos: i.blancos, nulos: i.nulos, nocomputados: i.nocomputados, emitidos: i.emitidos,
+                 participacion: i.participacion, ganadora: i.ganadora, segunda: i.segunda, pct_ganadora: i.pct_ganadora, ventaja: i.ventaja, listas: i.listas,
+                 mesas: { esperadas: d.mesas.esperadas, con_acta: i.mesas.con_acta },
+                 electores: { padron: d.electores.padron, en_mesas_con_acta: i.electores_en_mesas_con_acta }, gana: i.listas[i.ganadora] };
+    });
+    const porCargo = {};
+    for (const [cargo, distritos] of [['2', junta], ['1', intendencia]]) {
+        if (!distritos.length) continue;
+        const partidos = new Map();
+        for (const d of distritos) {
+            for (const [sigla, x] of Object.entries(d.listas)) {
+                if (x.tipo !== 'partido') continue;
+                const p = partidos.get(sigla) ?? { sigla, nombre: x.nombre, color: colores.partidos?.[sigla] ?? x.color, forma: x.forma, distritos: 0 };
+                p.distritos += 1;
+                partidos.set(sigla, p);
+            }
         }
+        porCargo[cargo] = { distritos, porClave: new Map(distritos.map((d) => [d.clave, d])), partidos };
     }
-    return { pais: true, indice, departamentos: indice.departamentos, porDep: new Map(indice.departamentos.map((d) => [d.codigo, d])), distritos,
-             porClave: new Map(distritos.map((d) => [d.clave, d])), ipm, ipmPor: new Map(Object.entries(ipm.distritos)), colores, partidos };
+    return { pais: true, indice, departamentos: indice.departamentos, porDep: new Map(indice.departamentos.map((d) => [d.codigo, d])), porCargo,
+             distritos: junta, porClave: porCargo['2'].porClave, partidos: porCargo['2'].partidos,
+             ipm, ipmPor: new Map(Object.entries(ipm.distritos)), colores };
 }
 
-// Grupo de una lista del distrito: su partido o, si es una alianza o un movimiento local (cada uno de un solo distrito),
-// todas ellas juntas, en verde.
-export function grupoDe(datos, d, sigla = d.ganadora) {
+// Grupo de una lista del distrito: su partido o, si es una alianza, un movimiento local o una lista solo de Intendencia
+// (cada uno de un solo distrito), todas ellas juntas, en verde. cargo: '1' Intendencia o '2' Junta.
+export function grupoDe(datos, d, sigla = d.ganadora, cargo = '2') {
     const x = d.listas[sigla];
     if (x.tipo === 'partido') {
-        const p = datos.partidos.get(sigla);
+        const p = (datos.porCargo?.[cargo]?.partidos ?? datos.partidos).get(sigla);
         return { id: sigla, sigla, nombre: p.nombre, color: p.color, forma: p.forma };
     }
     return { id: LOCALES, sigla: 'Locales', nombre: NOMBRE_LOCALES, color: datos.colores.verdes[0], forma: datos.colores.formas?.alianza ?? 'rombo' };

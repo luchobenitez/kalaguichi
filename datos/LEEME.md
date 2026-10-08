@@ -81,7 +81,12 @@ datos/<eleccion>/<anio>/nacional/
   índice tiene `carpeta: ""`. Los demás tienen `carpeta: "nacional/distritos/<clave>/"`.
 - «A computar» de las planillas es `nocomputados`. Las bancas son la integración oficial del TREP (el D'Hondt sobre los
   votos por lista da el mismo reparto en todos los distritos).
-- Intendencia por mesa y el IPM por barrio existen solo para Asunción (`no_disponible` de cada `resumen.json`).
+- Intendencia (ADR-024): cada distrito trae el cargo `"1"` en `trep/mesas.json`, `trep/resumen.json` y
+  `comun/candidaturas.json` (con el nombre de cada candidatura), desde las planillas uninominales del TREP (la sigla y el
+  nombre de cada lista, de la planilla del TSJE con los resultados de Intendencia por distrito); el índice
+  suma el bloque `intendencia`. Una mesa sin acta de un cargo lleva `null` en ese cargo (y cuenta como sin acta para él);
+  `cobertura.por_cargo` cuenta las mesas con acta de cada uno. El manifiesto declara en `nacional.cargos` los cargos que
+  el sitio muestra fuera de Asunción. El IPM por barrio existe solo para Asunción.
 - `indicadores_distritos.json` (ADR-023) lo genera `analisis_resultados/procesamiento/ipm_distritos_datos.py` desde los
   cuadros 1 a 3 del Anexo del IPM del INE: `distritos[<clave>]` es `{ "H" | "A" | "IPM": { "total", "urbana", "rural" } }`
   con `null` para un área sin población (14 distritos sin rural, en `sin_poblacion_rural`); Asunción (`0-0`) es `null`
@@ -110,7 +115,9 @@ datos/<eleccion>/<anio>/nacional/
 `sha256_junta`), de las demás fuentes y del generador.
 
 ## Reglas
-- Ningún archivo lleva datos de personas (cédulas, nombres de electores, fechas de nacimiento, edades).
+- Ningún archivo lleva datos de personas (cédulas, nombres de electores, fechas de nacimiento, edades), salvo el nombre de
+  cada candidatura: el de la boleta en Asunción y, en los demás distritos, el del padrón, buscado por la cédula que trae la
+  planilla uninominal del TREP (ADR-024; la cédula no se guarda ni se publica).
 - Los porcentajes de lista son sobre votos a listas del cargo; los cargos no se suman entre sí.
 - Una mesa que está en una fuente y no en la otra se indica en la tabla del tablero; no se completa ni se estima.
 - Las bancas de `comun/candidaturas.json` corresponden al TREP. Con la fuente oficial, el tablero reparte las bancas

@@ -55,8 +55,9 @@ export function crear(ctx) {
     const formato = (v) => formatoIpm(estado.ipm, v);
 
     function calcular() {
-        const todos = datos.distritos.filter(ctx.enFiltro).map((d) => ({
-            d, nombre: d.nombre, departamento: d.departamento_nombre, grupo: grupoDe(datos, d), x: valorIpm(datos, d.clave, estado.ipm, estado.area),
+        const todos = ctx.delCargo().distritos.filter(ctx.enFiltro).map((d) => ({
+            d, nombre: d.nombre, departamento: d.departamento_nombre, grupo: grupoDe(datos, d, d.ganadora, ctx.cargo()),
+            x: valorIpm(datos, d.clave, estado.ipm, estado.area),
             y: d.pct_ganadora, ventaja: d.segunda ? d.ventaja : null, motivo: sinIpm(datos, d.clave, estado.area) }));
         const conDato = todos.filter((u) => u.x !== null && u.y !== null);
         const grupos = conDato.length ? tramosDistritos(conDato, cantidadTramosPais(conDato.length)) : [];
@@ -103,7 +104,8 @@ export function crear(ctx) {
             const fuera = calculo.todos.length - calculo.conDato.length;
             nota.textContent = `${cantidad(calculo.todos.length, 'distrito', 'distritos')}` +
                 (fuera ? `; ${cantidad(fuera, 'queda', 'quedan')} fuera del gráfico por no tener el dato del INE` : '') +
-                '. Lista más votada: la de más votos de la Junta Municipal en el distrito; «Locales» reúne a las alianzas y los movimientos locales. ' +
+                `. Lista más votada: la de más votos de ${ctx.nombreCargo()} en el distrito; «Locales» reúne a las alianzas y los movimientos locales` +
+                `${ctx.cargo() === '1' ? ' (y las listas solo de Intendencia)' : ''}. ` +
                 'Ventaja: puntos de la primera sobre la segunda, sobre los votos a listas.';
         } else {
             mostradas = renderTablaOrdenable(tabla, columnasTramos(), calculo.grupos.map((g, i) => Object.assign(g, { n: i + 1 })), estado);
@@ -119,7 +121,7 @@ export function crear(ctx) {
             return;
         }
         const partes = [estado.grafico === 'distritos'
-            ? el('p', null, `Cada punto es un distrito, con el color y la forma del partido de su lista más votada de la Junta Municipal (las alianzas ` +
+            ? el('p', null, `Cada punto es un distrito, con el color y la forma del partido de su lista más votada de ${ctx.nombreCargo()} (las alianzas ` +
                 `y los movimientos locales juntos, en verde). Más a la derecha, mayor ${frase()} (${ind().descripcion.replace(/\.$/, '').toLowerCase()}); ` +
                 'más arriba, mayor porcentaje de la lista más votada sobre los votos a listas.')
             : el('p', null, `Los distritos se ordenan por ${frase()} y se agrupan en ${cantidad(grupos.length, 'tramo', 'tramos')} con la misma cantidad ` +

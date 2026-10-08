@@ -108,7 +108,7 @@ function seleccion() {
         const info = infoDe(estado.local);
         const meta = [info.direccion, info.barrio ? `barrio ${info.barrio}` : null].filter(Boolean).join(' · ');
         if (estado.mesa !== null) {
-            const fila = datos.porLocal.get(estado.local).find((f) => f.mesa === estado.mesa);
+            const fila = datos.porLocal.get(estado.local).find((f) => f.mesa === estado.mesa && datos.conActa(f.i, estado.cargo));
             return { titulo: `Mesa ${estado.mesa}`, eyebrow: `Mesa · ${info.nombre}`, indices: [fila.i], meta };
         }
         return { titulo: info.nombre, eyebrow: `Local · zona ${info.zona_nombre ?? info.zona}`, indices: datos.porLocal.get(estado.local).map((f) => f.i), meta };
@@ -130,9 +130,9 @@ function seleccion() {
     return { titulo: lugar(), eyebrow: esAsuncion() ? 'Resultado' : `Resultado · ${datos.lugar.departamento}`, indices: datos.filas.map((f) => f.i), meta: '' };
 }
 
-// Mesas esperadas de la selección que no tienen acta (para «Actas computadas» y «Mesas sin acta»).
+// Mesas esperadas de la selección que no tienen acta del cargo (para «Actas computadas» y «Mesas sin acta»).
 function sinActa() {
-    return datos.faltantes.filter((x) => {
+    return datos.faltantesDe(estado.cargo).filter((x) => {
         if (estado.local) return estado.mesa === null && x.clave === estado.local;
         if (estado.barrio) return x.info?.barrio === estado.barrio;
         if (estado.zonaMunicipal !== null) return x.info?.zona_municipal === estado.zonaMunicipal;
@@ -170,7 +170,7 @@ function renderFiltros() {
     rellenar($('nivelBarrio'), [['', `Todos los barrios (${fmt.format(barrios.length)})`], ...barrios.map((b) => [b, b])], estado.barrio ?? '');
     const locales = enLaZona.filter(([, x]) => !estado.barrio || x.barrio === estado.barrio).sort(([, a], [, b]) => a.nombre.localeCompare(b.nombre, 'es'));
     rellenar($('nivelLocal'), [['', `Todos los locales (${fmt.format(locales.length)})`], ...locales.map(([clave, x]) => [clave, x.nombre])], estado.local ?? '');
-    const mesas = estado.local ? datos.porLocal.get(estado.local).map((f) => f.mesa).sort((a, b) => a - b) : [];
+    const mesas = estado.local ? datos.porLocal.get(estado.local).filter((f) => datos.conActa(f.i, estado.cargo)).map((f) => f.mesa).sort((a, b) => a - b) : [];
     rellenar($('nivelMesa'), [['', estado.local ? `Todas las mesas (${mesas.length})` : 'Elegí antes un local'], ...mesas.map((m) => [String(m), `Mesa ${m}`])],
         estado.mesa === null ? '' : String(estado.mesa));
     $('nivelMesa').disabled = !estado.local;
@@ -255,6 +255,7 @@ function pintarPuntos(leyenda) {
     const c = datos.mesas.cargos[estado.cargo];
     const conteo = new Map();
     mapa.pintarMesas((m) => {
+        if (c.votos[m.i] == null) return null;
         const f = datos.filas[m.i];
         const j = ganador(c.votos[m.i]);
         const visible = enZona(f);
@@ -265,6 +266,7 @@ function pintarPuntos(leyenda) {
     });
     mapa.pintarLocales((clave, info) => {
         const total = datos.sumar(datos.porLocal.get(clave).map((f) => f.i), estado.cargo);
+        if (!total.mesas) return null;
         const j = ganador(total.votos);
         const lider = j === null ? 'empate' : `${datos.listas[estado.cargo][j].sigla} ${pct.format((100 * total.votos[j]) / total.listas)} %`;
         return { color: j === null ? GRIS : colorDe(j), forma: j === null ? 'circulo' : formaDe(datos.listas[estado.cargo][j]),
@@ -410,11 +412,13 @@ function pintarIpm(leyenda) {
 // Zonas electorales del TSJE: sin polígonos publicados, un halo del color de la zona alrededor de cada local.
 function pintarZonasTsje(leyenda) {
     const porZona = new Map();
+    // Los locales con acta del cargo (ADR-024: una mesa puede tener acta solo del otro).
+    const conActaDelCargo = (clave) => Boolean(datos.porLocal.get(clave)?.some((f) => datos.conActa(f.i, estado.cargo)));
     for (const [clave, info] of datos.infoLocal) {
-        if (!datos.porLocal.has(clave) || fueraDeZona(info)) continue;
+        if (!conActaDelCargo(clave) || fueraDeZona(info)) continue;
         porZona.set(info.zona, (porZona.get(info.zona) ?? 0) + 1);
     }
-    mapa.pintarHalos((clave, info) => ({ color: colorZona(info.zona), atenuado: fueraDeZona(info) }));
+    mapa.pintarHalos((clave, info) => (conActaDelCargo(clave) ? { color: colorZona(info.zona), atenuado: fueraDeZona(info) } : null));
     for (const [codigo, nombre] of Object.entries(datos.resumen.zonas)) {
         const n = porZona.get(Number(codigo));
         if (!n) continue;
@@ -458,6 +462,7 @@ function pintarPuntosCon(leyenda, colorDe) {
         return j === null ? 'circulo' : formaDe(datos.listas[estado.cargo][j]);
     };
     mapa.pintarMesas((m) => {
+        if (c.votos[m.i] == null) return null;
         const f = datos.filas[m.i];
         const t = datos.sumar([m.i], estado.cargo);
         const x = colorDe(t);
@@ -466,6 +471,7 @@ function pintarPuntosCon(leyenda, colorDe) {
     });
     mapa.pintarLocales((clave, info) => {
         const t = totales.get(clave);
+        if (!t.mesas) return null;
         const x = colorDe(t);
         return { color: x.color, forma: forma(t.votos), escala: Math.sqrt(info.electores) / 50, atenuado: fueraDeZona(info),
                  texto: `${info.nombre} · ${x.texto} · ${cantidad(t.mesas, 'mesa', 'mesas')} · ${fmt.format(info.electores)} electores` };
@@ -563,7 +569,8 @@ function renderMapaPuntos() {
     }
     if (estado.capa !== 'zona') mapa.pintarHalos(null);
     mapa.mostrar({ 'k-halos': estado.capa === 'zona' });
-    const sinUbicacion = [...datos.porLocal.keys()].filter((k) => !Number.isFinite(infoDe(k)?.lat)).length;
+    // Los locales con acta del cargo (una mesa puede tener acta solo del otro; ADR-024) que no tienen ubicación.
+    const sinUbicacion = [...datos.porLocal].filter(([k, filas]) => filas.some((f) => datos.conActa(f.i, estado.cargo)) && !Number.isFinite(infoDe(k)?.lat)).length;
     if (sinUbicacion) leyenda.append(el('li', 'leyenda__nota', `${cantidad(sinUbicacion, 'local', 'locales')} sin ubicación en el padrón: en la tabla, no en el mapa.`));
     leyenda.append(el('li', 'leyenda__nota', 'Sin mapa base de calles fuera de Asunción.'));
     leyenda.append(itemLeyenda(null, 'Contorno: límite del distrito (INE)', 'leyenda__muestra--limite'));
@@ -1097,7 +1104,8 @@ function leerEnlace() {
     const local = p.get('local'), barrio = p.get('barrio'), mesa = p.get('mesa');
     estado.local = local && datos.infoLocal.has(local) ? local : null;
     estado.barrio = estado.local ? infoDe(estado.local).barrio ?? null : barrio && datos.filas.some((f) => f.barrio === barrio) ? barrio : null;
-    estado.mesa = estado.local && /^\d+$/.test(mesa ?? '') && datos.porLocal.get(estado.local).some((f) => f.mesa === Number(mesa)) ? Number(mesa) : null;
+    estado.mesa = estado.local && /^\d+$/.test(mesa ?? '') && datos.porLocal.get(estado.local).some((f) => f.mesa === Number(mesa) && datos.conActa(f.i, estado.cargo))
+        ? Number(mesa) : null;
     if (estado.local ? fueraDeZona(infoDe(estado.local))
         : estado.barrio && [...datos.infoLocal.values()].filter((x) => x.barrio === estado.barrio).every(fueraDeZona)) {
         estado.zona = estado.zonaMunicipal = null;

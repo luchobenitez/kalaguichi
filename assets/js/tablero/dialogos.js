@@ -100,12 +100,20 @@ async function contenidoFuenteDistrito(datos, fuente) {
     const momento = info.corte ?? info.fecha;
     const sinUbicacion = [...datos.infoLocal.values()].filter((x) => !Number.isFinite(x.lat)).length;
     const fuentes = lista([
-        ['Resultados por mesa', `${r.eleccion.fuente}. Etapa: ${r.eleccion.etapa}. Territorio: ${r.eleccion.territorio}. Cargo: Junta Municipal ` +
-            '(Intendencia por mesa existe solo para Asunción).'],
+        ['Resultados por mesa', `${r.eleccion.fuente}. Etapa: ${r.eleccion.etapa}. Territorio: ${r.eleccion.territorio}. ` +
+            `${datos.cargos.length > 1 ? 'Cargos' : 'Cargo'}: ${datos.cargos.map((c) => nombreCargo(datos, c)).join(' y ')}.`],
+        // Los nombres de las candidaturas a Intendencia (ADR-024; ADR 0020 del módulo).
+        ...(datos.listas['1'] ? [['Candidaturas', 'Una por lista de Intendencia. Sus nombres salen del padrón electoral (nombres y apellidos), ' +
+            'buscados por la cédula que trae la planilla del TREP; la cédula no se guarda ni se publica. La sigla y el nombre de cada lista, de la ' +
+            'planilla del TSJE con los resultados de Intendencia por distrito.']] : []),
         ['Corte del TREP', `Corte del ${fechaLarga(momento)} (hora de Paraguay).${r.eleccion.corte_base ? ` ${r.eleccion.corte_base}` : ''}` +
             `${r.eleccion.aviso ? ` ${r.eleccion.aviso}` : ''}`],
-        ['Cobertura', `${fmt.format(cob.mesas_con_acta)} de ${fmt.format(cob.mesas_esperadas)} mesas con acta` +
-            (datos.faltantes.length ? `. Sin acta: ${datos.faltantes.map(textoSinActa).join('; ')}.` : '.')],
+        // Por cargo: una mesa puede tener acta de un cargo y no del otro (ADR-024).
+        ['Cobertura', `${datos.cargos.map((c) => {
+            const faltan = datos.faltantesDe(c);
+            return `${datos.cargos.length > 1 ? `${nombreCargo(datos, c)}: ` : ''}${fmt.format(datos.sumar(datos.filas.map((f) => f.i), c).mesas)} de ` +
+                `${fmt.format(cob.mesas_esperadas)} mesas con acta${faltan.length ? `. Sin acta: ${faltan.map(textoSinActa).join('; ')}` : ''}`;
+        }).join('. ')}.`],
         ['Electores', `${r.electores.fuente}.`],
         ['Locales de votación', 'Nombre, dirección y ubicación de cada local según el catálogo del TREP y el padrón (solo las columnas del local); ' +
             'sin datos de personas.' +
@@ -229,8 +237,10 @@ function contenidoMetodoDistrito(datos) {
         ["Bancas de la Junta (D'Hondt)", `Las ${b.total} bancas son la integración oficial del TREP. El sistema D'Hondt (los votos de cada lista ` +
             `divididos por 1, 2, 3…, y las bancas a los ${b.total} cocientes más altos) se calcula aquí sobre los votos por lista y se compara con ` +
             `ese reparto. La mayoría es de ${b.mayoria} bancas.`],
-        ['Colores', 'Los partidos con su color; las alianzas y los movimientos locales en verde, con tonos distintos si hay más de uno; la forma ' +
-            'acompaña al color (círculo la ANR, rombo las alianzas y los movimientos, cuadrado los demás).'],
+        ['Colores', 'Los partidos con su color; las alianzas, los movimientos locales y las listas solo de Intendencia en verde, con tonos ' +
+            'distintos si hay más de uno; la forma acompaña al color (círculo la ANR, rombo las alianzas y los movimientos, cuadrado los demás).'],
+        ['Mesas de un solo cargo', 'Una mesa puede tener acta de Intendencia y no de Junta (o al revés): para el cargo que le falta cuenta como ' +
+            'sin acta y ninguna suma de ese cargo la incluye.'],
         ['Cobertura', 'Actas computadas = mesas con acta / mesas esperadas de la selección. Las mesas sin acta no se estiman ni se reparten: se ' +
             'informan aparte y ninguna suma las incluye.'],
         ['Estadística por mesa', 'Media, mediana, desvío estándar poblacional (sobre todas las mesas con acta de la selección), mínimo y máximo ' +

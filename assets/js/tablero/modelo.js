@@ -1,7 +1,9 @@
 // Modelo de una elección, una fuente (TREP u oficial, mismo esquema: datos/LEEME.md) y un distrito: mesas con acta,
 // locales, geometría, candidaturas e indicadores por barrio, sus sumas y la estadística por mesa. Asunción tiene además
-// su cartografía (barrios y zonas municipales) y el IPM por barrio; los demás distritos (ADR-022), solo la Junta, sus
-// locales y su límite. No toca el DOM: lo usan el tablero, la vista informe y los análisis.
+// su cartografía (barrios y zonas municipales) y el IPM por barrio; los demás distritos (ADR-022), la Junta y, cuando el
+// manifiesto la declara en el país (ADR-024), la Intendencia, con sus locales y su límite. Una mesa puede tener acta de un
+// cargo y no del otro: ese cargo trae null en la mesa, y para él la mesa cuenta como sin acta. No toca el DOM: lo usan el
+// tablero, la vista informe y los análisis.
 import { cargarEleccion } from '../datos.js';
 import { fmt, pct } from './util.js';
 
@@ -19,11 +21,12 @@ export const formaDe = (item) => item?.forma ?? FORMAS[item?.sigla] ?? 'cuadrado
 const ARCHIVOS = { comun: ['locales.json', 'geo.json', 'candidaturas.json', 'indicadores_barrios.json'], fuente: ['resumen.json', 'mesas.json'] };
 const ARCHIVOS_DISTRITO = { comun: ['locales.json', 'candidaturas.json'], fuente: ['resumen.json', 'mesas.json'] };
 
-export function construirModelo(resumen, mesas, locales, geo, cand, ipm) {
+// permitidos: los cargos que se muestran (fuera de Asunción, la Intendencia solo si el manifiesto la declara; ADR-024).
+export function construirModelo(resumen, mesas, locales, geo, cand, ipm, { permitidos = ['1', '2'] } = {}) {
     const claveLocal = (z, l) => `${z}-${l}`;
     const listas = {};
-    // Cargos con actas en este distrito (fuera de Asunción, solo la Junta).
-    const cargos = ['1', '2'].filter((c) => mesas.cargos[c] && cand[c]);
+    // Cargos con actas en este distrito.
+    const cargos = ['1', '2'].filter((c) => permitidos.includes(c) && mesas.cargos[c] && cand[c]);
     for (const cargo of cargos) {
         const porNum = Object.fromEntries(cand[cargo].map((x) => [x.numLista, x]));
         listas[cargo] = mesas.cargos[cargo].listas.map((num) => ({ num, ...porNum[num] }));
@@ -38,10 +41,12 @@ export function construirModelo(resumen, mesas, locales, geo, cand, ipm) {
         if (!porLocal.has(f.clave)) porLocal.set(f.clave, []);
         porLocal.get(f.clave).push(f);
     }
-    let margen = listas[MARGEN.cargo] ? MARGEN : null;
+    // El par fijo de Asunción (ANR − AJA de Intendencia) solo donde están esas dos listas; si no, las dos más votadas de la Junta.
+    let margen = listas[MARGEN.cargo]?.some((x) => x.sigla === MARGEN.positivo) && listas[MARGEN.cargo].some((x) => x.sigla === MARGEN.negativo)
+        ? MARGEN : null;
     if (!margen && listas['2']?.length >= 2) {
         const c = mesas.cargos['2'];
-        const votos = c.listas.map((_, j) => c.votos.reduce((s, v) => s + v[j], 0));
+        const votos = c.listas.map((_, j) => c.votos.reduce((s, v) => s + (v ? v[j] : 0), 0));
         const [a, b] = votos.map((v, j) => j).sort((x, y) => votos[y] - votos[x] || x - y);
         margen = { cargo: '2', positivo: listas['2'][a].sigla, negativo: listas['2'][b].sigla };
     }
@@ -53,14 +58,28 @@ export function construirModelo(resumen, mesas, locales, geo, cand, ipm) {
     const zonaMunicipalPor = new Map((geo?.zonas_municipales ?? []).map((z) => [z.numero, z]));
     // IPM por barrio (INE, Censo 2022), unido a la geometría por la clave del barrio (CLAVE_BAR).
     const ipmPor = new Map((ipm?.barrios ?? []).map((b) => [b.clave, b]));
-    // Mesas sin acta (cobertura): con su local, para contarlas en cada selección.
+    // Mesas sin acta (cobertura): con su local, para contarlas en cada selección. faltantesDe(cargo) suma las mesas que
+    // tienen acta de otro cargo y no de este.
     const faltantes = resumen.cobertura.faltantes.map((x) => ({ ...x, clave: claveLocal(x.zona, x.local), info: infoLocal.get(claveLocal(x.zona, x.local)) }));
+    const conActa = (i, cargo) => mesas.cargos[cargo]?.votos[i] != null;
+    const faltantesPor = new Map();
+    const faltantesDe = (cargo) => {
+        if (!faltantesPor.has(cargo)) {
+            const sinEste = filas.filter((f) => !conActa(f.i, cargo)).map((f) => ({ zona: f.zona, local: f.local, mesa: f.mesa, estado: 'sin-dato',
+                                                                                   clave: f.clave, info: infoLocal.get(f.clave) }));
+            faltantesPor.set(cargo, [...faltantes, ...sinEste].sort((a, b) => a.zona - b.zona || a.local - b.local || a.mesa - b.mesa));
+        }
+        return faltantesPor.get(cargo);
+    };
 
-    // Suma de un conjunto de mesas para un cargo: votos por lista, demás campos y electores del padrón.
+    // Suma de un conjunto de mesas para un cargo: votos por lista, demás campos y electores del padrón (las mesas sin acta
+    // del cargo no cuentan).
     function sumar(indices, cargo) {
         const c = mesas.cargos[cargo];
-        const total = { votos: new Array(c.listas.length).fill(0), blancos: 0, nulos: 0, nocomputados: 0, emitidos: 0, electores: 0, mesas: indices.length };
+        const total = { votos: new Array(c.listas.length).fill(0), blancos: 0, nulos: 0, nocomputados: 0, emitidos: 0, electores: 0, mesas: 0 };
         for (const i of indices) {
+            if (c.votos[i] == null) continue;
+            total.mesas += 1;
             c.votos[i].forEach((v, j) => { total.votos[j] += v; });
             total.blancos += c.blancos[i];
             total.nulos += c.nulos[i];
@@ -73,8 +92,8 @@ export function construirModelo(resumen, mesas, locales, geo, cand, ipm) {
     }
 
     // conBarrios: cartografía propia (barrios y zonas municipales, solo Asunción); conIpm: el IPM por barrio.
-    return { resumen, mesas, geo, cand, ipm, ipmPor, listas, cargos, infoLocal, filas, porLocal, faltantes, margen, indiceMargen, claveLocal, barrioPor,
-             zonaMunicipalPor, conBarrios: barrioPor.size > 0, conZonasMunicipales: zonaMunicipalPor.size > 0, conIpm: ipmPor.size > 0,
+    return { resumen, mesas, geo, cand, ipm, ipmPor, listas, cargos, infoLocal, filas, porLocal, faltantes, faltantesDe, conActa, margen, indiceMargen,
+             claveLocal, barrioPor, zonaMunicipalPor, conBarrios: barrioPor.size > 0, conZonasMunicipales: zonaMunicipalPor.size > 0, conIpm: ipmPor.size > 0,
              mapas: {}, sumar, mesasDe: (filtro) => filas.filter(filtro).map((f) => f.i) };
 }
 
@@ -85,8 +104,10 @@ export async function cargarModelo(pedido, fuente) {
     const eleccion = await cargarEleccion(pedido, fuente, deDistrito ? ARCHIVOS_DISTRITO : ARCHIVOS);
     if (!eleccion.datos) return { eleccion, datos: null };
     const d = eleccion.datos;
+    // Fuera de Asunción, los cargos que el manifiesto declara para el país (ADR-024).
+    const permitidos = deDistrito ? (eleccion.anio.nacional?.cargos ?? ['junta']).map((c) => eleccion.anio.claves_cargo?.[c] ?? c) : ['1', '2'];
     const datos = construirModelo(d['resumen.json'], d['mesas.json'], d['locales.json'], d['geo.json'] ?? null, d['candidaturas.json'],
-                                  d['indicadores_barrios.json'] ?? null);
+                                  d['indicadores_barrios.json'] ?? null, { permitidos });
     datos.contexto = eleccion;
     return { eleccion, datos };
 }
@@ -130,6 +151,7 @@ export function describir(valores) {
 // Estadísticas generales de las mesas con acta de una selección (índices) para un cargo. sinActa: mesas esperadas de la
 // selección que no tienen acta. La ventaja es la del primero sobre el segundo de esta selección (nunca un partido fijo).
 export function estadisticas(datos, indices, cargo, sinActa = 0) {
+    indices = indices.filter((i) => datos.conActa(i, cargo));
     const total = datos.sumar(indices, cargo);
     const c = datos.mesas.cargos[cargo];
     const orden = total.votos.map((v, j) => j).sort((a, b) => total.votos[b] - total.votos[a] || a - b);
@@ -191,7 +213,7 @@ export function unidades(datos, tipo, cargo, incluir = () => true) {
         grupos.get(clave).indices.push(fila.i);
     };
     for (const f of datos.filas) {
-        if (!incluir(f)) continue;
+        if (!incluir(f) || !datos.conActa(f.i, cargo)) continue;
         const info = datos.infoLocal.get(f.clave);
         if (tipo === 'mesa') agregar(`${f.clave}-${f.mesa}`, f, { nombre: `${info.nombre} · mesa ${f.mesa}`, zona: f.zona, local: f.clave, mesa: f.mesa, barrio: info.barrio });
         if (tipo === 'local') agregar(f.clave, f, { nombre: info.nombre, zona: f.zona, local: f.clave, barrio: info.barrio });
