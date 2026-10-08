@@ -904,6 +904,30 @@ html[data-theme="dark"] .site-nav .site-nav__submenu a[aria-current="page"] {
     font: inherit;
 }
 
+/* Departamento › Distrito (ADR-022): en celular pasan juntos al renglón de abajo (el salto), cada uno a medio ancho. */
+.barra-contexto__ruta {
+    flex-wrap: wrap;
+    min-width: 0;
+    row-gap: .375rem;
+}
+
+.barra-contexto__paso[data-contexto="departamento"] select,
+.barra-contexto__paso[data-contexto="distrito"] select {
+    max-width: 16rem;
+    text-overflow: ellipsis;
+}
+
+.barra-contexto__salto {
+    display: none;
+}
+
+.barra-contexto__salto + .barra-contexto__paso::before {
+    content: "›";
+    margin-right: .375rem;
+    color: var(--text-muted);
+    font-weight: 600;
+}
+
 /* Estado de la fuente (actas y corte) y, al final de la misma línea, el aviso de resultados preliminares: si no entra
    junto al cargo pasa al renglón de abajo y, si hace falta, ocupa dos líneas antes que cortar el aviso. */
 .barra-contexto__fuente {
@@ -955,6 +979,14 @@ html[data-theme="dark"] .barra-contexto__aviso {
 .selector-cargo button:focus-visible {
     outline: 3px solid var(--orange-500);
     outline-offset: 2px;
+}
+
+/* Cargo sin datos en el ámbito (Intendencia fuera de Asunción): a la vista y atenuado. */
+.selector-cargo button[aria-disabled="true"] {
+    cursor: not-allowed;
+    opacity: .55;
+    text-decoration: line-through;
+    text-decoration-thickness: 1px;
 }
 
 /* --- Diálogo modal (dialogo.js): ancho de lectura, cabecera fija y cuerpo que se desplaza por dentro; en celular,
@@ -1421,6 +1453,40 @@ html.con-dialogo {
 
     .barra-contexto__ruta {
         font-size: .8125rem;
+    }
+
+    /* Con Departamento › Distrito (ADR-022): el distrito (con los departamentos agrupados) y el cargo comparten el
+       renglón, como antes la elección y el año; la elección y el año van en el título de la página y el departamento,
+       en los filtros del mapa del país. */
+    .barra-contexto__ruta:has(.barra-contexto__salto:not([hidden])) {
+        flex: 1 1 0;
+        min-width: 0;
+    }
+
+    .barra-contexto__ruta:has(.barra-contexto__salto:not([hidden])) .barra-contexto__paso:not(:has(select)),
+    .barra-contexto__ruta .barra-contexto__paso[data-contexto="departamento"] {
+        display: none;
+    }
+
+    .barra-contexto__paso[data-contexto="distrito"] {
+        display: flex;
+        flex: 1 1 0;
+        align-items: center;
+        min-width: 0;
+    }
+
+    .barra-contexto__paso[data-contexto="distrito"]::before {
+        content: none;
+    }
+
+    .barra-contexto__paso[data-contexto="distrito"] select {
+        width: 100%;
+        min-width: 0;
+        max-width: none;
+    }
+
+    .barra-contexto__ruta:has(.barra-contexto__salto:not([hidden])) + .selector-cargo {
+        flex: none;
     }
 
     /* Cada cargo mide al menos su texto («Intendencia» nunca se corta): si no entra junto a Elección › Año, el selector

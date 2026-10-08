@@ -1369,3 +1369,84 @@ html[data-theme="dark"] .tabla__marca {
         transition: none;
     }
 }
+
+/* --- Mapa del país (ADR-022): barra apilada de distritos ganados y de bancas, muestras de color de la tabla -------- */
+.pais-apilada {
+    display: grid;
+    gap: .5rem;
+    margin: .75rem 0 1rem;
+}
+
+.pais-apilada[hidden] {
+    display: none;
+}
+
+.pais-apilada__titulo {
+    margin: 0;
+    color: var(--text-soft);
+    font-size: .8125rem;
+    font-weight: 700;
+}
+
+.pais-apilada__barra {
+    display: flex;
+    overflow: hidden;
+    height: .875rem;
+    border-radius: 9999px;
+    background: var(--border);
+}
+
+.pais-apilada__parte {
+    min-width: 2px;
+    height: 100%;
+}
+
+.pais-apilada__parte + .pais-apilada__parte {
+    box-shadow: inset 1px 0 0 var(--surface-solid);
+}
+
+.pais-apilada__lista {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .25rem .875rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    color: var(--text-soft);
+    font-size: .8125rem;
+}
+
+.pais-apilada__lista li {
+    display: inline-flex;
+    align-items: center;
+    gap: .375rem;
+}
+
+.pais-apilada__lista strong {
+    color: var(--text);
+}
+
+.pais-apilada__muestra,
+.tabla__muestra {
+    display: inline-block;
+    flex: none;
+    width: .75rem;
+    height: .75rem;
+    border-radius: .1875rem;
+}
+
+.tabla__muestra {
+    margin-right: .375rem;
+    vertical-align: -.0625rem;
+}
+
+.panel--pais .nota,
+.panel--pais-bancas .nota {
+    margin-top: .75rem;
+}
+
+.ficha__listas li {
+    display: flex;
+    align-items: baseline;
+    gap: .25rem;
+}

@@ -1,10 +1,11 @@
-// Distribución del margen ANR − AJA (Intendencia) por mesa, local o barrio, en tramos de 5 puntos. El margen se calcula
-// con sumas de votos de cada unidad, no con promedios. Tocar una barra deja en la tabla solo las unidades de ese tramo.
+// Distribución del margen ANR − AJA (Intendencia) por mesa, local o barrio, en tramos de 5 puntos; en otro distrito
+// (ADR-022), entre sus dos listas más votadas de la Junta, por mesa o local. El margen se calcula con sumas de votos de
+// cada unidad, no con promedios. Tocar una barra deja en la tabla solo las unidades de ese tramo.
 import { cargarChart, colores, fondo, descargarCsv, descargarPng, nombreArchivo, renderTablaOrdenable, alOrdenar } from './exportar.js';
-import { MARGEN, unidades, margenDe, ganador } from '../tablero/modelo.js';
+import { unidades, margenDe, ganador } from '../tablero/modelo.js';
 import { el, fmt, pct, cantidad } from '../tablero/util.js';
 
-const NOMBRES = { mesa: ['mesa', 'mesas'], local: ['local', 'locales'], barrio: ['barrio', 'barrios'] };
+const TODAS = { mesa: ['mesa', 'mesas'], local: ['local', 'locales'], barrio: ['barrio', 'barrios'] };
 const conAlfa = (hex, alfa) => `${hex}${Math.round(alfa * 255).toString(16).padStart(2, '0')}`;
 const signo = (v) => `${v > 0 ? '+' : ''}${pct.format(v)}`;
 
@@ -16,8 +17,13 @@ function rangoBin(b) {
 export function crear(ctx) {
     const { datos } = ctx;
     const estado = { unidad: 'mesa', tramo: null, orden: { id: 'margen', dir: 1 } };
+    const MARGEN = datos.margen;
     const pos = datos.listas[MARGEN.cargo][datos.indiceMargen.positivo];
     const neg = datos.listas[MARGEN.cargo][datos.indiceMargen.negativo];
+    // Sin barrios fuera de Asunción: por mesa o por local.
+    const NOMBRES = Object.fromEntries(Object.entries(TODAS).filter(([id]) => id !== 'barrio' || datos.conBarrios));
+    const enIntendencia = MARGEN.cargo === '1';
+    const nombreCargo = enIntendencia ? 'Intendencia' : 'Junta Municipal';
     let grafico = null;
     let calculo = null;
     let mostradas = [];
@@ -82,7 +88,7 @@ export function crear(ctx) {
 
     const columnas = () => [
         { id: 'nombre', titulo: NOMBRES[estado.unidad][0][0].toUpperCase() + NOMBRES[estado.unidad][0].slice(1), texto: true, v: (f) => f.u.nombre },
-        ...(estado.unidad === 'barrio' ? [] : [{ id: 'barrio', titulo: 'Barrio', texto: true, v: (f) => f.u.barrio ?? '' }]),
+        ...(estado.unidad === 'barrio' || !datos.conBarrios ? [] : [{ id: 'barrio', titulo: 'Barrio', texto: true, v: (f) => f.u.barrio ?? '' }]),
         { id: 'margen', titulo: 'Margen (puntos)', v: (f) => f.m, f: (v) => (v === null ? '—' : signo(v)), clase: (v) => (v !== null && v < 0 ? 'es-negativa' : null) },
         { id: 'pos', titulo: `${pos.sigla} %`, v: (f) => (f.u.total.listas ? (100 * f.u.total.votos[datos.indiceMargen.positivo]) / f.u.total.listas : null), f: (v) => (v === null ? '—' : `${pct.format(v)} %`) },
         { id: 'neg', titulo: `${neg.sigla} %`, v: (f) => (f.u.total.listas ? (100 * f.u.total.votos[datos.indiceMargen.negativo]) / f.u.total.listas : null), f: (v) => (v === null ? '—' : `${pct.format(v)} %`) },
@@ -110,7 +116,7 @@ export function crear(ctx) {
         const orden = con.map((f) => f.m).sort((a, b) => a - b);
         const mediana = orden.length ? (orden.length % 2 ? orden[(orden.length - 1) / 2] : (orden[orden.length / 2 - 1] + orden[orden.length / 2]) / 2) : null;
         lectura.replaceChildren(
-            el('p', null, `El margen es la diferencia entre ${pos.sigla} y ${neg.sigla} en puntos de los votos a listas de Intendencia: +10 quiere decir ` +
+            el('p', null, `El margen es la diferencia entre ${pos.sigla} y ${neg.sigla} en puntos de los votos a listas de ${enIntendencia ? 'Intendencia' : 'la Junta Municipal'}: +10 quiere decir ` +
                 `que ${pos.sigla} sacó 10 puntos más que ${neg.sigla}. Se calcula con la suma de votos de cada ${singular}.`),
             el('p', null, `Cada barra cuenta ${plural} cuyo margen cae en un tramo de 5 puntos: a la izquierda (color de ${neg.sigla}), ${neg.sigla} ` +
                 `quedó adelante; a la derecha (color de ${pos.sigla}), ${pos.sigla}.`),
@@ -119,8 +125,10 @@ export function crear(ctx) {
                 (empates ? `, empate exacto en ${fmt.format(empates)}` : '') + (mediana === null ? '.' : `. Mediana: ${signo(mediana)} puntos.`) +
                 (sinVotos ? ` ${cantidad(sinVotos, `${singular} sin votos a listas`, `${plural} sin votos a listas`)}.` : '') +
                 (terceros ? ` En ${fmt.format(terceros)} la más votada fue otra lista: el margen igual compara solo ${pos.sigla} y ${neg.sigla}.` : '')),
-            el('p', null, 'Con pocas mesas por unidad los márgenes extremos son más frecuentes. El barrio es la ubicación del local, no la residencia de sus electores. ' +
-                'El cargo de la barra de contexto no cambia este análisis: siempre usa Intendencia.'));
+            el('p', null, 'Con pocas mesas por unidad los márgenes extremos son más frecuentes. ' +
+                (datos.conBarrios ? 'El barrio es la ubicación del local, no la residencia de sus electores. ' : '') +
+                (enIntendencia ? 'El cargo de la barra de contexto no cambia este análisis: siempre usa Intendencia.'
+                    : `Fuera de Asunción no hay Intendencia por mesa: el análisis compara las dos listas más votadas de la Junta en ${ctx.lugar()}.`)));
     }
 
     async function renderGrafico() {
@@ -175,7 +183,7 @@ export function crear(ctx) {
 
     return {
         titulo: 'Distribución del margen',
-        meta: () => `${pos.sigla} − ${neg.sigla} · Intendencia · por ${NOMBRES[estado.unidad][0]} · ${ctx.textoFiltro()}`,
+        meta: () => `${pos.sigla} − ${neg.sigla} · ${nombreCargo} · por ${NOMBRES[estado.unidad][0]} · ${ctx.textoFiltro()}`,
         render,
         alCambiarTema: () => { grafico?.destroy(); grafico = null; return renderGrafico(); },
         csv: () => descargarCsv(nombreArchivo('margen', estado.unidad, ctx.textoFiltro(), estado.tramo === null ? null : `tramo ${rangoBin(estado.tramo)}`),

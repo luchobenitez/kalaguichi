@@ -101,7 +101,8 @@ function posicionesHemiciclo(total) {
     return puestos.sort((a, b) => b.angulo - a.angulo || a.r - b.r);
 }
 
-// Bancas de la Junta. Con el TREP: el reparto y las personas electas de candidaturas.json, con sus fotos. Con el cómputo
+// Bancas de la Junta. Con el TREP: el reparto y las personas electas de candidaturas.json, con sus fotos; en los demás
+// distritos (ADR-022), la integración oficial por lista, sin personas, contrastada con el D'Hondt propio. Con el cómputo
 // oficial: el reparto D'Hondt sobre los votos oficiales por lista, calculado aquí; las personas electas solo si la
 // fuente las trae (resumen.bancas.electos), porque las actas por mesa no tienen el voto preferencial.
 export function renderBancas(datos, cargo, { fuente = 'trep', nombreFuente = 'TREP preliminar' } = {}) {
@@ -112,7 +113,13 @@ export function renderBancas(datos, cargo, { fuente = 'trep', nombreFuente = 'TR
     const listas = datos.listas['2'];
     const ordenar = (electos) => [...electos].sort((x, y) => x.banca - y.banca);
     let porLista, corte, metodo, conPersonas;
-    if (fuente === 'trep') {
+    let coincide = null;  // Integración oficial frente al D'Hondt propio (distritos sin personas electas).
+    if (fuente === 'trep' && !b.electos) {
+        const propio = dhondt(datos.sumar(datos.filas.map((f) => f.i), '2').votos, b.total);
+        porLista = listas.map((item, j) => ({ item, n: b.reparto?.[item.num] ?? 0, electos: [] }));
+        coincide = listas.every((item, j) => (b.reparto?.[item.num] ?? 0) === propio.reparto[j]);
+        [corte, metodo, conPersonas] = [b.cociente_de_corte ?? propio.corte, b.metodo, false];
+    } else if (fuente === 'trep') {
         porLista = listas.map((item) => {
             const electos = ordenar(b.electos.filter((e) => e.numLista === item.num));
             return { item, n: electos.length, electos };
@@ -184,7 +191,13 @@ export function renderBancas(datos, cargo, { fuente = 'trep', nombreFuente = 'TR
             personas.append(grupo);
         }
     }
-    $('notaBancas').textContent = fuente === 'trep'
+    $('notaBancas').textContent = coincide !== null
+        ? `Integración oficial de la Junta según el TREP, con corte en ${fmt.format(Math.round(corte))} votos por banca. ` +
+          (coincide ? "Comprobado en esta página: el D'Hondt sobre los votos por lista da el mismo reparto, banca por banca. "
+              : "El D'Hondt calculado en esta página sobre los votos por lista no da el mismo reparto: se muestra la integración oficial. ") +
+          'Las personas electas surgen del voto preferencial, que las planillas por mesa no traen: no se incluyen. TREP preliminar: no es la ' +
+          'proclamación oficial.'
+        : fuente === 'trep'
         ? `${metodo}: corte en ${fmt.format(Math.round(corte))} votos por banca. Las personas electas dentro de cada lista surgen del voto ` +
           'preferencial, que las actas por mesa no traen: se toman de la referencia y se contrastaron con el reparto propio. TREP preliminar: ' +
           'no es la proclamación oficial.'
@@ -226,7 +239,8 @@ export function renderFuentes(datos, { fuente = 'trep' } = {}) {
 
 // Vistas que los datos declaran no disponibles (y por qué), como tarjetas plegables (vista informe y diálogo «Fuente»).
 export function tarjetasNoDisponible(datos, { nivel = 'h2' } = {}) {
-    const titulos = { pobreza_monetaria_por_barrio: 'Pobreza monetaria por barrio', historial_2021: 'Comparación histórica' };
+    const titulos = { pobreza_monetaria_por_barrio: 'Pobreza monetaria por barrio', historial_2021: 'Comparación histórica',
+                      intendencia: 'Intendencia por mesa', pobreza_por_barrio: 'Pobreza multidimensional por barrio' };
     return Object.entries(datos.resumen.no_disponible).map(([clave, motivo]) => {
         const card = el('details', 'info-card info-card--no-disponible plegable');
         card.dataset.vista = clave;

@@ -9,6 +9,16 @@
         {
           "anio": 2026,
           "ambito": "Asunción",
+          "nacional": {
+            "nombre": "Paraguay",
+            "cargos": [
+              "junta"
+            ],
+            "fuentes": [
+              "trep"
+            ],
+            "nota": "La Junta Municipal de los 263 distritos (planillas del TREP del TSJE); Intendencia por mesa, solo en Asunción."
+          },
           "cargos": [
             "intendencia",
             "junta"

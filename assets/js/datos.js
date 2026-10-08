@@ -28,16 +28,20 @@ export function elegir(m, pedido = {}) {
     return { eleccion, anio };
 }
 
-// Carga los JSON de una elección, un año y una fuente. comun: la carpeta común, para resolver las fotos.
+// Carga los JSON de una elección, un año y una fuente. comun: la carpeta común, para resolver las fotos. pedido.distrito
+// (ADR-022): un distrito distinto de Asunción lee su carpeta nacional/distritos/<clave>/, con el mismo esquema.
 export async function cargarEleccion(pedido = {}, fuente = 'trep', archivos = {}) {
     if (!FUENTES.includes(fuente)) throw new Error(`Fuente desconocida: ${fuente}`);
     const m = await manifiesto();
     const { eleccion, anio } = elegir(m, pedido);
-    const estado = anio.fuentes?.[fuente]?.estado ?? 'pendiente';
-    const comun = carpeta(eleccion.id, anio.anio, 'comun');
-    const base = { eleccion, anio, fuente, estado, comun, manifiesto: m };
+    const distrito = pedido.distrito && pedido.distrito !== '0-0' && anio.nacional ? pedido.distrito : null;
+    const publicada = anio.fuentes?.[fuente]?.estado ?? 'pendiente';
+    const estado = distrito && !anio.nacional.fuentes?.includes(fuente) ? 'pendiente' : publicada;
+    const raiz = distrito ? new URL(`distritos/${distrito}/`, carpetaNacional(eleccion.id, anio.anio)) : null;
+    const comun = raiz ? new URL('comun/', raiz) : carpeta(eleccion.id, anio.anio, 'comun');
+    const base = { eleccion, anio, fuente, estado, comun, manifiesto: m, distrito: distrito ?? (anio.nacional ? '0-0' : null) };
     if (estado !== 'publicado') return { ...base, datos: null };
-    const de = carpeta(eleccion.id, anio.anio, fuente);
+    const de = raiz ? new URL(`${fuente}/`, raiz) : carpeta(eleccion.id, anio.anio, fuente);
     const pedidos = { ...Object.fromEntries((archivos.comun ?? []).map((n) => [n, new URL(n, comun)])),
                       ...Object.fromEntries((archivos.fuente ?? []).map((n) => [n, new URL(n, de)])) };
     const nombres = Object.keys(pedidos);
@@ -47,3 +51,19 @@ export async function cargarEleccion(pedido = {}, fuente = 'trep', archivos = {}
 
 // Dirección de una foto de candidaturas.json: sus rutas son relativas a la carpeta comun/.
 export const urlFoto = (foto, comun) => new URL(foto.archivo, comun).href;
+
+// --- Datos nacionales (ADR-022): datos/<eleccion>/<anio>/nacional/, si el año del manifiesto declara «nacional» ------
+export const carpetaNacional = (eleccion, anio) => new URL(`datos/${eleccion}/${anio}/nacional/`, RAIZ);
+const nacionales = new Map();
+function leerNacional(eleccion, anio, nombre) {
+    const clave = `${eleccion}/${anio}/${nombre}`;
+    if (!nacionales.has(clave)) nacionales.set(clave, leer(new URL(nombre, carpetaNacional(eleccion, anio))));
+    return nacionales.get(clave);
+}
+// lista.json (9 KB): clave, nombre y departamento de cada distrito, para el selector de la barra.
+export const listaDistritos = (eleccion, anio) => leerNacional(eleccion, anio, 'lista.json');
+// distritos.json: el índice con los resultados de la Junta de cada distrito (el mapa del país).
+export const indiceNacional = (eleccion, anio) => leerNacional(eleccion, anio, 'distritos.json');
+export const geoNacional = (eleccion, anio, nombre) => leerNacional(eleccion, anio, `geo/${nombre}.geojson`);
+// Cualquier otro archivo de nacional/ (colores.json, procedencia.json), una sola vez.
+export const archivoNacional = (eleccion, anio, nombre) => leerNacional(eleccion, anio, nombre);

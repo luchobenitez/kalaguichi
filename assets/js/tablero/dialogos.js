@@ -3,7 +3,7 @@
 // la estadística descriptiva por mesa. Se arman al abrirse con los datos ya cargados; procedencia.json se lee solo al
 // abrir «Fuente». Sin HTML desde datos: el texto va con textContent.
 import { crearDialogo } from '../dialogo.js';
-import { cargarEleccion, carpeta } from '../datos.js';
+import { cargarEleccion, carpeta, carpetaNacional } from '../datos.js';
 import { el, fmt, pct, cantidad, porcentaje } from './util.js';
 import { UMBRAL_PRINCIPAL, estadisticas } from './modelo.js';
 import { tarjetasNoDisponible } from './panel.js';
@@ -91,7 +91,60 @@ function lineaFuente(datos, fuente) {
 
 // --- Fuente ---------------------------------------------------------------------------------------------------------
 
+// Un distrito distinto de Asunción (ADR-022): las planillas del TSJE, el límite del INE y la procedencia de su carpeta.
+async function contenidoFuenteDistrito(datos, fuente) {
+    const r = datos.resumen;
+    const { eleccion, anio } = datos.contexto;
+    const info = anio.fuentes?.[fuente] ?? {};
+    const cob = r.cobertura;
+    const momento = info.corte ?? info.fecha;
+    const sinUbicacion = [...datos.infoLocal.values()].filter((x) => !Number.isFinite(x.lat)).length;
+    const fuentes = lista([
+        ['Resultados por mesa', `${r.eleccion.fuente}. Etapa: ${r.eleccion.etapa}. Territorio: ${r.eleccion.territorio}. Cargo: Junta Municipal ` +
+            '(Intendencia por mesa existe solo para Asunción).'],
+        ['Corte del TREP', `Corte del ${fechaLarga(momento)} (hora de Paraguay).${r.eleccion.corte_base ? ` ${r.eleccion.corte_base}` : ''}` +
+            `${r.eleccion.aviso ? ` ${r.eleccion.aviso}` : ''}`],
+        ['Cobertura', `${fmt.format(cob.mesas_con_acta)} de ${fmt.format(cob.mesas_esperadas)} mesas con acta` +
+            (datos.faltantes.length ? `. Sin acta: ${datos.faltantes.map(textoSinActa).join('; ')}.` : '.')],
+        ['Electores', `${r.electores.fuente}.`],
+        ['Locales de votación', 'Nombre, dirección y ubicación de cada local según el catálogo del TREP y el padrón (solo las columnas del local); ' +
+            'sin datos de personas.' +
+            (sinUbicacion ? ` ${cantidad(sinUbicacion, 'local no tiene', 'locales no tienen')} ubicación en el padrón: están en la tabla, no en el mapa.` : '')],
+        ['Límite del distrito', 'INE, Cartografía digital del CNPV 2022 (límites referenciales), simplificado; Licencia de Uso de Información ' +
+            'Pública. Sin mapa base de calles fuera de Asunción. Los códigos del TSJE y del INE no coinciden: el distrito se unió a su par del INE ' +
+            'por el nombre.'],
+        ['Listas y bancas', `${datos.cand.fuente?.listas ?? 'Planillas del TREP'}. ${datos.cand.bancas.nota ?? ''}`],
+    ]);
+    const raiz = el('div', 'dialogo__contenido');
+    raiz.append(lineaFuente(datos, fuente), seccion('Fuentes y licencias', fuentes));
+    const url = new URL(`distritos/${datos.lugar.clave}/${fuente}/procedencia.json`, carpetaNacional(eleccion.id, anio.anio));
+    const procedencia = await cargarEleccion({ eleccion: eleccion.id, anio: anio.anio, distrito: datos.lugar.clave }, fuente, { fuente: ['procedencia.json'] })
+        .then((x) => x.datos?.['procedencia.json'] ?? null).catch(() => null);
+    const enlace = el('a', null, 'Descargar procedencia.json');
+    enlace.href = url.href;
+    enlace.setAttribute('download', '');
+    if (!procedencia) {
+        raiz.append(seccion('Procedencia (SHA-256)', el('p', null, 'La procedencia de esta fuente no está publicada.')));
+    } else {
+        const filas = Object.entries(procedencia.fuentes?.sha256 ?? {}).map(([nombre, valor]) => [nombre, HUELLA.test(valor) ? el('code', 'huella', valor) : valor]);
+        const intro = el('p');
+        intro.append('Huella SHA-256 de cada planilla del TSJE de la que salen las mesas del distrito. ', enlace);
+        const notas = [procedencia.fuentes?.geometria, procedencia.fuentes?.locales, procedencia.generador ? `Generado por ${procedencia.generador}.` : null]
+            .filter(Boolean);
+        raiz.append(seccion('Procedencia (SHA-256)', intro, tabla('Planillas de origen', ['Archivo', 'SHA-256'], filas, 'tabla-compacta--procedencia'),
+            el('p', 'nota', notas.join(' '))));
+    }
+    const noDisponible = tarjetasNoDisponible(datos, { nivel: 'h4' });
+    if (noDisponible.length) {
+        const grilla = el('div', 'info-grid');
+        grilla.append(...noDisponible);
+        raiz.append(seccion('Datos no disponibles', grilla));
+    }
+    return raiz;
+}
+
 async function contenidoFuente(datos, fuente) {
+    if (!datos.geo) return contenidoFuenteDistrito(datos, fuente);
     const r = datos.resumen;
     const { eleccion, anio } = datos.contexto;
     const info = anio.fuentes?.[fuente] ?? {};
@@ -158,7 +211,37 @@ async function contenidoFuente(datos, fuente) {
 
 // --- Método ---------------------------------------------------------------------------------------------------------
 
+// Un distrito distinto de Asunción (ADR-022): solo la Junta, capas por local y la integración oficial de las bancas.
+function contenidoMetodoDistrito(datos) {
+    const r = datos.resumen;
+    const b = datos.cand.bancas;
+    const raiz = el('div', 'dialogo__contenido');
+    raiz.append(lista([
+        ['Participación', `${r.electores.nota} Electores: recuento agregado del padrón por mesa, sin datos de personas.`],
+        ['Votos y porcentajes', 'Emitidos = votos a listas + blancos + nulos + no computados («a computar» en las planillas del TSJE), verificado ' +
+            'en cada mesa. El porcentaje de cada lista se calcula sobre los votos a listas; el de blancos y nulos, sobre los votos emitidos.'],
+        ['Ventaja del primero', 'Diferencia entre las dos listas más votadas de la selección, en votos y en puntos porcentuales sobre los votos a ' +
+            'listas. El orden se calcula en cada selección: la lista que va primera puede cambiar entre zonas, locales o mesas.'],
+        ['Capas del mapa', 'Sin cartografía de barrios fuera de Asunción, cada capa se pinta en los puntos: uno por local al alejar (tamaño según ' +
+            'sus electores) y uno por mesa al acercar, con la forma de la lista más votada. Votos por lista y participación: 5 tramos iguales entre ' +
+            'el mínimo y el máximo de los locales; margen: menos de 10, de 10 a 25 y 25 puntos o más.'],
+        ['Zonas electorales', 'Las del TSJE, de las actas; sus límites no se publican: cada local lleva un halo del color de su zona.'],
+        ["Bancas de la Junta (D'Hondt)", `Las ${b.total} bancas son la integración oficial del TREP. El sistema D'Hondt (los votos de cada lista ` +
+            `divididos por 1, 2, 3…, y las bancas a los ${b.total} cocientes más altos) se calcula aquí sobre los votos por lista y se compara con ` +
+            `ese reparto. La mayoría es de ${b.mayoria} bancas.`],
+        ['Colores', 'Los partidos con su color; las alianzas y los movimientos locales en verde, con tonos distintos si hay más de uno; la forma ' +
+            'acompaña al color (círculo la ANR, rombo las alianzas y los movimientos, cuadrado los demás).'],
+        ['Cobertura', 'Actas computadas = mesas con acta / mesas esperadas de la selección. Las mesas sin acta no se estiman ni se reparten: se ' +
+            'informan aparte y ninguna suma las incluye.'],
+        ['Estadística por mesa', 'Media, mediana, desvío estándar poblacional (sobre todas las mesas con acta de la selección), mínimo y máximo ' +
+            'de los porcentajes de cada mesa. Cada mesa pesa lo mismo, tenga muchos o pocos electores. Listas principales: las que reúnen al ' +
+            `menos el ${UMBRAL_PRINCIPAL} % de los votos a listas de la selección, y siempre las dos más votadas.`],
+    ]));
+    return raiz;
+}
+
 function contenidoMetodo(datos, fuente) {
+    if (!datos.geo) return contenidoMetodoDistrito(datos);
     const r = datos.resumen;
     const b = datos.cand.bancas;
     const ipm = datos.ipm.indicadores.map((x) => `${x.nombre}: ${x.descripcion.replace(/\.$/, '')}`).join('. ');

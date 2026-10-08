@@ -1,44 +1,58 @@
-// Modelo de una elección y una fuente (TREP u oficial, mismo esquema: datos/LEEME.md): mesas con acta, locales,
-// geometría, candidaturas e indicadores por barrio, sus sumas y la estadística por mesa. No toca el DOM: lo usan el
-// tablero, la vista informe y los análisis.
+// Modelo de una elección, una fuente (TREP u oficial, mismo esquema: datos/LEEME.md) y un distrito: mesas con acta,
+// locales, geometría, candidaturas e indicadores por barrio, sus sumas y la estadística por mesa. Asunción tiene además
+// su cartografía (barrios y zonas municipales) y el IPM por barrio; los demás distritos (ADR-022), solo la Junta, sus
+// locales y su límite. No toca el DOM: lo usan el tablero, la vista informe y los análisis.
 import { cargarEleccion } from '../datos.js';
 import { fmt, pct } from './util.js';
 
-// Comparación pedida por el usuario para el margen: Camilo Pérez (ANR) frente a Soledad Núñez (AJA).
+// Comparación pedida por el usuario para el margen: Camilo Pérez (ANR) frente a Soledad Núñez (AJA). Fuera de Asunción
+// (ADR-022), sin Intendencia, el margen compara las dos listas más votadas de la Junta del distrito (datos.margen).
 export const MARGEN = { cargo: '1', positivo: 'ANR', negativo: 'AJA' };
 // Daltonismo: además del color, la forma distingue las listas en los puntos y en sus leyendas. Rojo y verde (ANR y la
 // Alianza: AJA en Intendencia, AUA en Junta) son los que más se confunden; las demás listas van en cuadrado.
+// Las listas de los distritos traen su forma (ADR-022: alianzas y movimientos locales en rombo).
 const FORMAS = { ANR: 'circulo', AJA: 'rombo', AUA: 'rombo' };
-export const formaDe = (item) => FORMAS[item?.sigla] ?? 'cuadrado';
+export const formaDe = (item) => item?.forma ?? FORMAS[item?.sigla] ?? 'cuadrado';
 
-// Archivos que usa el tablero: los comunes a las fuentes y los de la fuente elegida.
+// Archivos que usa el tablero: los comunes a las fuentes y los de la fuente elegida. Fuera de Asunción no hay geo.json
+// (la cartografía de la vista informe) ni el IPM por barrio.
 const ARCHIVOS = { comun: ['locales.json', 'geo.json', 'candidaturas.json', 'indicadores_barrios.json'], fuente: ['resumen.json', 'mesas.json'] };
+const ARCHIVOS_DISTRITO = { comun: ['locales.json', 'candidaturas.json'], fuente: ['resumen.json', 'mesas.json'] };
 
 export function construirModelo(resumen, mesas, locales, geo, cand, ipm) {
     const claveLocal = (z, l) => `${z}-${l}`;
     const listas = {};
-    for (const cargo of ['1', '2']) {
+    // Cargos con actas en este distrito (fuera de Asunción, solo la Junta).
+    const cargos = ['1', '2'].filter((c) => mesas.cargos[c] && cand[c]);
+    for (const cargo of cargos) {
         const porNum = Object.fromEntries(cand[cargo].map((x) => [x.numLista, x]));
         listas[cargo] = mesas.cargos[cargo].listas.map((num) => ({ num, ...porNum[num] }));
     }
     const infoLocal = new Map(locales.locales.map((x) => [claveLocal(x.zona, x.local), x]));
     const filas = mesas.mesas.map(([zona, local, mesa], i) => {
         const info = infoLocal.get(claveLocal(zona, local));
-        return { i, zona, local, mesa, clave: claveLocal(zona, local), barrio: info.barrio, zonaMunicipal: info.zona_municipal };
+        return { i, zona, local, mesa, clave: claveLocal(zona, local), barrio: info.barrio ?? null, zonaMunicipal: info.zona_municipal ?? null };
     });
     const porLocal = new Map();
     for (const f of filas) {
         if (!porLocal.has(f.clave)) porLocal.set(f.clave, []);
         porLocal.get(f.clave).push(f);
     }
+    let margen = listas[MARGEN.cargo] ? MARGEN : null;
+    if (!margen && listas['2']?.length >= 2) {
+        const c = mesas.cargos['2'];
+        const votos = c.listas.map((_, j) => c.votos.reduce((s, v) => s + v[j], 0));
+        const [a, b] = votos.map((v, j) => j).sort((x, y) => votos[y] - votos[x] || x - y);
+        margen = { cargo: '2', positivo: listas['2'][a].sigla, negativo: listas['2'][b].sigla };
+    }
     const indiceMargen = {
-        positivo: listas[MARGEN.cargo].findIndex((x) => x.sigla === MARGEN.positivo),
-        negativo: listas[MARGEN.cargo].findIndex((x) => x.sigla === MARGEN.negativo),
+        positivo: margen ? listas[margen.cargo].findIndex((x) => x.sigla === margen.positivo) : -1,
+        negativo: margen ? listas[margen.cargo].findIndex((x) => x.sigla === margen.negativo) : -1,
     };
-    const barrioPor = new Map(geo.barrios.map((b) => [b.nombre, b]));
-    const zonaMunicipalPor = new Map(geo.zonas_municipales.map((z) => [z.numero, z]));
+    const barrioPor = new Map((geo?.barrios ?? []).map((b) => [b.nombre, b]));
+    const zonaMunicipalPor = new Map((geo?.zonas_municipales ?? []).map((z) => [z.numero, z]));
     // IPM por barrio (INE, Censo 2022), unido a la geometría por la clave del barrio (CLAVE_BAR).
-    const ipmPor = new Map(ipm.barrios.map((b) => [b.clave, b]));
+    const ipmPor = new Map((ipm?.barrios ?? []).map((b) => [b.clave, b]));
     // Mesas sin acta (cobertura): con su local, para contarlas en cada selección.
     const faltantes = resumen.cobertura.faltantes.map((x) => ({ ...x, clave: claveLocal(x.zona, x.local), info: infoLocal.get(claveLocal(x.zona, x.local)) }));
 
@@ -58,17 +72,21 @@ export function construirModelo(resumen, mesas, locales, geo, cand, ipm) {
         return total;
     }
 
-    return { resumen, mesas, geo, cand, ipm, ipmPor, listas, infoLocal, filas, porLocal, faltantes, indiceMargen, claveLocal, barrioPor,
-             zonaMunicipalPor, mapas: {}, sumar, mesasDe: (filtro) => filas.filter(filtro).map((f) => f.i) };
+    // conBarrios: cartografía propia (barrios y zonas municipales, solo Asunción); conIpm: el IPM por barrio.
+    return { resumen, mesas, geo, cand, ipm, ipmPor, listas, cargos, infoLocal, filas, porLocal, faltantes, margen, indiceMargen, claveLocal, barrioPor,
+             zonaMunicipalPor, conBarrios: barrioPor.size > 0, conZonasMunicipales: zonaMunicipalPor.size > 0, conIpm: ipmPor.size > 0,
+             mapas: {}, sumar, mesasDe: (filtro) => filas.filter(filtro).map((f) => f.i) };
 }
 
 // Carga la elección del hash (o la primera del manifiesto) y arma el modelo; datos es null si la fuente está pendiente.
+// pedido.distrito (ADR-022): un distrito distinto de Asunción carga su carpeta nacional, sin geo.json ni el IPM.
 export async function cargarModelo(pedido, fuente) {
-    const eleccion = await cargarEleccion(pedido, fuente, ARCHIVOS);
+    const deDistrito = Boolean(pedido.distrito) && pedido.distrito !== '0-0';
+    const eleccion = await cargarEleccion(pedido, fuente, deDistrito ? ARCHIVOS_DISTRITO : ARCHIVOS);
     if (!eleccion.datos) return { eleccion, datos: null };
     const d = eleccion.datos;
-    const datos = construirModelo(d['resumen.json'], d['mesas.json'], d['locales.json'], d['geo.json'], d['candidaturas.json'],
-                                  d['indicadores_barrios.json']);
+    const datos = construirModelo(d['resumen.json'], d['mesas.json'], d['locales.json'], d['geo.json'] ?? null, d['candidaturas.json'],
+                                  d['indicadores_barrios.json'] ?? null);
     datos.contexto = eleccion;
     return { eleccion, datos };
 }
@@ -143,9 +161,10 @@ export function estadisticas(datos, indices, cargo, sinActa = 0) {
     };
 }
 
-// Margen en puntos (ANR − AJA sobre votos a listas de Intendencia); null en otro cargo o sin votos a listas.
+// Margen en puntos (ANR − AJA sobre votos a listas de Intendencia; en otro distrito, sus dos listas más votadas de la
+// Junta); null en otro cargo o sin votos a listas.
 export function margenDe(datos, total, cargo) {
-    if (cargo !== MARGEN.cargo || !total.listas) return null;
+    if (!datos.margen || cargo !== datos.margen.cargo || !total.listas) return null;
     return (100 * (total.votos[datos.indiceMargen.positivo] - total.votos[datos.indiceMargen.negativo])) / total.listas;
 }
 

@@ -9,7 +9,7 @@
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; worker-src 'self'; connect-src 'self'; style-src 'self'; img-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
     <link rel="icon" href="../assets/img/kalaguichi-isotipo.svg" type="image/svg+xml">
     <meta name="color-scheme" content="light dark">
-    <title>Kalaguichi.com · Análisis · Municipales 2026 en Asunción</title>
+    <title>Kalaguichi.com · Análisis · Municipales 2026</title>
     <link rel="stylesheet" href="../assets/css/shell.css">
     <link rel="stylesheet" href="../assets/css/resultados.css">
     <link rel="stylesheet" href="../assets/css/analisis.css">
@@ -86,9 +86,12 @@
     </header>
     <div class="barra-contexto" id="barraContexto" data-fuente="elegible">
         <div class="barra-contexto__inner">
-            <nav class="barra-contexto__ruta" aria-label="Elección y año">
+            <nav class="barra-contexto__ruta" aria-label="Elección, año y lugar">
                 <span class="barra-contexto__paso" data-contexto="eleccion">Municipales</span>
                 <span class="barra-contexto__paso" data-contexto="anio">2026</span>
+                <span class="barra-contexto__salto" aria-hidden="true" hidden></span>
+                <span class="barra-contexto__paso" data-contexto="departamento" hidden></span>
+                <span class="barra-contexto__paso" data-contexto="distrito" hidden></span>
             </nav>
             <div class="selector-cargo" role="tablist" aria-label="Cargo" id="selectorCargo"></div>
             <p class="barra-contexto__fuente" id="estadoFuente" aria-live="polite"></p>

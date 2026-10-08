@@ -6,7 +6,8 @@
 // /datos/<eleccion>/<anio>/ según el manifiesto (datos.js); el mismo módulo sirve a cada fuente (TREP u oficial).
 // Sin HTML desde datos: el texto va con textContent y los estilos por CSSOM.
 import { vigilarDesplazables } from '../desplazables.js';
-import { cargarEleccion } from '../datos.js';
+import { cargarEleccion, listaDistritos } from '../datos.js';
+import { ambitoDe, ASUNCION } from '../ambito.js';
 import { estado as compartido, listo as shellListo } from '../shell.js';
 import { $, el, cantidad, fmt, pct, pct2, porcentaje } from './util.js';
 import { formaDe, cargarModelo, ganador, participacion, ventajaDe, agregadosBarrio, unidades, textoBarrio, compararFuentes } from './modelo.js';
@@ -17,6 +18,9 @@ import { crearPanel, crearBandeja } from './hoja.js';
 import { crearDialogos } from './dialogos.js';
 
 const CAPAS = ['lista', 'listas', 'participacion', 'margen', 'ipm', 'zona', 'zona_municipal'];
+// Sin la cartografía de Asunción (ADR-022): sin IPM ni zonas municipales, y las capas por local.
+const CAPAS_SIN_BARRIOS = ['lista', 'listas', 'participacion', 'margen', 'zona'];
+const UNIDADES_SIN_BARRIOS = ['mesa', 'local', 'zona'];
 const BASES = ['calles', 'ninguno'];
 // Elementos visibles del mapa (casillas de la pestaña Capas) y los que se ven por omisión.
 const ELEMENTOS = ['limites', 'nombres', 'puntos', 'manzanas'];
@@ -33,6 +37,10 @@ const CAPA_A_VISTA = { lista: 'mapa', listas: 'listas', participacion: 'particip
 const TITULOS_CAPA = { lista: 'Lista más votada por barrio', listas: 'Votos por lista, por barrio', participacion: 'Participación por barrio',
                        margen: 'Margen entre el primero y el segundo', ipm: 'Pobreza multidimensional por barrio', zona: 'Zonas electorales del TSJE',
                        zona_municipal: 'Zonas municipales' };
+const TITULOS_CAPA_LOCAL = { lista: 'Lista más votada por local', listas: 'Votos por lista, por local', participacion: 'Participación por local',
+                             margen: 'Margen entre el primero y el segundo, por local', zona: 'Zonas electorales del TSJE' };
+// Zonas del TSJE con un código fuera de los colores de zona del sitio (otros distritos): una paleta en el orden del código.
+const OTROS_COLORES_ZONA = ['#f97316', '#22d3ee', '#a78bfa', '#facc15', '#34d399', '#f472b6', '#60a5fa', '#fb7185'];
 // Margen entre el primero y el segundo: tramos de la ventaja en puntos (menos de 10, de 10 a 25 y 25 o más).
 const TRAMOS_MARGEN = [10, 25];
 const TEXTO_TRAMO = ['por menos de 10 puntos', 'por 10 a 25 puntos', 'por 25 puntos o más'];
@@ -52,6 +60,18 @@ let enlaceListo = false;      // La carga no escribe el hash: la dirección qued
 let seleccionMostrada = '';   // La tabla y el ranking se desplazan hasta la fila elegida solo cuando cambia la selección.
 
 const infoDe = (clave) => datos.infoLocal.get(clave);
+// El distrito abierto (ADR-022): su nombre, y si es Asunción.
+const lugar = () => datos.lugar.nombre;
+const esAsuncion = () => datos.lugar.clave === ASUNCION;
+const capasDisponibles = () => (datos.conBarrios ? CAPAS : CAPAS_SIN_BARRIOS);
+const unidadesDisponibles = () => (datos.conBarrios ? UNIDADES : UNIDADES_SIN_BARRIOS);
+const basePorOmision = () => (datos.conBarrios ? 'calles' : 'ninguno');
+const nombreZonaTsje = (info) => info.zona_nombre ?? `zona ${info.zona}`;
+function colorZona(codigo) {
+    if (COLORES_ZONA[codigo]) return COLORES_ZONA[codigo];
+    const codigos = Object.keys(datos.resumen.zonas).map(Number).sort((a, b) => a - b);
+    return OTROS_COLORES_ZONA[Math.max(0, codigos.indexOf(Number(codigo))) % OTROS_COLORES_ZONA.length];
+}
 const colorDe = (j) => datos.listas[estado.cargo][j].color;
 const normalizarTexto = (s) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLocaleLowerCase('es');
 const hayZona = () => estado.zona !== null || estado.zonaMunicipal !== null;
@@ -73,11 +93,11 @@ function nombreZona() {
     return null;
 }
 
-// Lista elegida para la capa «Votos por lista» (por omisión, la más votada en Asunción).
+// Lista elegida para la capa «Votos por lista» (por omisión, la más votada en el distrito).
 function listaElegida() {
     const j = estado.lista[estado.cargo];
     if (j !== null && j < datos.listas[estado.cargo].length) return j;
-    estado.lista[estado.cargo] = ganador(datos.totalAsuncion[estado.cargo].votos) ?? 0;
+    estado.lista[estado.cargo] = ganador(datos.totalDistrito[estado.cargo].votos) ?? 0;
     return estado.lista[estado.cargo];
 }
 
@@ -91,7 +111,7 @@ function seleccion() {
             const fila = datos.porLocal.get(estado.local).find((f) => f.mesa === estado.mesa);
             return { titulo: `Mesa ${estado.mesa}`, eyebrow: `Mesa · ${info.nombre}`, indices: [fila.i], meta };
         }
-        return { titulo: info.nombre, eyebrow: `Local · zona ${info.zona_nombre}`, indices: datos.porLocal.get(estado.local).map((f) => f.i), meta };
+        return { titulo: info.nombre, eyebrow: `Local · zona ${info.zona_nombre ?? info.zona}`, indices: datos.porLocal.get(estado.local).map((f) => f.i), meta };
     }
     if (estado.barrio) {
         const b = datos.barrioPor.get(estado.barrio);
@@ -107,7 +127,7 @@ function seleccion() {
     if (estado.zona !== null) {
         return { titulo: datos.resumen.zonas[estado.zona], eyebrow: `Zona TSJE ${estado.zona}`, indices: datos.mesasDe((f) => f.zona === estado.zona), meta: '' };
     }
-    return { titulo: 'Asunción', eyebrow: 'Resultado', indices: datos.filas.map((f) => f.i), meta: '' };
+    return { titulo: lugar(), eyebrow: esAsuncion() ? 'Resultado' : `Resultado · ${datos.lugar.departamento}`, indices: datos.filas.map((f) => f.i), meta: '' };
 }
 
 // Mesas esperadas de la selección que no tienen acta (para «Actas computadas» y «Mesas sin acta»).
@@ -121,9 +141,9 @@ function sinActa() {
     });
 }
 
-// Ruta geográfica de la selección: Asunción › zona › barrio › local › mesa.
+// Ruta geográfica de la selección: el distrito (Asunción) › zona › barrio › local › mesa.
 function pasosRuta() {
-    const pasos = [{ nivel: 'asuncion', texto: 'Asunción' }];
+    const pasos = [{ nivel: 'asuncion', texto: lugar() }];
     if (hayZona()) pasos.push({ nivel: 'zona', texto: nombreZona() });
     if (estado.barrio) pasos.push({ nivel: 'barrio', texto: estado.barrio });
     if (estado.local) pasos.push({ nivel: 'local', texto: infoDe(estado.local).nombre });
@@ -211,7 +231,8 @@ function crearMapa() {
     // La leyenda y la atribución van superpuestas al mapa, también en pantalla completa.
     $('mapa').append($('leyendaMapa'), $('atribucionMapa'));
     mapa = crearMapaGL(datos, $('mapa'), {
-        etiqueta: 'Mapa de Asunción con los barrios, las zonas municipales y los locales y mesas de votación',
+        etiqueta: datos.conBarrios ? `Mapa de ${lugar()} con los barrios, las zonas municipales y los locales y mesas de votación`
+            : `Mapa de ${lugar()} con su límite y sus locales y mesas de votación`,
         atribucion: $('atribucionMapa'), margen: margenMapa, controles: { ampliarEnGrupo: true }, puntosPorLocal: true,
         alTocarLocal: (clave) => tocarLocal(clave),
         alTocarBarrio: (nombre) => { if (agregados.has(nombre)) tocarBarrio(nombre); },
@@ -393,12 +414,12 @@ function pintarZonasTsje(leyenda) {
         if (!datos.porLocal.has(clave) || fueraDeZona(info)) continue;
         porZona.set(info.zona, (porZona.get(info.zona) ?? 0) + 1);
     }
-    mapa.pintarHalos((clave, info) => ({ color: COLORES_ZONA[info.zona], atenuado: fueraDeZona(info) }));
+    mapa.pintarHalos((clave, info) => ({ color: colorZona(info.zona), atenuado: fueraDeZona(info) }));
     for (const [codigo, nombre] of Object.entries(datos.resumen.zonas)) {
         const n = porZona.get(Number(codigo));
         if (!n) continue;
         const li = itemLeyenda(null, `Zona TSJE ${codigo} · ${nombre}: ${cantidad(n, 'local', 'locales')}`, 'leyenda__muestra--halo');
-        li.firstChild.style.borderColor = COLORES_ZONA[codigo];
+        li.firstChild.style.borderColor = colorZona(codigo);
         li.firstChild.style.opacity = String(Math.max(0.2, opacidad()));
         leyenda.append(li);
     }
@@ -427,7 +448,133 @@ function cajaDeZona() {
 
 const PINTORES = { lista: pintarLista, listas: pintarListas, participacion: pintarParticipacion, margen: pintarMargen, ipm: pintarIpm };
 
+// --- Distritos sin la cartografía de Asunción (ADR-022): las capas se pintan en los puntos ---------------------------
+// Cada local (al alejar) y cada mesa (al acercar) con el color de la capa; la forma, la de la lista más votada.
+function pintarPuntosCon(leyenda, colorDe) {
+    const c = datos.mesas.cargos[estado.cargo];
+    const totales = new Map([...datos.porLocal].map(([clave, filas]) => [clave, datos.sumar(filas.map((f) => f.i), estado.cargo)]));
+    const forma = (votos) => {
+        const j = ganador(votos);
+        return j === null ? 'circulo' : formaDe(datos.listas[estado.cargo][j]);
+    };
+    mapa.pintarMesas((m) => {
+        const f = datos.filas[m.i];
+        const t = datos.sumar([m.i], estado.cargo);
+        const x = colorDe(t);
+        return { color: x.color, forma: forma(c.votos[m.i]), atenuado: !enZona(f), seleccionada: m.clave === estado.local && estado.mesa === f.mesa,
+                 texto: `${infoDe(m.clave).nombre} · mesa ${f.mesa} · ${x.texto}` };
+    });
+    mapa.pintarLocales((clave, info) => {
+        const t = totales.get(clave);
+        const x = colorDe(t);
+        return { color: x.color, forma: forma(t.votos), escala: Math.sqrt(info.electores) / 50, atenuado: fueraDeZona(info),
+                 texto: `${info.nombre} · ${x.texto} · ${cantidad(t.mesas, 'mesa', 'mesas')} · ${fmt.format(info.electores)} electores` };
+    });
+    return totales;
+}
+
+// Tramos de una medida sobre los locales a la vista (la escala de las capas de barrios).
+function tramosDeLocales(totales, medir) {
+    const valores = [...totales.entries()].filter(([clave]) => !fueraDeZona(infoDe(clave))).map(([, t]) => medir(t)).filter((v) => v !== null && Number.isFinite(v));
+    const { cortes, clase } = escala(valores.length ? valores : [0]);
+    return { cortes, paso: (v) => Math.max(0, Math.min(4, clase(v))) };
+}
+
+function pintarListasPuntos(leyenda) {
+    const listas = datos.listas[estado.cargo];
+    const j = listaElegida();
+    const enPct = estado.medida === 'pct';
+    const medir = (t) => (!t.listas ? null : enPct ? (100 * t.votos[j]) / t.listas : t.votos[j]);
+    const rotular = (v) => (enPct ? `${pct.format(v)} %` : `${fmt.format(Math.round(v))} votos`);
+    const totales = new Map([...datos.porLocal].map(([clave, filas]) => [clave, datos.sumar(filas.map((f) => f.i), estado.cargo)]));
+    const { cortes, paso } = tramosDeLocales(totales, medir);
+    pintarPuntosCon(leyenda, (t) => {
+        const v = medir(t);
+        return { color: v === null ? GRIS : mezclar(listas[j].color, opacidadPaso(paso(v))),
+                 texto: v === null ? 'sin votos a listas' : `${listas[j].sigla} ${fmt.format(t.votos[j])} votos (${pct.format((100 * t.votos[j]) / t.listas)} %)` };
+    });
+    for (let k = 0; k < cortes.length - 1; k++) leyenda.append(itemLeyenda(mezclar(listas[j].color, opacidadPaso(k)), `${rotular(cortes[k])} a ${rotular(cortes[k + 1])}`));
+    $('notaCapa').textContent = `${enPct ? `Porcentaje de ${listas[j].sigla} sobre los votos a listas` : `Votos de ${listas[j].sigla}`} de cada local (y, al acercar, ` +
+        'de cada mesa), en 5 tramos iguales entre el mínimo y el máximo de los locales. Tocá un local para ver sus cifras.';
+}
+
+function pintarParticipacionPuntos(leyenda) {
+    const totales = new Map([...datos.porLocal].map(([clave, filas]) => [clave, datos.sumar(filas.map((f) => f.i), estado.cargo)]));
+    const { cortes, paso } = tramosDeLocales(totales, participacion);
+    pintarPuntosCon(leyenda, (t) => {
+        const v = participacion(t);
+        return { color: v === null ? GRIS : mezclar(PARTICIPACION_COLOR, opacidadPaso(paso(v))),
+                 texto: v === null ? 'sin electores' : `participación ${pct.format(v)} % (${fmt.format(t.emitidos)} de ${fmt.format(t.electores)} electores)` };
+    });
+    for (let k = 0; k < cortes.length - 1; k++) leyenda.append(itemLeyenda(mezclar(PARTICIPACION_COLOR, opacidadPaso(k)), `${pct.format(cortes[k])} a ${pct.format(cortes[k + 1])} %`));
+    const r = datos.resumen.electores;
+    $('notaCapa').textContent = 'Votos emitidos sobre electores habilitados de las mesas con acta, por local (y, al acercar, por mesa). Electores: recuento ' +
+        `agregado del padrón por mesa (${fmt.format(r.en_mesas_con_acta)} en las mesas con acta). ${fmt.format(r.mesas_con_mas_emitidos_que_electores ?? 0)} ` +
+        'mesas tienen más votos que electores: se muestran tal cual, sin interpretarlas.';
+}
+
+function pintarMargenPuntos(leyenda) {
+    const listas = datos.listas[estado.cargo];
+    const conteo = new Map();
+    const totales = pintarPuntosCon(leyenda, (t) => {
+        const v = ventajaDe(t);
+        if (!v) return { color: GRIS, texto: listas.length < 2 ? 'lista única' : 'sin votos a listas' };
+        if (v.empate) return { color: GRIS, texto: `empate entre ${listas[v.primero].sigla} y ${listas[v.segundo].sigla}` };
+        return { color: mezclar(colorDe(v.primero), opacidadPaso(tramoMargen(v.puntos), 3)),
+                 texto: `${listas[v.primero].sigla} primera, ${pct.format(v.puntos)} puntos sobre ${listas[v.segundo].sigla}` };
+    });
+    for (const [clave, t] of totales) {
+        const v = ventajaDe(t);
+        if (fueraDeZona(infoDe(clave)) || !v) continue;
+        const k = v.empate ? 'empate' : `${v.primero}-${tramoMargen(v.puntos)}`;
+        conteo.set(k, (conteo.get(k) ?? 0) + 1);
+    }
+    listas.forEach((item, j) => {
+        for (const k of [2, 1, 0]) {
+            const n = conteo.get(`${j}-${k}`);
+            if (n) leyenda.append(itemLeyenda(mezclar(item.color, opacidadPaso(k, 3)), `${item.sigla} primera ${TEXTO_TRAMO[k]}: ${cantidad(n, 'local', 'locales')}`, null, formaDe(item)));
+        }
+    });
+    if (conteo.get('empate')) leyenda.append(itemLeyenda(GRIS, `Empate: ${cantidad(conteo.get('empate'), 'local', 'locales')}`));
+    $('notaCapa').textContent = listas.length < 2 ? 'Este distrito tiene una sola lista en la Junta: no hay margen entre el primero y el segundo.'
+        : 'Margen = 100 × (votos del primero − votos del segundo) / votos a listas, en puntos, en cada local (y, al acercar, en cada mesa). Color de ' +
+          'la lista que va primera, más intenso cuanto mayor la ventaja: menos de 10, de 10 a 25 y 25 puntos o más.';
+}
+
+const PINTORES_PUNTOS = { listas: pintarListasPuntos, participacion: pintarParticipacionPuntos, margen: pintarMargenPuntos };
+
+function renderMapaPuntos() {
+    const clave = `${estado.zona}`;
+    if (clave !== encuadreMostrado) {
+        encuadreMostrado = clave;
+        mapa.listo.then(() => mapa.encuadrar(cajaDeZona())).catch(() => {});
+    }
+    mapa.fijarBase(false);
+    mapa.fijarOpacidad(opacidad());
+    mapa.fijarElementos({ ...estado.ver, puntos: true });
+    const leyenda = $('leyenda');
+    leyenda.replaceChildren();
+    $('tituloLeyenda').textContent = TITULOS_CAPA_LOCAL[estado.capa];
+    if (PINTORES_PUNTOS[estado.capa]) PINTORES_PUNTOS[estado.capa](leyenda);
+    else {
+        if (estado.capa === 'zona') pintarZonasTsje(leyenda);
+        else $('notaCapa').textContent = 'Cada local, con el color y la forma de la lista más votada (al acercar, cada mesa). Tocá un local para ver sus cifras.';
+        pintarPuntos(leyenda);
+    }
+    if (estado.capa !== 'zona') mapa.pintarHalos(null);
+    mapa.mostrar({ 'k-halos': estado.capa === 'zona' });
+    const sinUbicacion = [...datos.porLocal.keys()].filter((k) => !Number.isFinite(infoDe(k)?.lat)).length;
+    if (sinUbicacion) leyenda.append(el('li', 'leyenda__nota', `${cantidad(sinUbicacion, 'local', 'locales')} sin ubicación en el padrón: en la tabla, no en el mapa.`));
+    leyenda.append(el('li', 'leyenda__nota', 'Sin mapa base de calles fuera de Asunción.'));
+    leyenda.append(itemLeyenda(null, 'Contorno: límite del distrito (INE)', 'leyenda__muestra--limite'));
+    mapa.marcar(estado.local);
+}
+
 function renderMapa() {
+    if (!datos.conBarrios) {
+        renderMapaPuntos();
+        return;
+    }
     if (estado.capa !== 'zona_municipal') {
         mapa.pintarZonas((z) => ({ color: null, seleccion: z.numero === estado.zonaMunicipal,
                                    atenuada: estado.zonaMunicipal !== null && z.numero !== estado.zonaMunicipal, texto: `Zona municipal ${z.numero}: ${z.nombre}` }));
@@ -595,7 +742,7 @@ function mesasSoloEnLaOtra(filtro) {
 }
 
 // Ranking según la capa: el porcentaje de la lista elegida, la participación, la ventaja del primero o el IPM del barrio;
-// con las demás capas, el porcentaje de la lista más votada en Asunción.
+// con las demás capas, el porcentaje de la lista más votada en el distrito.
 function metricaRanking() {
     const listas = datos.listas[estado.cargo];
     const porLista = (j, tituloMetrica) => ({ titulo: tituloMetrica, valor: (u) => (u.total.listas ? (100 * u.total.votos[j]) / u.total.listas : null),
@@ -613,13 +760,13 @@ function metricaRanking() {
         return { titulo: ind.nombre, valor: (u) => datos.ipmPor.get(datos.barrioPor.get(u.barrioClave)?.clave)?.[estado.ipm] ?? null,
                  texto: (v) => `${formato.format(v)} %`, color: () => IPM_COLOR, soloBarrios: true };
     }
-    const j = ganador(datos.totalAsuncion[estado.cargo].votos) ?? 0;
-    return porLista(j, `% de ${listas[j].sigla} (la más votada en Asunción)`);
+    const j = ganador(datos.totalDistrito[estado.cargo].votos) ?? 0;
+    return porLista(j, `% de ${listas[j].sigla} (la más votada en ${lugar()})`);
 }
 
 function renderRanking() {
     const m = metricaRanking();
-    const tipo = m.soloBarrios ? 'barrio' : estado.ranking;
+    const tipo = m.soloBarrios ? 'barrio' : datos.conBarrios ? estado.ranking : 'local';
     for (const boton of document.querySelectorAll('[data-ranking]')) {
         boton.setAttribute('aria-pressed', String(boton.dataset.ranking === tipo));
         boton.disabled = Boolean(m.soloBarrios) && boton.dataset.ranking === 'local';
@@ -630,7 +777,7 @@ function renderRanking() {
         .filter((x) => x.v !== null && Number.isFinite(x.v))
         .sort((a, b) => dir * (a.v - b.v) || a.u.nombre.localeCompare(b.u.nombre, 'es'));
     const maximo = Math.max(1e-9, ...filas.map((x) => Math.abs(x.v)));
-    $('tituloRanking').textContent = `${m.titulo} · ${tipo === 'local' ? 'locales' : 'barrios'}${hayZona() ? ` de la ${nombreZona()}` : ' de Asunción'}`;
+    $('tituloRanking').textContent = `${m.titulo} · ${tipo === 'local' ? 'locales' : 'barrios'}${hayZona() ? ` de la ${nombreZona()}` : ` de ${lugar()}`}`;
     const elegido = tipo === 'local' ? estado.local : estado.local ? null : estado.barrio;
     $('ranking').replaceChildren(...filas.map(({ u, v }, k) => {
         const li = el('li');
@@ -827,7 +974,7 @@ function buscar() {
         li.setAttribute('role', 'option');
         li.setAttribute('aria-selected', 'false');
         li.dataset.clave = clave;
-        li.append(el('span', 'sugerencias__nombre', x.nombre), el('span', 'sugerencias__detalle', [x.barrio, `zona ${x.zona_nombre}`].filter(Boolean).join(' · ')));
+        li.append(el('span', 'sugerencias__nombre', x.nombre), el('span', 'sugerencias__detalle', [x.barrio, `zona ${x.zona_nombre ?? x.zona}`].filter(Boolean).join(' · ')));
         return li;
     }));
     lista.hidden = !sugerencias.length;
@@ -895,13 +1042,15 @@ function mostrarAvisoDhondt(visible) {
 function parametrosEnlace() {
     const p = new URLSearchParams({ eleccion: datos.contexto.eleccion.id, anio: String(datos.contexto.anio.anio),
                                     cargo: CARGO_HASH[estado.cargo], capa: estado.capa });
+    // Con datos nacionales (ADR-022), el distrito va en el enlace: sin él, /trep/ abre el mapa del país.
+    if (datos.contexto.anio.nacional) p.set('distrito', datos.contexto.distrito ?? '0-0');
     if (estado.capa === 'listas') {
         p.set('lista', datos.listas[estado.cargo][listaElegida()].num);
         if (estado.medida !== 'pct') p.set('medida', estado.medida);
     }
     if (estado.capa === 'ipm' && estado.ipm !== 'H') p.set('ipm', estado.ipm);
     if (estado.opacidad !== OPACIDAD_POR_OMISION) p.set('opacidad', String(estado.opacidad));
-    if (estado.base !== 'calles') p.set('base', estado.base);
+    if (estado.base !== basePorOmision()) p.set('base', estado.base);
     const ver = ELEMENTOS.filter((k) => estado.ver[k]).join(',');
     if (ver !== VER_POR_OMISION) p.set('ver', ver || 'ninguno');
     if (estado.zonaMunicipal !== null) p.set('zona_municipal', String(estado.zonaMunicipal));
@@ -939,9 +1088,10 @@ function leerEnlace() {
     const p = new URLSearchParams(location.hash.slice(1));
     const de = (objeto, clave) => (clave !== null && /^\d+$/.test(clave) && Object.hasOwn(objeto, clave) ? Number(clave) : null);
     const cargo = p.get('cargo');
-    estado.cargo = cargo === 'junta' || cargo === '2' ? '2' : '1';
+    // Fuera de Asunción, solo la Junta (ADR-022).
+    estado.cargo = cargo === 'junta' || cargo === '2' || !datos.listas['1'] ? '2' : '1';
     const capa = p.get('capa') ?? VISTA_A_CAPA[p.get('vista')];
-    estado.capa = CAPAS.includes(capa) ? capa : 'lista';
+    estado.capa = capasDisponibles().includes(capa) ? capa : 'lista';
     estado.zonaMunicipal = de(datos.resumen.zonas_municipales, p.get('zona_municipal'));
     estado.zona = estado.zonaMunicipal === null ? de(datos.resumen.zonas, p.get('zona')) : null;
     const local = p.get('local'), barrio = p.get('barrio'), mesa = p.get('mesa');
@@ -958,12 +1108,12 @@ function leerEnlace() {
     estado.ipm = IPM.includes(p.get('ipm')) ? p.get('ipm') : 'H';
     const opacidadPedida = Number(p.get('opacidad'));
     estado.opacidad = p.has('opacidad') && Number.isInteger(opacidadPedida) && opacidadPedida >= 0 && opacidadPedida <= 100 ? opacidadPedida : OPACIDAD_POR_OMISION;
-    estado.base = BASES.includes(p.get('base')) ? p.get('base') : 'calles';
+    estado.base = datos.conBarrios && BASES.includes(p.get('base')) ? p.get('base') : basePorOmision();
     // «ninguno» apaga todos los elementos; un valor sin elementos conocidos vuelve a los de por omisión.
     const pedidos = (p.get('ver') ?? '').split(',').filter((k) => ELEMENTOS.includes(k));
     const ver = pedidos.length || p.get('ver') === 'ninguno' ? pedidos : VER_POR_OMISION.split(',');
     estado.ver = Object.fromEntries(ELEMENTOS.map((k) => [k, ver.includes(k)]));
-    estado.tabla = UNIDADES.includes(p.get('tabla')) ? p.get('tabla') : 'local';
+    estado.tabla = unidadesDisponibles().includes(p.get('tabla')) ? p.get('tabla') : 'local';
     // panel: la pestaña del panel; bandeja: Tabla o Ranking abiertos. Los enlaces de antes (panel=tabla o ranking) abren
     // la bandeja.
     const pedido = p.get('panel');
@@ -977,7 +1127,7 @@ function leerEnlace() {
 function eventos() {
     compartido.suscribir(({ cambiadas, origen }) => {
         if (origen !== 'barra' || !cambiadas.has('cargo')) return;
-        estado.cargo = compartido.obtener('cargo') === 'junta' ? '2' : '1';
+        estado.cargo = compartido.obtener('cargo') === 'junta' || !datos.listas['1'] ? '2' : '1';
         estado.orden = null;
         actualizarTodo();
     });
@@ -1106,12 +1256,34 @@ function eventos() {
 function renderFijos() {
     const r = datos.resumen;
     const { eleccion, anio } = datos.contexto;
-    $('tituloTablero').textContent = `${anio.fuentes?.[fuente]?.nombre ?? r.eleccion.etapa} · ${eleccion.nombre} ${anio.anio} · ${anio.ambito ?? ''}`;
+    $('tituloTablero').textContent = `${anio.fuentes?.[fuente]?.nombre ?? r.eleccion.etapa} · ${eleccion.nombre} ${anio.anio} · ${lugar()}`;
+    $('tituloMapa').textContent = `Mapa de ${lugar()}`;
     if (r.eleccion.aviso) $('avisoLegal').append(` ${r.eleccion.aviso}`);
     for (const [codigo, nombre] of Object.entries(r.zonas_municipales)) $('opcionesMunicipales').append(new Option(`${codigo} · ${nombre}`, `m${codigo}`));
     for (const [codigo, nombre] of Object.entries(r.zonas)) $('opcionesTsje').append(new Option(`${codigo} · ${nombre}`, `t${codigo}`));
-    // La vista informe existe solo en las páginas que tienen su plantilla (TREP).
-    $('enlaceInforme').hidden = !document.getElementById('plantillaInforme');
+    // La vista informe existe solo en las páginas que tienen su plantilla (TREP) y solo para Asunción.
+    $('enlaceInforme').hidden = !document.getElementById('plantillaInforme') || !esAsuncion();
+    if (esAsuncion()) return;
+    // Otro distrito (ADR-022): «todo el distrito», sin barrios, zonas municipales, IPM, manzanas ni mapa base de calles.
+    $('nivelZona').options[0].textContent = 'Todo el distrito';
+    $('limpiarSeleccion').textContent = 'Ver todo el distrito';
+    $('tituloTotales').textContent = lugar();
+    if (!datos.conZonasMunicipales) $('opcionesMunicipales').remove();
+    if (!datos.conBarrios) {
+        $('nivelBarrio').closest('label').hidden = true;
+        $('detalleIpm').hidden = true;
+        for (const valor of ['ipm', 'zona_municipal']) document.querySelector(`input[name="capa"][value="${valor}"]`)?.closest('label')?.remove();
+        for (const valor of ['limites', 'nombres', 'manzanas']) document.querySelector(`input[name="ver"][value="${valor}"]`)?.closest('label')?.remove();
+        document.querySelector('.capas--base')?.remove();
+        for (const valor of ['barrio', 'zona_municipal']) $('unidadTabla').querySelector(`option[value="${valor}"]`)?.remove();
+        document.querySelector('[data-ranking="barrio"]')?.remove();
+        for (const [valor, texto] of [['lista', 'Lista más votada por local'], ['listas', 'Votos por lista, por local'], ['participacion', 'Participación por local'],
+            ['margen', 'Margen entre el primero y el segundo, por local']]) {
+            const span = document.querySelector(`input[name="capa"][value="${valor}"]`)?.nextElementSibling;
+            if (span) span.textContent = texto;
+        }
+        $('buscarLocal').placeholder = 'Nombre o dirección del local';
+    }
 }
 
 // La leyenda empieza abierta solo si el mapa tiene alto de sobra (en celular y en pantallas bajas, plegada).
@@ -1133,17 +1305,26 @@ export async function iniciar({ fuente: deLaSeccion = 'trep' } = {}) {
     otraFuente = fuente === 'trep' ? 'oficial' : 'trep';
     try {
         const params = new URLSearchParams(location.hash.slice(1));
-        const pedido = { eleccion: params.get('eleccion'), anio: params.get('anio') };
+        const pedido = { eleccion: params.get('eleccion'), anio: params.get('anio'), distrito: ambitoDe(location.hash).distrito };
         const { eleccion, datos: modelo } = await cargarModelo(pedido, fuente);
         if (!modelo) throw new Error(`La fuente ${fuente} no está publicada (${eleccion.estado}).`);
         datos = modelo;
+        // El distrito abierto (ADR-022): Asunción, o el de la clave del hash con su nombre de lista.json.
+        const clave = datos.contexto.distrito ?? ASUNCION;
+        datos.lugar = { clave, nombre: datos.contexto.anio.ambito ?? 'Asunción', departamento: 'Capital' };
+        if (clave !== ASUNCION) {
+            const lista = await listaDistritos(eleccion.eleccion.id, eleccion.anio.anio);
+            const fila = lista.distritos.find(([c]) => c === clave);
+            const dep = lista.departamentos.find((d) => d.codigo === fila?.[2]);
+            datos.lugar = { clave, nombre: fila?.[1] ?? clave, departamento: dep?.nombre ?? '' };
+        }
         // Con la otra fuente publicada, sus mesas sin acta (resumen.json, liviano) permiten marcar las diferencias.
         if (eleccion.anio.fuentes?.[otraFuente]?.estado === 'publicado') {
             const otra = await cargarEleccion(pedido, otraFuente, { fuente: ['resumen.json'] });
-            datos.comparacion = compararFuentes(datos, otra.datos['resumen.json']);
+            datos.comparacion = compararFuentes(datos, otra.datos?.['resumen.json']);
         }
         const todas = datos.filas.map((f) => f.i);
-        datos.totalAsuncion = { 1: datos.sumar(todas, '1'), 2: datos.sumar(todas, '2') };
+        datos.totalDistrito = Object.fromEntries(datos.cargos.map((c) => [c, datos.sumar(todas, c)]));
         renderFijos();
         dialogos = crearDialogos({ datos, fuente, cargo: () => estado.cargo, seleccion, ruta: () => pasosRuta().map((x) => x.texto), sinActa });
         crearMapa();
@@ -1152,6 +1333,7 @@ export async function iniciar({ fuente: deLaSeccion = 'trep' } = {}) {
             alElegir: (nombre) => { estado.bandeja = nombre; renderBandeja(); actualizarEnlace(); },
             alCambiar: (abierta) => { estado.bandeja = abierta ? bandeja.panel() : null; renderBandeja(); actualizarEnlace(); },
         });
+        if (!datos.conBarrios) estado.base = 'ninguno';
         eventos();
         leerEnlace();
         // Celular: la hoja asoma con la selección; con un local elegido o con otra pestaña, a media altura.

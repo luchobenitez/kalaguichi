@@ -84,8 +84,9 @@ export function crearPanel({ alElegir, atenuada, alCambiarModo }) {
     const raiz = $('hoja');
     const contenedor = raiz.parentElement;
     const asa = $('asaHoja');
-    const paneles = { resultados: $('panelResultados'), dhondt: $('panelDhondt'), filtros: $('panelFiltros'), capas: $('panelCapas'),
-                      metodo: $('panelMetodo') };
+    // Las pestañas de la plantilla y sus paneles (aria-controls): las del tablero de un distrito o las del mapa del país.
+    const paneles = Object.fromEntries([...$('pestanasTablero').querySelectorAll('[role="tab"]')]
+        .map((b) => [b.dataset.panel, $(b.getAttribute('aria-controls'))]));
     const lista = pestanas($('pestanasTablero'), { alElegir, atenuada });
     let elegido = 'resultados';
     let altura = raiz.dataset.altura;
@@ -173,7 +174,8 @@ export function crearBandeja({ alElegir, alCambiar }) {
     const contenedor = raiz.parentElement;
     const separador = $('separador');
     const boton = $('botonTabla');
-    const paneles = { tabla: $('panelTabla'), ranking: $('panelRanking') };
+    const paneles = Object.fromEntries([...$('pestanasBandeja').querySelectorAll('[role="tab"]')]
+        .map((b) => [b.dataset.bandeja, $(b.getAttribute('aria-controls'))]));
     let elegido = 'tabla';
     const lista = pestanas($('pestanasBandeja'), { alElegir: (nombre, { foco = false } = {}) => { elegir(nombre, { foco }); alElegir?.(nombre); } });
 

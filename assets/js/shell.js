@@ -3,7 +3,7 @@
 // fuente) en TREP, Resultados oficiales y Análisis. El tema y el año del pie siguen en sitio.js.
 import { vigilarDesplazables } from './desplazables.js';
 
-const PRIMERAS = ['eleccion', 'anio', 'cargo'];
+const PRIMERAS = ['eleccion', 'anio', 'distrito', 'cargo'];
 // Secciones que comparten el contexto: sus enlaces del menú llevan el hash de la página actual.
 const CON_CONTEXTO = new Set(['trep', 'oficiales', 'analisis']);
 const MEMORIA = 'kalaguichi_contexto';
@@ -238,9 +238,13 @@ let contextoActual = null;
 // Contexto vigente (elección, año, cargo y fuente) para los módulos de la página.
 export const contexto = () => contextoActual;
 
+// Cargos con datos en el ámbito: fuera de Asunción, solo la Junta (ADR-022).
+const cargosDisponibles = (anio) => contextoActual?.cargos ?? anio.cargos;
+
 function cargoElegido(anio) {
     const pedido = estado.obtener('cargo');
-    return anio.cargos.includes(pedido) ? pedido : anio.cargos[0];
+    const disponibles = cargosDisponibles(anio);
+    return disponibles.includes(pedido) ? pedido : disponibles[0];
 }
 
 function marcarCargo(anio) {
@@ -252,6 +256,82 @@ function marcarCargo(anio) {
     }
     if (contextoActual) contextoActual.cargo = cargo;
 }
+
+// --- Departamento › Distrito (ADR-022): en TREP, el país o un distrito; en las otras secciones, el distrito ----------
+const colador = new Intl.Collator('es', { sensitivity: 'base' });
+
+function seleccion(etiqueta, clase) {
+    const select = document.createElement('select');
+    select.setAttribute('aria-label', etiqueta);
+    if (clase) select.className = clase;
+    return select;
+}
+
+// lista: lista.json; ambito: { distrito, departamento }. conPais: la página tiene el mapa del país (TREP), que atiende
+// el departamento sin recargar; en las demás, elegir un departamento solo acota la lista de distritos.
+function pasosDeAmbito(barra, lista, ambito, { conPais }) {
+    const pasoDep = barra.querySelector('[data-contexto="departamento"]');
+    const pasoDis = barra.querySelector('[data-contexto="distrito"]');
+    const porDep = new Map(lista.departamentos.map((d) => [d.codigo, { ...d, distritos: [] }]));
+    for (const [clave, nombre, dep] of lista.distritos) porDep.get(dep)?.distritos.push({ clave, nombre });
+    for (const d of porDep.values()) d.distritos.sort((a, b) => colador.compare(a.nombre, b.nombre));
+    const depActual = () => (ambito.distrito ? Number(ambito.distrito.split('-')[0]) : ambito.departamento);
+    const sDep = seleccion('Departamento');
+    sDep.append(new Option(conPais ? 'Paraguay' : 'Todos los departamentos', ''));
+    for (const d of porDep.values()) sDep.append(new Option(d.nombre, String(d.codigo)));
+    const sDis = seleccion('Distrito');
+    // En celular no se ve el departamento: el distrito lista todos, agrupados por departamento.
+    const celular = matchMedia('(max-width: 640px)');
+    function rellenarDistritos(dep) {
+        // El mapa del país está en TREP: en las demás secciones el distrito es siempre uno.
+        sDis.replaceChildren(...(conPais ? [new Option(ambito.distrito ? 'Ver el mapa del país' : 'Todos los distritos', '')] : []));
+        const grupos = dep === null || dep === undefined || celular.matches ? [...porDep.values()] : [porDep.get(dep)].filter(Boolean);
+        for (const d of grupos) {
+            const destino = grupos.length > 1 ? Object.assign(document.createElement('optgroup'), { label: d.nombre }) : sDis;
+            for (const x of d.distritos) destino.append(new Option(x.nombre, x.clave));
+            if (destino !== sDis) sDis.append(destino);
+        }
+        sDis.value = ambito.distrito ?? '';
+    }
+    sDep.value = depActual() === null ? '' : String(depActual());
+    rellenarDistritos(depActual());
+    celular.addEventListener('change', () => rellenarDistritos(sDep.value === '' ? null : Number(sDep.value)));
+    const ir = (hash) => { location.assign(new URL(hash, location.href).href); };
+    sDep.addEventListener('change', () => {
+        const dep = sDep.value === '' ? null : Number(sDep.value);
+        if (conPais && ambito.distrito === null) {
+            estado.cambiar({ departamento: dep, elegido: null }, { origen: 'barra' });
+            rellenarDistritos(dep);
+        } else if (conPais) {
+            ir(hashDeAmbito({ departamento: dep }, { eleccion: contextoActual.eleccion.id, anio: contextoActual.anio.anio }));
+        } else {
+            rellenarDistritos(dep);
+            sDis.focus();
+        }
+    });
+    sDis.addEventListener('change', () => {
+        // En Análisis, el análisis y la fuente siguen al cambiar de distrito.
+        const contexto = { eleccion: contextoActual.eleccion.id, anio: contextoActual.anio.anio, conservar: conPais ? [] : ['analisis'] };
+        if (sDis.value) ir(hashDeAmbito({ distrito: sDis.value }, { cargoDisponible: (c) => c === 'junta' || sDis.value === ASUNCION_AMBITO, ...contexto }));
+        else if (conPais) ir(hashDeAmbito({ departamento: sDep.value === '' ? null : Number(sDep.value) }, contexto));
+    });
+    // El mapa del país cambia el departamento desde su panel de filtros: la barra lo sigue.
+    estado.suscribir(({ cambiadas, origen }) => {
+        if (origen === 'barra' || !cambiadas.has('departamento') || ambito.distrito !== null) return;
+        const dep = estado.obtener('departamento');
+        ambito.departamento = dep === null ? null : Number(dep);
+        sDep.value = dep ?? '';
+        rellenarDistritos(ambito.departamento);
+    });
+    pasoDep.replaceChildren(sDep);
+    pasoDis.replaceChildren(sDis);
+    pasoDep.hidden = pasoDis.hidden = false;
+    const salto = barra.querySelector('.barra-contexto__salto');
+    if (salto) salto.hidden = false;
+}
+
+let hashDeAmbito = null;
+let ASUNCION_AMBITO = '0-0';
 
 function selectorFijo(contenedor, etiqueta, opciones, actual, alElegir) {
     contenedor.replaceChildren();
@@ -268,21 +348,46 @@ function selectorFijo(contenedor, etiqueta, opciones, actual, alElegir) {
 }
 
 async function barraDeContexto(barra) {
-    const { manifiesto, elegir, cargarEleccion } = await import('./datos.js');
+    const { manifiesto, elegir, cargarEleccion, listaDistritos, indiceNacional } = await import('./datos.js');
+    const { ambitoDe, hashDe, ASUNCION } = await import('./ambito.js');
+    hashDeAmbito = hashDe;
+    ASUNCION_AMBITO = ASUNCION;
     const m = await manifiesto();
     const { eleccion, anio } = elegir(m, { eleccion: estado.obtener('eleccion'), anio: estado.obtener('anio') });
     // «elegible» (Análisis): la fuente del hash (fuente=oficial) si está publicada; si no, el TREP.
     const fuente = barra.dataset.fuente === 'elegible'
         ? (estado.obtener('fuente') === 'oficial' && anio.fuentes?.oficial?.estado === 'publicado' ? 'oficial' : 'trep')
         : barra.dataset.fuente || 'trep';
-    contextoActual = { eleccion, anio, fuente, cargo: null, manifiesto: m };
+    // Ámbito (ADR-022): con datos nacionales de la fuente y los pasos en la barra, el país o un distrito. Una clave de
+    // distrito que no existe abre el país.
+    const conAmbito = Boolean(barra.querySelector('[data-contexto="distrito"]')) && Boolean(anio.nacional?.fuentes?.includes(fuente));
+    const lista = conAmbito ? await listaDistritos(eleccion.id, anio.anio).catch((error) => { console.warn(error); return null; }) : null;
+    let ambito = null;
+    const conPais = Boolean(document.getElementById('plantillaPais'));
+    if (lista) {
+        const pedido = ambitoDe(location.hash);
+        const existe = (clave) => Boolean(clave) && lista.distritos.some(([k]) => k === clave);
+        if (existe(pedido.distrito)) ambito = pedido;
+        else if (conPais) ambito = { distrito: null, departamento: pedido.distrito ? null : pedido.departamento };
+        else {
+            // Sin el mapa del país (Análisis): un distrito siempre; el elegido en el país o, si no, Asunción.
+            const elegido = new URLSearchParams(location.hash.slice(1)).get('elegido');
+            const clave = existe(elegido) ? elegido : ASUNCION;
+            ambito = { distrito: clave, departamento: Number(clave.split('-')[0]) };
+        }
+    }
+    const soloJunta = Boolean(ambito) && ambito.distrito !== ASUNCION;
+    contextoActual = { eleccion, anio, fuente, cargo: null, manifiesto: m, ambito, lista,
+                       cargos: soloJunta ? anio.cargos.filter((c) => anio.nacional.cargos.includes(c)) : anio.cargos };
     selectorFijo(barra.querySelector('[data-contexto="eleccion"]'), 'Elección',
         m.elecciones.map((e) => ({ valor: e.id, texto: e.nombre })), eleccion.id,
         (valor) => { estado.cambiar({ eleccion: valor, anio: null }, { origen: 'barra' }); location.reload(); });
     selectorFijo(barra.querySelector('[data-contexto="anio"]'), 'Año',
         eleccion.anios.map((a) => ({ valor: String(a.anio), texto: String(a.anio) })), String(anio.anio),
         (valor) => { estado.cambiar({ anio: valor }, { origen: 'barra' }); location.reload(); });
+    if (lista) pasosDeAmbito(barra, lista, ambito, { conPais });
     const selector = $('selectorCargo');
+    const disponibles = cargosDisponibles(anio);
     selector.replaceChildren(...anio.cargos.map((cargo) => {
         const boton = document.createElement('button');
         boton.type = 'button';
@@ -292,12 +397,22 @@ async function barraDeContexto(barra) {
         boton.setAttribute('aria-controls', document.querySelector('main')?.id || 'contenido');
         boton.textContent = anio.etiquetas_cargo?.[cargo] ?? anio.nombres_cargo?.[cargo] ?? cargo;
         boton.title = anio.nombres_cargo?.[cargo] ?? boton.textContent;
+        // Sin datos en este ámbito (Intendencia fuera de Asunción): a la vista, atenuado y con el motivo.
+        if (!disponibles.includes(cargo)) {
+            boton.setAttribute('aria-disabled', 'true');
+            boton.title = `${boton.title}: hay datos por mesa solo de Asunción`;
+        }
         return boton;
     }));
     marcarCargo(anio);
     selector.addEventListener('click', (evento) => {
         const boton = evento.target.closest('[data-cargo]');
         if (!boton) return;
+        if (boton.getAttribute('aria-disabled') === 'true') {
+            aviso(`${anio.nombres_cargo?.[boton.dataset.cargo] ?? boton.dataset.cargo}: los datos por mesa del TREP son solo de Asunción ` +
+                  '(los del país son de la Junta Municipal). Elegí Asunción en Distrito para verlos.');
+            return;
+        }
         estado.cambiar({ cargo: boton.dataset.cargo }, { origen: 'barra', forzar: true });
     });
     // Flechas, Inicio y Fin mueven el foco y eligen el cargo (activación automática).
@@ -323,8 +438,16 @@ async function barraDeContexto(barra) {
     if (info.estado !== 'publicado') {
         linea.append(' · aún no publicado');
     } else {
-        const cargado = await cargarEleccion({ eleccion: eleccion.id, anio: anio.anio }, fuente, { fuente: ['resumen.json'] });
-        const resumen = cargado.datos['resumen.json'];
+        // El país: las mesas de todos los distritos (índice nacional); Asunción y los demás distritos, su resumen.
+        let resumen;
+        if (ambito && ambito.distrito === null) {
+            const indice = await indiceNacional(eleccion.id, anio.anio);
+            const suma = (k) => indice.distritos.reduce((s, d) => s + d.mesas[k], 0);
+            resumen = { cobertura: { mesas_con_acta: suma('con_acta'), mesas_esperadas: suma('esperadas') }, eleccion: indice.eleccion };
+        } else {
+            const cargado = await cargarEleccion({ eleccion: eleccion.id, anio: anio.anio, distrito: ambito?.distrito ?? null }, fuente, { fuente: ['resumen.json'] });
+            resumen = cargado.datos['resumen.json'];
+        }
         const cob = resumen.cobertura;
         // Las actas no entran en el celular (shell.css): allí las muestra el panel de resultados.
         const actas = document.createElement('span');

@@ -1064,6 +1064,13 @@ html[data-theme="dark"] .mapa__toque:hover {
     background: transparent;
 }
 
+/* Límite del distrito o de un departamento (mapas sin barrios, ADR-022): trazo continuo, como en el mapa. */
+.leyenda .leyenda__muestra--limite {
+    border: 2px solid var(--text-soft);
+    border-radius: 3px;
+    background: transparent;
+}
+
 .leyenda__muestra--local {
     border: 2px solid #ffffff;
     box-shadow: 0 0 0 1px rgba(15, 23, 42, .35);

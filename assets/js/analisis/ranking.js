@@ -5,10 +5,12 @@ import { unidades, ganador } from '../tablero/modelo.js';
 import { el, fmt, pct, cantidad } from '../tablero/util.js';
 
 const TOPE = 20;
-const NOMBRES = { local: ['local', 'locales'], barrio: ['barrio', 'barrios'] };
+const TODAS = { local: ['local', 'locales'], barrio: ['barrio', 'barrios'] };
 
 export function crear(ctx) {
     const { datos } = ctx;
+    // Sin barrios fuera de Asunción (ADR-022): solo locales.
+    const NOMBRES = Object.fromEntries(Object.entries(TODAS).filter(([id]) => id !== 'barrio' || datos.conBarrios));
     const estado = { lista: { 1: null, 2: null }, unidad: 'local', sentido: 'desc', orden: null };
     let grafico = null;
     let filas = [];
@@ -31,7 +33,7 @@ export function crear(ctx) {
         }
         return g;
     };
-    const unidad = segmentos('Unidad', [['local', 'Locales'], ['barrio', 'Barrios']], 'unidad');
+    const unidad = segmentos('Unidad', [['local', 'Locales'], ['barrio', 'Barrios']].filter(([id]) => Object.hasOwn(NOMBRES, id)), 'unidad');
     const sentido = segmentos('Orden', [['desc', 'Mayor %'], ['asc', 'Menor %']], 'sentido');
     ctx.controles.append(etiqueta, unidad, sentido);
     selector.addEventListener('change', () => { estado.lista[ctx.cargo()] = Number(selector.value); estado.orden = null; render(); ctx.alCambiar(); });
@@ -74,7 +76,7 @@ export function crear(ctx) {
     const columnas = () => [
         { id: 'nombre', titulo: estado.unidad === 'local' ? 'Local' : 'Barrio', texto: true, v: (f) => f.u.nombre },
         { id: 'puesto', titulo: 'Puesto', v: (f) => f.puesto },
-        ...(estado.unidad === 'local' ? [{ id: 'barrio', titulo: 'Barrio', texto: true, v: (f) => f.u.barrio ?? '' }] : []),
+        ...(estado.unidad === 'local' && datos.conBarrios ? [{ id: 'barrio', titulo: 'Barrio', texto: true, v: (f) => f.u.barrio ?? '' }] : []),
         { id: 'pct', titulo: `% de ${listas()[elegida()].sigla}`, v: (f) => f.pct, f: (v) => `${pct.format(v)} %` },
         { id: 'votos', titulo: `Votos de ${listas()[elegida()].sigla}`, v: (f) => f.votos },
         { id: 'listas', titulo: 'Votos a listas', v: (f) => f.u.total.listas },
@@ -99,8 +101,8 @@ export function crear(ctx) {
             partes.push(el('p', null, `Va de ${pct.format(min)} % a ${pct.format(max)} % entre ${cantidad(valores.length, NOMBRES[estado.unidad][0], plural)}: ` +
                 `una diferencia de ${pct.format(max - min)} puntos.`));
         }
-        partes.push(el('p', null, 'Un porcentaje alto en un local con pocas mesas pesa menos que en uno grande: mirá también los votos. ' +
-            'El barrio es la ubicación del local, no la residencia de sus electores.'));
+        partes.push(el('p', null, 'Un porcentaje alto en un local con pocas mesas pesa menos que en uno grande: mirá también los votos.' +
+            (datos.conBarrios ? ' El barrio es la ubicación del local, no la residencia de sus electores.' : '')));
         lectura.replaceChildren(...partes);
     }
 

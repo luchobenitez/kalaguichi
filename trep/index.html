@@ -3,25 +3,25 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <meta name="description" content="Kalaguichi.com: resultados preliminares del TREP de las municipales 2026 en Asunción, por mesa, local, barrio y zona.">
+    <meta name="description" content="Kalaguichi.com: resultados preliminares del TREP de las municipales 2026 en todo el país, distrito por distrito y mesa por mesa.">
     <meta name="robots" content="noindex, nofollow">
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="Kalaguichi.com">
     <meta property="og:locale" content="es_PY">
-    <meta property="og:title" content="Municipales 2026 en Asunción: resultados del TREP mesa por mesa">
-    <meta property="og:description" content="Resultados preliminares del TREP por mesa, local, barrio y zona: mapas, tablas, participación e Intendente vs Junta. No reemplazan al cómputo oficial.">
+    <meta property="og:title" content="Municipales 2026: resultados del TREP en todo el país">
+    <meta property="og:description" content="El mapa de Paraguay por distrito y el tablero de cada uno, mesa por mesa: mapas, tablas, participación y bancas de la Junta Municipal. No reemplazan al cómputo oficial.">
     <meta property="og:url" content="https://kalaguichi.com/trep/">
     <meta property="og:image" content="https://kalaguichi.com/assets/img/og-municipales-2026.png">
     <meta property="og:image:type" content="image/png">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
-    <meta property="og:image:alt" content="Logo de Kalaguichi.com y mapa de Asunción con un punto por mesa, con el título Resultados del TREP mesa por mesa.">
+    <meta property="og:image:alt" content="Logo de Kalaguichi.com y mapa de Paraguay con cada distrito del color de la lista más votada de la Junta Municipal, con el título Resultados del TREP en todo el país.">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="referrer" content="no-referrer">
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; worker-src 'self'; connect-src 'self'; style-src 'self'; img-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
     <link rel="icon" href="../assets/img/kalaguichi-isotipo.svg" type="image/svg+xml">
     <meta name="color-scheme" content="light dark">
-    <title>Kalaguichi.com · TREP · Municipales 2026 en Asunción</title>
+    <title>Kalaguichi.com · TREP · Municipales 2026</title>
     <link rel="stylesheet" href="../assets/css/shell.css">
     <link rel="stylesheet" href="../assets/css/resultados.css">
     <link rel="stylesheet" href="../assets/css/tablero.css">
@@ -98,9 +98,12 @@
     </header>
     <div class="barra-contexto" id="barraContexto" data-fuente="trep">
         <div class="barra-contexto__inner">
-            <nav class="barra-contexto__ruta" aria-label="Elección y año">
+            <nav class="barra-contexto__ruta" aria-label="Elección, año y lugar">
                 <span class="barra-contexto__paso" data-contexto="eleccion">Municipales</span>
                 <span class="barra-contexto__paso" data-contexto="anio">2026</span>
+                <span class="barra-contexto__salto" aria-hidden="true" hidden></span>
+                <span class="barra-contexto__paso" data-contexto="departamento" hidden></span>
+                <span class="barra-contexto__paso" data-contexto="distrito" hidden></span>
             </nav>
             <div class="selector-cargo" role="tablist" aria-label="Cargo" id="selectorCargo"></div>
             <p class="barra-contexto__fuente" id="estadoFuente" aria-live="polite"></p>
@@ -132,7 +135,184 @@
     </div>
 </div>
 
-<!-- Vistas de la sección: inicio.js copia una de las dos en <main> según el hash (#modo=informe) y carga solo su módulo. -->
+<!-- Vistas de la sección: inicio.js copia una en <main> según el hash (el país, el tablero de un distrito o #modo=informe)
+     y carga solo su módulo. -->
+<template id="plantillaPais">
+        <h1 class="visualmente-oculto" id="tituloTablero">TREP preliminar · Municipales 2026 · Paraguay</h1>
+        <p class="error-carga" id="errorCarga" role="alert" hidden></p>
+
+        <!-- Mapa del país (ADR-022): las mismas piezas que el tablero de un distrito (panel, bandeja y controles). -->
+        <aside class="tablero__panel" id="hoja" data-altura="peek" data-panel="resultados" aria-label="Panel del mapa del país">
+            <button type="button" class="hoja__asa" id="asaHoja" aria-controls="hoja" aria-label="Agrandar el panel">
+                <span class="hoja__agarre" aria-hidden="true"></span>
+            </button>
+            <div class="tablero__barra-pestanas">
+            <div class="tablero__pestanas" role="tablist" aria-label="Paneles del mapa del país" id="pestanasTablero">
+                <button type="button" role="tab" id="pestana-resultados" data-panel="resultados" aria-controls="panelResultados" aria-selected="true"><svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h11M4 12h16M4 18h7"></path></svg><span>Resultados</span></button>
+                <button type="button" role="tab" id="pestana-bancas" data-panel="bancas" aria-controls="panelBancas" aria-selected="false" tabindex="-1"><svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 18a9 9 0 0 1 18 0"></path><path d="M7.5 18a4.5 4.5 0 0 1 9 0"></path></svg><span>Bancas</span></button>
+                <button type="button" role="tab" id="pestana-filtros" data-panel="filtros" aria-controls="panelFiltros" aria-selected="false" tabindex="-1"><svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16l-6 7v6l-4 2v-8L4 5Z"></path></svg><span>Filtros</span></button>
+                <button type="button" role="tab" id="pestana-capas" data-panel="capas" aria-controls="panelCapas" aria-selected="false" tabindex="-1"><svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l9 5-9 5-9-5 9-5Z"></path><path d="M3 13l9 5 9-5"></path></svg><span>Capas</span></button>
+                <button type="button" role="tab" id="pestana-metodo" data-panel="metodo" aria-controls="panelMetodo" aria-selected="false" tabindex="-1"><svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 11v5M12 8h.01"></path></svg><span>Método</span></button>
+            </div>
+            <button type="button" class="tablero__cerrar-panel" id="cerrarPanel" aria-label="Cerrar el panel"><svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg></button>
+            </div>
+
+            <section class="tablero__seccion" id="panelResultados" role="tabpanel" aria-labelledby="pestana-resultados" tabindex="0">
+                <article class="panel panel--totales panel--pais" id="panelTotales">
+                    <div class="panel--totales__cabecera">
+                        <div>
+                            <p class="panel__eyebrow" id="eyebrowTotales">Todo el país · Junta Municipal</p>
+                            <h2 id="tituloTotales">Paraguay</h2>
+                            <p class="panel__meta" id="metaTotales"></p>
+                        </div>
+                        <div class="panel__acciones">
+                            <a class="boton-secundario" id="abrirDistrito" href="#" hidden>Abrir el tablero</a>
+                            <button type="button" class="boton-secundario" id="limpiarSeleccion" hidden>Ver todo el país</button>
+                        </div>
+                    </div>
+                    <section class="pais-apilada" id="ganados" aria-label="Distritos ganados"></section>
+                    <div class="panel--totales__cuerpo">
+                        <div class="lista-resultados" id="listaResultados" aria-live="polite"></div>
+                        <div class="panel--totales__lateral">
+                            <div class="participacion" id="participacion"></div>
+                            <div class="diferencia" id="diferencia"></div>
+                            <dl class="otros-votos" id="otrosVotos"></dl>
+                        </div>
+                    </div>
+                    <p class="nota" id="notaResultados"></p>
+                </article>
+            </section>
+
+            <section class="tablero__seccion" id="panelBancas" role="tabpanel" aria-labelledby="pestana-bancas" tabindex="0" hidden>
+                <article class="panel panel--pais-bancas" aria-labelledby="tituloBancas">
+                    <div class="panel__barra">
+                        <div>
+                            <p class="panel__eyebrow" id="eyebrowBancas">Todo el país · reparto oficial</p>
+                            <h2 id="tituloBancas">Bancas de las juntas municipales</h2>
+                            <p class="panel__meta" id="metaBancas"></p>
+                        </div>
+                    </div>
+                    <section class="pais-apilada" id="barraBancas" aria-label="Reparto de las bancas"></section>
+                    <div class="lista-resultados" id="listaBancas"></div>
+                    <p class="nota" id="notaBancas"></p>
+                </article>
+            </section>
+
+            <section class="tablero__seccion tablero__filtros" id="panelFiltros" role="tabpanel" aria-labelledby="pestana-filtros" tabindex="0" hidden>
+                <div class="filtros__niveles">
+                    <label class="campo-select" for="filtroDepartamento">
+                        Departamento
+                        <select id="filtroDepartamento"></select>
+                    </label>
+                    <label class="campo-select" for="filtroDistrito">
+                        Distrito
+                        <select id="filtroDistrito"></select>
+                    </label>
+                </div>
+                <div class="buscar-local">
+                    <label class="campo-buscar" for="buscarDistrito">
+                        <span>Buscar distrito</span>
+                        <input type="search" id="buscarDistrito" placeholder="Nombre del distrito o del departamento" autocomplete="off" role="combobox"
+                               aria-autocomplete="list" aria-expanded="false" aria-controls="sugerenciasDistrito">
+                    </label>
+                    <ul class="sugerencias" id="sugerenciasDistrito" role="listbox" aria-label="Distritos encontrados" hidden></ul>
+                    <p class="visualmente-oculto" id="estadoBusqueda" role="status" aria-live="polite"></p>
+                </div>
+                <button type="button" class="boton-secundario filtros__limpiar" id="limpiarFiltros">Limpiar filtros</button>
+            </section>
+
+            <section class="tablero__seccion tablero__capas-panel" id="panelCapas" role="tabpanel" aria-labelledby="pestana-capas" tabindex="0" hidden>
+                <fieldset class="capas" id="capas">
+                    <legend>Capa temática</legend>
+                    <label class="capas__opcion"><input type="radio" name="mapa" value="ganadora"><span>Lista más votada (Junta)</span></label>
+                    <label class="capas__opcion"><input type="radio" name="mapa" value="participacion"><span>Participación</span></label>
+                    <label class="capas__opcion"><input type="radio" name="mapa" value="ventaja"><span>Ventaja del primero sobre el segundo</span></label>
+                    <label class="capas__opcion"><input type="radio" name="mapa" value="partido"><span>Votos de un partido</span></label>
+                    <div class="capas__detalle" id="detallePartido" hidden>
+                        <label class="campo-select" for="capaPartido">
+                            Partido
+                            <select id="capaPartido"></select>
+                        </label>
+                    </div>
+                </fieldset>
+                <div class="capas__opacidad">
+                    <label for="opacidadCapa">Opacidad de la capa temática</label>
+                    <input type="range" id="opacidadCapa" min="0" max="100" step="5" value="85" aria-describedby="valorOpacidad">
+                    <output id="valorOpacidad" for="opacidadCapa">85 %</output>
+                </div>
+                <fieldset class="capas capas--elementos" id="elementosMapa">
+                    <legend>Elementos visibles</legend>
+                    <label class="capas__opcion"><input type="checkbox" name="ver" value="departamentos" checked><span>Límites de los departamentos</span></label>
+                    <label class="capas__opcion"><input type="checkbox" name="ver" value="distritos" checked><span>Límites de los distritos</span></label>
+                    <label class="capas__opcion"><input type="checkbox" name="ver" value="nombres" checked><span>Nombres</span></label>
+                </fieldset>
+                <p class="nota" id="notaCapa"></p>
+            </section>
+
+            <section class="tablero__seccion" id="panelMetodo" role="tabpanel" aria-labelledby="pestana-metodo" tabindex="0" hidden>
+                <div class="metodo__botones">
+                    <button type="button" class="boton-grande" id="abrirFuente" aria-haspopup="dialog"><svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><ellipse cx="12" cy="6" rx="7" ry="3"></ellipse><path d="M5 6v6c0 1.66 3.13 3 7 3s7-1.34 7-3V6"></path><path d="M5 12v6c0 1.66 3.13 3 7 3s7-1.34 7-3v-6"></path></svg><span><strong>Fuente</strong><small>Planillas del TSJE, corte, cobertura y procedencia (SHA-256)</small></span></button>
+                    <button type="button" class="boton-grande" id="abrirMetodo" aria-haspopup="dialog"><svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2"></rect><path d="M8 7h8M8 11h2M12 11h2M8 15h2M12 15h2M8 18h2M12 18h2M16 14v4"></path></svg><span><strong>Método</strong><small>Cómo se calcula cada cifra del país y de cada distrito</small></span></button>
+                </div>
+                <a class="boton-secundario" id="enlaceAsuncion" href="#distrito=0-0">Asunción mesa por mesa (Intendencia y Junta)</a>
+                <p class="tablero__legal" id="avisoLegal">Iniciativa independiente, no vinculada al TSJE.</p>
+            </section>
+        </aside>
+
+        <section class="tablero__mapa" aria-labelledby="tituloMapa">
+            <h2 class="visualmente-oculto" id="tituloMapa">Mapa de Paraguay por distrito</h2>
+            <div class="mapa mapa--pais" id="mapa"></div>
+            <details class="mapa__leyenda mapa__leyenda--fija" id="leyendaMapa" open>
+                <summary id="tituloLeyenda">Leyenda</summary>
+                <ul class="leyenda" id="leyenda"></ul>
+            </details>
+            <div class="mapa__herramientas" id="herramientasMapa">
+                <button type="button" class="mapa__herramienta" id="botonPanel" aria-controls="hoja" aria-expanded="false"><svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="M9 4v16"></path></svg><span>Panel</span></button>
+                <button type="button" class="mapa__herramienta" id="botonBuscar" aria-controls="buscarDistrito"><svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"></circle><path d="m20 20-4.5-4.5"></path></svg><span>Buscar</span></button>
+                <button type="button" class="mapa__herramienta" id="botonTabla" aria-controls="bandeja" aria-expanded="false"><svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="14" rx="2"></rect><path d="M4 10h16M4 15h16M10 5v14"></path></svg><span>Tabla</span></button>
+            </div>
+            <p class="mapa__atribucion" id="atribucionMapa"></p>
+
+            <section class="tablero__bandeja" id="bandeja" aria-label="Tabla y ranking de distritos" hidden>
+                <div class="bandeja__separador" id="separador" role="separator" aria-orientation="horizontal" aria-label="Alto de la tabla"
+                     aria-controls="bandeja" tabindex="0"></div>
+                <div class="bandeja__cabecera">
+                    <div class="tablero__bandeja-pestanas pestanas" role="tablist" aria-label="Tabla y ranking de distritos" id="pestanasBandeja">
+                        <button type="button" role="tab" id="pestana-tabla" data-bandeja="tabla" aria-controls="panelTabla" aria-selected="true">Tabla</button>
+                        <button type="button" role="tab" id="pestana-ranking" data-bandeja="ranking" aria-controls="panelRanking" aria-selected="false" tabindex="-1">Ranking</button>
+                    </div>
+                    <div class="panel__barra bandeja__controles" data-para="tabla">
+                        <label class="campo-buscar" for="filtroTabla">
+                            <span>Filtrar</span>
+                            <input type="search" id="filtroTabla" placeholder="Distrito o departamento" autocomplete="off">
+                        </label>
+                    </div>
+                    <div class="panel__barra bandeja__controles" data-para="ranking" hidden>
+                        <div class="segmentos" role="group" aria-label="Orden del ranking">
+                            <button type="button" data-orden-ranking="desc" aria-pressed="true">Mayor a menor</button>
+                            <button type="button" data-orden-ranking="asc" aria-pressed="false">Menor a mayor</button>
+                        </div>
+                    </div>
+                    <button type="button" class="boton-secundario" id="cerrarBandeja">Cerrar</button>
+                </div>
+                <section class="tablero__tabla" id="panelTabla" role="tabpanel" aria-labelledby="pestana-tabla">
+                    <div class="tabla-scroll" id="desplazaTabla">
+                        <table class="tabla tabla--distritos" id="tabla">
+                            <thead></thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                    <p class="nota" id="notaTabla"></p>
+                </section>
+                <section class="tablero__ranking" id="panelRanking" role="tabpanel" aria-labelledby="pestana-ranking" hidden>
+                    <p class="ranking__titulo" id="tituloRanking"></p>
+                    <ol class="ranking-lista" id="ranking"></ol>
+                    <p class="nota" id="notaRanking"></p>
+                </section>
+            </section>
+        </section>
+</template>
+
 <template id="plantillaTablero">
         <h1 class="visualmente-oculto" id="tituloTablero">Resultados · Municipales 2026 · Asunción</h1>
         <p class="error-carga" id="errorCarga" role="alert" hidden></p>

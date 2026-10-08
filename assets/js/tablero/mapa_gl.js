@@ -12,7 +12,7 @@ import { agregarControles } from './zoom_mapa.js';
 
 const RAIZ = new URL('../../../', import.meta.url);
 // Las plantillas de tipografías llevan llaves: se arman como texto (URL() las codificaría).
-const absoluta = (ruta) => `${RAIZ.href}${ruta}`;
+export const absoluta = (ruta) => `${RAIZ.href}${ruta}`;
 // Los rellenos y límites propios van antes de la primera capa de calles del estilo: calles y nombres quedan encima.
 const ANTES_DE_CALLES = 'roads_minor_service_casing';
 // El recuadro del extracto del mapa base (scripts/mapa_base.py): la vista no sale de él, así no hay bordes vacíos.
@@ -20,12 +20,12 @@ const LIMITES = [[-57.76, -25.42], [-57.44, -25.16]];
 const ESPIRAL_M = 34;            // Separación de las mesas alrededor de su local, en metros (como el mapa SVG).
 const ZOOM_MESAS = 14;           // Desde este zoom, una mesa por punto; antes, un punto por local.
 // Fondo propio sin mapa base: el distrito y el río, con los grises y el agua del tema.
-const SIN_BASE = { claro: { tierra: '#f1f5f9', agua: '#bae6fd' }, oscuro: { tierra: '#111c30', agua: '#1e3a5f' } };
+export const SIN_BASE = { claro: { tierra: '#f1f5f9', agua: '#bae6fd' }, oscuro: { tierra: '#111c30', agua: '#1e3a5f' } };
 const M_POR_GRADO_LAT = 110574;
 const FORMAS = ['circulo', 'rombo', 'cuadrado'];
 // Tamaño de los puntos: crece más despacio que el mapa (base 1,32 por nivel de zoom), así se separan al acercar.
 const TAMANO_PUNTO = ['interpolate', ['exponential', 1.32], ['zoom'], 11, 0.32, 18, 1.8];
-const TEXTOS_MAPLIBRE = {
+export const TEXTOS_MAPLIBRE = {
     'CooperativeGesturesHandler.WindowsHelpText': 'Usá Ctrl + rueda para acercar o alejar el mapa',
     'CooperativeGesturesHandler.MacHelpText': 'Usá ⌘ + rueda para acercar o alejar el mapa',
     'CooperativeGesturesHandler.MobileHelpText': 'Usá dos dedos para mover el mapa',
@@ -44,7 +44,7 @@ function cargarScript(src) {
 }
 
 // MapLibre (módulo ES, con su worker propio del mismo origen) y pmtiles (script clásico autónomo), una sola vez.
-function cargarMotor() {
+export function cargarMotor() {
     motor ??= (async () => {
         const css = document.createElement('link');
         css.rel = 'stylesheet';
@@ -82,6 +82,15 @@ function estiloBase(oscuro) {
     return estilos[nombre];
 }
 
+// Fuera de Asunción no hay mapa base (ADR-022): un estilo propio con el fondo del tema y las mismas tipografías.
+// Fuera del distrito, el fondo del mapa del país (mapa_pais.js); dentro, la tierra de SIN_BASE.
+const FONDO_SIN_BASE = { claro: '#dbe4ee', oscuro: '#030712' };
+function estiloSinBase(oscuro) {
+    return Promise.resolve({ version: 8, glyphs: absoluta('assets/vendor/mapa/fonts/{fontstack}/{range}.pbf'), sources: {},
+                             layers: [{ id: 'k-fondo', type: 'background', paint: { 'background-color': FONDO_SIN_BASE[oscuro ? 'oscuro' : 'claro'] } }] });
+}
+const conUbicacion = (info) => Number.isFinite(info?.lat) && Number.isFinite(info?.lon);
+
 // Íconos de igual área (círculo, rombo y cuadrado) como campo de distancia (SDF): MapLibre los tiñe con icon-color.
 function iconoSdf(forma, lado = 48, radio = 15) {
     const datos = new Uint8ClampedArray(lado * lado * 4);
@@ -108,6 +117,7 @@ function posicionesMesas(datos) {
     const salida = [];
     for (const [clave, filas] of datos.porLocal) {
         const info = datos.infoLocal.get(clave);
+        if (!conUbicacion(info)) continue;   // Locales sin coordenadas en el padrón: no van al mapa.
         const mPorGradoLon = 111320 * Math.cos((info.lat * Math.PI) / 180);
         filas.forEach((f, k) => {
             const angulo = k * 2.399963, r = ESPIRAL_M * Math.sqrt(k + 0.5);
@@ -150,6 +160,9 @@ export function crearMapaGL(datos, contenedor, opciones = {}) {
     let baseAplicada = null;  // Las capas del mapa base se recorren solo cuando cambia la opción (o el estilo).
     const mesas = posicionesMesas(datos);
     const geoBase = new URL('geo/', datos.contexto.comun);
+    // Asunción tiene su mapa base y su cartografía; los demás distritos (ADR-022), solo su límite.
+    const conMapaBase = Boolean(datos.conBarrios);
+    if (!conMapaBase) estado.base = false;
     let map = null;
     let caja = null;     // Encuadre del distrito.
     const api = { map: null, mesas, contenedor };
@@ -157,14 +170,20 @@ export function crearMapaGL(datos, contenedor, opciones = {}) {
     // La atribución obligatoria del mapa base, más las fuentes de la cartografía propia (siempre a la vista).
     const atribucion = opciones.atribucion ?? Object.assign(document.createElement('p'), { className: 'mapa__atribucion' });
     if (!opciones.atribucion) contenedor.append(atribucion);
-    const osm = document.createElement('a');
-    osm.href = 'https://www.openstreetmap.org/copyright';
-    osm.textContent = '© colaboradores de OpenStreetMap';
-    osm.rel = 'noopener noreferrer';
-    osm.target = '_blank';
-    atribucion.replaceChildren(osm, ' (ODbL) · Protomaps · INE · Municipalidad de Asunción');
-    atribucion.title = 'Mapa base: © colaboradores de OpenStreetMap (ODbL), con el esquema y el estilo de Protomaps. Barrios y límite: ' +
-        'INE (CNPV 2022). Zonas municipales, río, manzanas y cauces: Municipalidad de Asunción.';
+    if (conMapaBase) {
+        const osm = document.createElement('a');
+        osm.href = 'https://www.openstreetmap.org/copyright';
+        osm.textContent = '© colaboradores de OpenStreetMap';
+        osm.rel = 'noopener noreferrer';
+        osm.target = '_blank';
+        atribucion.replaceChildren(osm, ' (ODbL) · Protomaps · INE · Municipalidad de Asunción');
+        atribucion.title = 'Mapa base: © colaboradores de OpenStreetMap (ODbL), con el esquema y el estilo de Protomaps. Barrios y límite: ' +
+            'INE (CNPV 2022). Zonas municipales, río, manzanas y cauces: Municipalidad de Asunción.';
+    } else {
+        atribucion.textContent = 'Límite: INE (CNPV 2022) · Locales: padrón · Resultados: TREP (Justicia Electoral)';
+        atribucion.title = 'Límite referencial del distrito: INE, Cartografía digital del CNPV 2022. Ubicación de los locales: catálogo de locales ' +
+            'del padrón. Sin mapa base de calles fuera de Asunción.';
+    }
 
     // Globo de ayuda al pasar el puntero (texto plano).
     const globo = document.createElement('div');
@@ -304,7 +323,7 @@ export function crearMapaGL(datos, contenedor, opciones = {}) {
 
     async function cambiarTema() {
         if (!map) return;
-        const estilo = await estiloBase(temaOscuro());
+        const estilo = await (conMapaBase ? estiloBase : estiloSinBase)(temaOscuro());
         const geo = api.geo;
         map.setStyle(estilo, { diff: false });
         map.once('style.load', () => {
@@ -353,13 +372,17 @@ export function crearMapaGL(datos, contenedor, opciones = {}) {
     }
 
     api.listo = (async () => {
+        const vacio = Promise.resolve(coleccion([]));
         const [maplibregl, estilo, distrito, barrios, zonas, etiquetas, rio] = await Promise.all([
-            cargarMotor(), estiloBase(temaOscuro()),
-            ...['distrito', 'barrios', 'zonas_municipales', 'etiquetas', 'rio'].map((n) => leerJson(new URL(`${n}.geojson`, geoBase)))]);
+            cargarMotor(), (conMapaBase ? estiloBase : estiloSinBase)(temaOscuro()),
+            ...['distrito', 'barrios', 'zonas_municipales', 'etiquetas', 'rio'].map((n) => (conMapaBase || n === 'distrito' ? leerJson(new URL(`${n}.geojson`, geoBase)) : vacio))]);
         api.geo = { distrito, barrios, zonas, etiquetas, rio };
         caja = cajaDeCoordenadas(coordenadas(distrito.features[0].geometry));
+        // Sin mapa base, la vista no se aleja más que el doble del distrito (los del Chaco miden cientos de kilómetros).
+        const [[x0, y0], [x1, y1]] = caja;
+        const limites = conMapaBase ? LIMITES : [[x0 - (x1 - x0), y0 - (y1 - y0)], [x1 + (x1 - x0), y1 + (y1 - y0)]];
         map = new maplibregl.Map({
-            container: contenedor, style: estilo, bounds: caja, fitBoundsOptions: { padding: 16 }, maxBounds: LIMITES, minZoom: 10, maxZoom: 18.5,
+            container: contenedor, style: estilo, bounds: caja, fitBoundsOptions: { padding: 16 }, maxBounds: limites, minZoom: conMapaBase ? 10 : 5, maxZoom: 18.5,
             attributionControl: false, dragRotate: false, pitchWithRotate: false, touchPitch: false, cooperativeGestures: Boolean(opciones.gestosCooperativos),
             locale: { ...TEXTOS_MAPLIBRE, 'Map.Title': opciones.etiqueta ?? 'Mapa de Asunción' },
         });
@@ -422,12 +445,13 @@ export function crearMapaGL(datos, contenedor, opciones = {}) {
     };
     // Locales encima (capa del IPM): fn(clave, info) → { color, forma, escala, atenuado, texto }; null los quita.
     api.pintarLocales = (fn) => {
-        estado.locales = fn ? [...datos.infoLocal.entries()].map(([clave, info]) => punto(info.lon, info.lat, { clave, ...fn(clave, info) })) : null;
+        estado.locales = fn ? [...datos.infoLocal.entries()].filter(([clave, info]) => conUbicacion(info) && datos.porLocal.has(clave))
+            .map(([clave, info]) => punto(info.lon, info.lat, { clave, ...fn(clave, info) })) : null;
         aplicar();
     };
     // Halos de la zona TSJE: fn(clave, info) → { color, atenuado }; null los quita.
     api.pintarHalos = (fn) => {
-        estado.halos = fn ? [...datos.porLocal.entries()].map(([clave, filas]) => {
+        estado.halos = fn ? [...datos.porLocal.entries()].filter(([clave]) => conUbicacion(datos.infoLocal.get(clave))).map(([clave, filas]) => {
             const info = datos.infoLocal.get(clave);
             return punto(info.lon, info.lat, { clave, radio_m: radioLocal(filas.length), ...fn(clave, info) });
         }) : null;
@@ -435,12 +459,12 @@ export function crearMapaGL(datos, contenedor, opciones = {}) {
     };
     api.marcar = (clave) => {
         const info = clave && datos.infoLocal.get(clave);
-        estado.marca = info ? punto(info.lon, info.lat, { clave, radio_m: radioLocal(datos.porLocal.get(clave)?.length ?? 1) + 40 }) : null;
+        estado.marca = conUbicacion(info) ? punto(info.lon, info.lat, { clave, radio_m: radioLocal(datos.porLocal.get(clave)?.length ?? 1) + 40 }) : null;
         aplicar();
     };
     // Mapa base (calles) o ninguno; opacidad de la capa temática (0 a 1); elementos visibles.
     api.fijarBase = (conBase) => {
-        estado.base = Boolean(conBase);
+        estado.base = conMapaBase && Boolean(conBase);
         if (map) aplicarAspecto();
     };
     api.fijarOpacidad = (valor) => {
@@ -464,7 +488,7 @@ export function crearMapaGL(datos, contenedor, opciones = {}) {
     api.manzanasListas = () => Boolean(map?.getSource('k-manzanas'));
     // items: [{ clave, puesto, texto }] → anillo numerado por local; [] los quita.
     api.pintarRanking = (items) => {
-        estado.ranking = items.map(({ clave, puesto, texto }) => {
+        estado.ranking = items.filter(({ clave }) => conUbicacion(datos.infoLocal.get(clave))).map(({ clave, puesto, texto }) => {
             const info = datos.infoLocal.get(clave);
             return punto(info.lon, info.lat, { clave, puesto, texto, radio_m: radioLocal(datos.porLocal.get(clave)?.length ?? 1) + 60 });
         });
@@ -499,7 +523,7 @@ export function crearMapaGL(datos, contenedor, opciones = {}) {
         return f ? cajaDeCoordenadas(coordenadas(f.geometry)) : null;
     };
     api.cajaLocales = (claves) => {
-        const coords = claves.map((k) => datos.infoLocal.get(k)).filter(Boolean).map((x) => [x.lon, x.lat]);
+        const coords = claves.map((k) => datos.infoLocal.get(k)).filter(conUbicacion).map((x) => [x.lon, x.lat]);
         if (!coords.length) return null;
         const [[x0, y0], [x1, y1]] = cajaDeCoordenadas(coords);
         return [[x0 - 0.006, y0 - 0.006], [x1 + 0.006, y1 + 0.006]];
@@ -507,7 +531,7 @@ export function crearMapaGL(datos, contenedor, opciones = {}) {
     // Lleva un local a la vista: conserva un acercamiento mayor si ya lo había (zoom 15 como mínimo: unos 2 m por píxel).
     api.enfocarLocal = (clave) => {
         const info = datos.infoLocal.get(clave);
-        if (!info || !map) return;
+        if (!conUbicacion(info) || !map) return;
         map.easeTo({ center: [info.lon, info.lat], zoom: Math.max(map.getZoom(), 15), padding: api.margen(), duration: 350 });
     };
     api.enfocarCaja = (caja2) => {
@@ -526,7 +550,7 @@ export function crearMapaGL(datos, contenedor, opciones = {}) {
     // Punto de la pantalla (relativo a la ventana) de un local, para las pruebas.
     api.proyectar = (clave) => {
         const info = datos.infoLocal.get(clave);
-        if (!info || !map) return null;
+        if (!conUbicacion(info) || !map) return null;
         const p = map.project([info.lon, info.lat]);
         const r = contenedor.getBoundingClientRect();
         return [r.left + p.x, r.top + p.y];

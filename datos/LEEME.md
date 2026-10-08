@@ -53,6 +53,35 @@ datos/maquina_votacion/       la sección «Máquina de votación» (ver maquina
 └── cves_resumen.json         cuentas por software y severidad, para la carga inicial de la página
 ```
 
+## Datos nacionales (`nacional/`, ADR-022)
+
+Con `"nacional": { "nombre": "Paraguay", "cargos": ["junta"], "fuentes": ["trep"], "nota": … }` en el año del
+manifiesto, el TREP abre en el mapa del país y cada distrito tiene su carpeta. Los genera
+`analisis_resultados/procesamiento/nacional_datos.py` desde las planillas del TREP del TSJE, el catálogo del TREP, el
+padrón (solo columnas del local y el recuento de electores por mesa) y la cartografía del INE.
+
+```text
+datos/<eleccion>/<anio>/nacional/
+├── distritos.json            índice: un registro por distrito (clave «<dep>-<dis>», códigos TSJE e INE, nombre del INE
+│                             con tildes y el del TSJE, departamento, centro y caja, mesas, locales, electores, votos
+│                             por lista, blancos, nulos, no computados, emitidos, ganadora, segunda, pct_ganadora,
+│                             ventaja, participación, bancas oficiales y, por sigla, numLista, nombre, color, tipo y
+│                             forma) y los departamentos (código, nombre, centro, caja y cantidad de distritos)
+├── lista.json                clave, nombre y departamento de cada distrito (el selector de la barra de contexto)
+├── colores.json              la regla de colores: partidos, verdes de las alianzas y movimientos locales, formas
+├── geo/distritos.geojson     límites de los distritos (INE CNPV 2022, simplificados) con clave, nombre y departamento
+├── geo/departamentos.geojson límites de los departamentos
+├── procedencia.json          SHA-256 de las planillas, del catálogo del TREP y de la cartografía del INE
+└── distritos/<dep>-<dis>/    comun/ (locales.json, candidaturas.json con las bancas, geo/distrito.geojson) y trep/
+                              (resumen.json, mesas.json, procedencia.json): el esquema de Asunción, solo la Junta ("2")
+```
+
+- La clave de Asunción es `0-0`; sus datos completos siguen en `comun/`, `trep/` (y `oficial/`), y su registro del
+  índice tiene `carpeta: ""`. Los demás tienen `carpeta: "nacional/distritos/<clave>/"`.
+- «A computar» de las planillas es `nocomputados`. Las bancas son la integración oficial del TREP (el D'Hondt sobre los
+  votos por lista da el mismo reparto en todos los distritos).
+- Intendencia por mesa y el IPM por barrio existen solo para Asunción (`no_disponible` de cada `resumen.json`).
+
 ## Esquema de cada fuente (`trep/` y `oficial/`)
 
 **`mesas.json`**: una fila por mesa con acta. Todos los vectores siguen el orden de `mesas`.
