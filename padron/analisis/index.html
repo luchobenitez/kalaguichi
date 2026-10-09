@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="es" data-theme="light">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="description" content="Kalaguichi.com: análisis del padrón de las municipales 2026 por sexo, edad y territorio, con cargos, organizaciones y candidaturas, calculado con datos locales.">
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="referrer" content="no-referrer">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; connect-src 'self'; style-src 'self'; img-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Kalaguichi.com">
+    <meta property="og:locale" content="es_PY">
+    <meta property="og:title" content="Análisis del padrón · Municipales 2026">
+    <meta property="og:description" content="Kalaguichi.com: análisis del padrón de las municipales 2026 por sexo, edad y territorio, con cargos, organizaciones y candidaturas, calculado con datos locales.">
+    <meta property="og:url" content="https://kalaguichi.com/padron/analisis/">
+    <meta name="twitter:card" content="summary">
+    <link rel="icon" href="../../assets/img/kalaguichi-isotipo.svg" type="image/svg+xml">
+    <meta name="color-scheme" content="light dark">
+    <title>Kalaguichi.com · Análisis del padrón · Municipales 2026</title>
+    <link rel="stylesheet" href="../../assets/css/shell.css">
+    <link rel="stylesheet" href="../../assets/css/resultados.css">
+    <link rel="stylesheet" href="../../assets/css/padron_analisis.css">
+    <script type="module" src="../../assets/js/sitio.js"></script>
+    <script type="module" src="../../assets/js/shell.js"></script>
+    <script type="module" src="../../assets/js/padron_analisis/padron_analisis.js"></script>
+</head>
+
+<body>
+<noscript>El análisis del padrón necesita JavaScript para leer sus cuadros.</noscript>
+<div class="app-shell">
+    <div class="background-grid" aria-hidden="true"></div>
+    <div class="ambient-glow ambient-glow--orange" aria-hidden="true"></div>
+    <div class="ambient-glow ambient-glow--blue" aria-hidden="true"></div>
+
+    <header class="site-header">
+        <div class="site-header__inner">
+            <a href="../../" class="brand">
+                <span class="brand__mark">
+                    <img src="../../assets/img/kalaguichi-isotipo.svg" alt="">
+                </span>
+
+                <span class="brand__text">
+                    <strong>Kalaguichi.com</strong>
+                    <small>Padrón electoral</small>
+                </span>
+            </a>
+
+            <nav class="site-nav" aria-label="Secciones del sitio">
+                <div class="site-nav__grupo site-nav__grupo--barra" data-actual>
+                    <button type="button" class="site-nav__grupo-boton" aria-expanded="false" aria-controls="submenuPadron"><svg class="site-nav__icono" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"></rect><circle cx="9" cy="11" r="2"></circle><path d="M6 16c.8-1.4 1.8-2 3-2s2.2.6 3 2M14 10h4M14 14h4"></path></svg><span class="site-nav__texto">Padrón electoral</span><span class="site-nav__corto" aria-hidden="true">Padrón</span><svg class="site-nav__flecha" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg></button>
+                    <p class="site-nav__grupo-titulo" aria-hidden="true"><svg class="site-nav__icono" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"></rect><circle cx="9" cy="11" r="2"></circle><path d="M6 16c.8-1.4 1.8-2 3-2s2.2.6 3 2M14 10h4M14 14h4"></path></svg>Padrón electoral</p>
+                    <ul class="site-nav__submenu" id="submenuPadron" aria-label="Padrón electoral">
+                        <li><a href="../../padron/" data-seccion="padron" data-pagina="consulta">Consulta</a></li>
+                        <li><a href="../../padron/analisis/" data-seccion="padron" data-pagina="analisis" aria-current="page">Análisis del padrón</a></li>
+                    </ul>
+                </div>
+                <a href="../../trep/" data-seccion="trep"><svg class="site-nav__icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h16"></path><path d="M7 16v-5M12 16V6M17 16V8"></path></svg><span class="site-nav__texto">TREP</span><span class="site-nav__corto" aria-hidden="true">TREP</span></a>
+                <a href="../../oficiales/" data-seccion="oficiales"><svg class="site-nav__icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 12l2 2 4-4"></path><path d="M12 3l7 3v5c0 4.5-3 8.2-7 10-4-1.8-7-5.5-7-10V6l7-3Z"></path></svg><span class="site-nav__texto">Resultados oficiales</span><span class="site-nav__corto" aria-hidden="true">Oficiales</span></a>
+                <a href="../../analisis/" data-seccion="analisis"><svg class="site-nav__icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5M4 19h16"></path><path d="M7 15l4-5 3 3 5-6"></path></svg><span class="site-nav__texto">Análisis</span><span class="site-nav__corto" aria-hidden="true">Análisis</span></a>
+                <button type="button" class="site-nav__mas" aria-expanded="false" aria-controls="menuMas"><svg class="site-nav__icono" viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.25"></circle><circle cx="12" cy="12" r="1.25"></circle><circle cx="19" cy="12" r="1.25"></circle></svg><span class="site-nav__texto">Más secciones</span><span class="site-nav__corto" aria-hidden="true">Más</span></button>
+                <div class="site-nav__extra" id="menuMas">
+                    <div class="site-nav__grupo">
+                        <button type="button" class="site-nav__grupo-boton" aria-expanded="false" aria-controls="submenuMaquina"><svg class="site-nav__icono" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"></rect><path d="M8 20h8M12 16v4"></path><path d="M8.5 10l2.5 2.5 4.5-4.5"></path></svg><span class="site-nav__texto">Máquina de votación</span><span class="site-nav__corto" aria-hidden="true">Máquina</span><svg class="site-nav__flecha" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg></button>
+                        <p class="site-nav__grupo-titulo" aria-hidden="true"><svg class="site-nav__icono" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"></rect><path d="M8 20h8M12 16v4"></path><path d="M8.5 10l2.5 2.5 4.5-4.5"></path></svg>Máquina de votación</p>
+                        <ul class="site-nav__submenu" id="submenuMaquina" aria-label="Máquina de votación">
+                            <li><a href="../../maquina-votacion/historia/" data-seccion="maquina" data-pagina="historia">Historia de la adquisición</a></li>
+                            <li><a href="../../maquina-votacion/maquina/" data-seccion="maquina" data-pagina="maquina">La máquina</a></li>
+                            <li><a href="../../maquina-votacion/vulnerabilidades/" data-seccion="maquina" data-pagina="vulnerabilidades">Vulnerabilidades documentadas</a></li>
+                        </ul>
+                    </div>
+                    <a href="../../acerca/" data-seccion="acerca"><svg class="site-nav__icono" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 11v5M12 8h.01"></path></svg><span class="site-nav__texto">Acerca de</span><span class="site-nav__corto" aria-hidden="true">Acerca</span></a>
+                </div>
+            </nav>
+
+            <div class="site-header__acciones">
+                <button id="compartir" type="button" class="theme-toggle" aria-label="Compartir esta página" title="Compartir esta página">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                        <circle cx="18" cy="5" r="2.5"></circle><circle cx="6" cy="12" r="2.5"></circle><circle cx="18" cy="19" r="2.5"></circle>
+                        <path stroke-linecap="round" d="M8.2 10.8l7.6-4.4M8.2 13.2l7.6 4.4"></path>
+                    </svg>
+                </button>
+                <button
+                    id="themeToggle"
+                    type="button"
+                    class="theme-toggle"
+                    aria-label="Cambiar modo de visualización"
+                    title="Cambiar modo de visualización"
+                >
+                    <svg id="sunIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                        <circle cx="12" cy="12" r="4"></circle>
+                        <path stroke-linecap="round" d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path>
+                    </svg>
+
+                    <svg id="moonIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"></path>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <nav class="padron-subnav" aria-label="Páginas del padrón electoral">
+        <div class="padron-subnav__inner">
+            <span class="padron-subnav__seccion">Padrón electoral</span>
+            <a href="../">Consulta</a>
+            <a href="./" aria-current="page">Análisis del padrón</a>
+        </div>
+    </nav>
+
+    <main class="padron-analisis" id="contenido" data-listo="false">
+        <header class="padron-analisis__cabecera">
+            <p class="padron-analisis__eyebrow">Padrón electoral · Municipales 2026</p>
+            <h1>Análisis del padrón</h1>
+            <p class="padron-analisis__intro">Cifras calculadas por Kalaguichi con el padrón de las municipales 2026 y las planillas
+                del TREP. Siguen los bloques de «Números relevantes» de la Justicia Electoral como referencia, pero no son una
+                publicación suya ni copian sus cifras. Lo que no tiene datos locales queda a la vista como «no disponible».</p>
+            <dl class="padron-analisis__datos" id="datosDelConjunto"></dl>
+        </header>
+
+        <section class="padron-analisis__filtros" aria-label="Filtros del análisis">
+            <label class="campo-select">Departamento
+                <select id="filtroDepartamento"><option value="">Todo el país</option></select>
+            </label>
+            <label class="campo-select">Distrito
+                <select id="filtroDistrito" disabled><option value="">Todos los distritos</option></select>
+            </label>
+            <p class="padron-analisis__ambito" id="ambitoAnalisis" aria-live="polite"></p>
+        </section>
+
+        <nav class="padron-analisis__indice" aria-label="Segmentos del análisis">
+            <ol>
+                <li><a href="#s01">Resumen general</a></li>
+                <li><a href="#s02">Cargos en disputa</a></li>
+                <li><a href="#s03">Organizaciones participantes</a></li>
+                <li><a href="#s04">Cuadro territorial</a></li>
+                <li><a href="#s05">Composición por sexo</a></li>
+                <li><a href="#s06">Grandes grupos de edad</a></li>
+                <li><a href="#s07">Edad detallada, de 18 a 150 años</a></li>
+                <li><a href="#s08">Locales, mesas y equipos</a></li>
+                <li><a href="#s09">Personal electoral</a></li>
+                <li><a href="#s10">Candidaturas</a></li>
+                <li><a href="#s11">Voto accesible</a></li>
+                <li><a href="#s12">Voto en casa: ciudades</a></li>
+                <li><a href="#s13">Participación a través del tiempo</a></li>
+                <li><a href="#s14">Participación por sexo a través del tiempo</a></li>
+                <li><a href="#s15">Evolución del padrón</a></li>
+            </ol>
+        </nav>
+
+        <section class="segmento" id="s01" aria-labelledby="s01-titulo">
+            <header class="segmento__cabecera">
+                <p class="segmento__numero">S01</p>
+                <h2 id="s01-titulo">Resumen general</h2>
+                <p class="segmento__estado" data-estado-de="S01"></p>
+            </header>
+            <div class="segmento__cuerpo" data-segmento="S01"></div>
+        </section>
+
+        <section class="segmento" id="s02" aria-labelledby="s02-titulo">
+            <header class="segmento__cabecera">
+                <p class="segmento__numero">S02</p>
+                <h2 id="s02-titulo">Cargos en disputa</h2>
+                <p class="segmento__estado" data-estado-de="S02"></p>
+            </header>
+            <div class="segmento__cuerpo" data-segmento="S02"></div>
+        </section>
+
+        <section class="segmento" id="s03" aria-labelledby="s03-titulo">
+            <header class="segmento__cabecera">
+                <p class="segmento__numero">S03</p>
+                <h2 id="s03-titulo">Organizaciones participantes</h2>
+                <p class="segmento__estado" data-estado-de="S03"></p>
+            </header>
+            <div class="segmento__cuerpo" data-segmento="S03"></div>
+        </section>
+
+        <section class="segmento" id="s04" aria-labelledby="s04-titulo">
+            <header class="segmento__cabecera">
+                <p class="segmento__numero">S04</p>
+                <h2 id="s04-titulo">Cuadro territorial</h2>
+                <p class="segmento__estado" data-estado-de="S04"></p>
+            </header>
+            <div class="segmento__cuerpo" data-segmento="S04"></div>
+        </section>
+
+        <section class="segmento" id="s05" aria-labelledby="s05-titulo">
+            <header class="segmento__cabecera">
+                <p class="segmento__numero">S05</p>
+                <h2 id="s05-titulo">Composición por sexo</h2>
+                <p class="segmento__estado" data-estado-de="S05"></p>
+            </header>
+            <div class="segmento__cuerpo" data-segmento="S05"></div>
+        </section>
+
+        <section class="segmento" id="s06" aria-labelledby="s06-titulo">
+            <header class="segmento__cabecera">
+                <p class="segmento__numero">S06</p>
+                <h2 id="s06-titulo">Grandes grupos de edad</h2>
+                <p class="segmento__estado" data-estado-de="S06"></p>
+            </header>
+            <div class="segmento__cuerpo" data-segmento="S06"></div>
+        </section>
+
+        <section class="segmento" id="s07" aria-labelledby="s07-titulo">
+            <header class="segmento__cabecera">
+                <p class="segmento__numero">S07</p>
+                <h2 id="s07-titulo">Edad detallada, de 18 a 150 años</h2>
+                <p class="segmento__estado" data-estado-de="S07"></p>
+            </header>
+            <div class="segmento__cuerpo" data-segmento="S07"></div>
+        </section>
+
+        <section class="segmento" id="s08" aria-labelledby="s08-titulo">
+            <header class="segmento__cabecera">
+                <p class="segmento__numero">S08</p>
+                <h2 id="s08-titulo">Locales, mesas y equipos</h2>
+                <p class="segmento__estado" data-estado-de="S08"></p>
+            </header>
+            <div class="segmento__cuerpo" data-segmento="S08"></div>
+        </section>
+
+        <section class="segmento" id="s09" aria-labelledby="s09-titulo">
+            <header class="segmento__cabecera">
+                <p class="segmento__numero">S09</p>
+                <h2 id="s09-titulo">Personal electoral</h2>
+                <p class="segmento__estado" data-estado-de="S09"></p>
+            </header>
+            <div class="segmento__cuerpo" data-segmento="S09"></div>
+        </section>
+
+        <section class="segmento" id="s10" aria-labelledby="s10-titulo">
+            <header class="segmento__cabecera">
+                <p class="segmento__numero">S10</p>
+                <h2 id="s10-titulo">Candidaturas</h2>
+                <p class="segmento__estado" data-estado-de="S10"></p>
+            </header>
+            <div class="segmento__cuerpo" data-segmento="S10"></div>
+        </section>
+
+        <section class="segmento" id="s11" aria-labelledby="s11-titulo">
+            <header class="segmento__cabecera">
+                <p class="segmento__numero">S11</p>
+                <h2 id="s11-titulo">Voto accesible</h2>
+                <p class="segmento__estado" data-estado-de="S11"></p>
+            </header>
+            <div class="segmento__cuerpo" data-segmento="S11"></div>
+        </section>
+
+        <section class="segmento" id="s12" aria-labelledby="s12-titulo">
+            <header class="segmento__cabecera">
+                <p class="segmento__numero">S12</p>
+                <h2 id="s12-titulo">Voto en casa: ciudades</h2>
+                <p class="segmento__estado" data-estado-de="S12"></p>
+            </header>
+            <div class="segmento__cuerpo" data-segmento="S12"></div>
+        </section>
+
+        <section class="segmento" id="s13" aria-labelledby="s13-titulo">
+            <header class="segmento__cabecera">
+                <p class="segmento__numero">S13</p>
+                <h2 id="s13-titulo">Participación a través del tiempo</h2>
+                <p class="segmento__estado" data-estado-de="S13"></p>
+            </header>
+            <div class="segmento__cuerpo" data-segmento="S13"></div>
+        </section>
+
+        <section class="segmento" id="s14" aria-labelledby="s14-titulo">
+            <header class="segmento__cabecera">
+                <p class="segmento__numero">S14</p>
+                <h2 id="s14-titulo">Participación por sexo a través del tiempo</h2>
+                <p class="segmento__estado" data-estado-de="S14"></p>
+            </header>
+            <div class="segmento__cuerpo" data-segmento="S14"></div>
+        </section>
+
+        <section class="segmento" id="s15" aria-labelledby="s15-titulo">
+            <header class="segmento__cabecera">
+                <p class="segmento__numero">S15</p>
+                <h2 id="s15-titulo">Evolución del padrón</h2>
+                <p class="segmento__estado" data-estado-de="S15"></p>
+            </header>
+            <div class="segmento__cuerpo" data-segmento="S15"></div>
+        </section>
+
+        <section class="padron-analisis__metodo" aria-labelledby="metodo-titulo">
+            <h2 id="metodo-titulo">Método, privacidad y fuentes</h2>
+            <div id="metodoAnalisis"></div>
+        </section>
+    </main>
+
+    <footer class="site-footer">
+        <p>© <span id="currentYear"></span> Kalaguichi.com · Iniciativa independiente, no vinculada al TSJE.</p>
+        <p><a href="../../padron/privacidad.html">Privacidad y límites de la consulta del padrón</a></p>
+    </footer>
+</div>
+</body>
+</html>

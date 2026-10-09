@@ -1446,6 +1446,59 @@ html.con-dialogo {
         white-space: normal;
     }
 
+    /* «Padrón» en la barra (ADR-028): una pestaña más, cuyo botón abre Consulta y Análisis del padrón encima de la barra,
+       con la misma lista que en las pantallas anchas. */
+    .site-nav__grupo--barra {
+        display: flex;
+    }
+
+    .site-nav__grupo--barra .site-nav__grupo-boton {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: .125rem;
+        width: 100%;
+        min-height: 3.5rem;
+        padding: .25rem .125rem;
+        border-radius: .75rem;
+        font-size: .6875rem;
+        line-height: 1.1;
+    }
+
+    .site-nav__grupo--barra .site-nav__flecha,
+    .site-nav__grupo--barra .site-nav__grupo-titulo {
+        display: none;
+    }
+
+    .site-nav__grupo--barra .site-nav__submenu {
+        position: fixed;
+        left: .5rem;
+        bottom: calc(var(--alto-nav-inferior) + .5rem);
+        z-index: 56;
+        display: none;
+        min-width: 15rem;
+        max-width: calc(100vw - 1rem);
+        padding: .375rem;
+        border: 1px solid var(--border-strong);
+        border-radius: 1rem;
+        background: var(--surface-solid);
+        box-shadow: var(--card-shadow);
+    }
+
+    .site-nav__grupo--barra .site-nav__submenu.abierto {
+        display: grid;
+    }
+
+    .site-nav .site-nav__grupo--barra .site-nav__submenu a {
+        flex-direction: row;
+        justify-content: flex-start;
+        min-height: 3rem;
+        padding: .5rem .75rem;
+        font-size: .875rem;
+        text-align: left;
+    }
+
     .barra-contexto__inner {
         gap: .375rem .75rem;
         padding: .375rem 1rem;

@@ -141,11 +141,12 @@ function menuMas() {
     matchMedia('(min-width: 641px)').addEventListener('change', (consulta) => { if (consulta.matches) abrir(false); });
 }
 
-// --- Grupo «Máquina de votación» (escritorio y tablet): el botón despliega sus páginas debajo de él -------------------
+// --- Grupos «Padrón electoral» y «Máquina de votación»: el botón despliega sus páginas debajo de él -----------------
 // La lista tiene posición fija (el menú de la tablet se desplaza a lo ancho y la recortaría); se ubica al abrirla y se
-// cierra con Escape, con un clic afuera, al salir el foco, al desplazar o al cambiar el tamaño. En el celular el botón no
-// se ve: las páginas aparecen dentro de «Más».
+// cierra con Escape, con un clic afuera, al salir el foco, al desplazar o al cambiar el tamaño. En el celular, el padrón
+// es una pestaña de la barra que abre su lista encima de ella; la máquina no tiene botón: sus páginas van dentro de «Más».
 function grupos() {
+    const barraInferior = matchMedia('(max-width: 640px)');
     for (const boton of document.querySelectorAll('.site-nav__grupo-boton')) {
         const lista = $(boton.getAttribute('aria-controls'));
         if (!lista) continue;
@@ -154,9 +155,14 @@ function grupos() {
             lista.classList.toggle('abierto', si);
             boton.setAttribute('aria-expanded', String(si));
             if (!si) return;
-            const r = boton.getBoundingClientRect();
-            lista.style.top = `${Math.round(r.bottom + 6)}px`;
-            lista.style.left = `${Math.round(Math.max(8, Math.min(r.left, innerWidth - lista.offsetWidth - 8)))}px`;
+            // En la barra inferior del celular (el grupo «Padrón», ADR-028) la lista va encima de la barra, por CSS.
+            if (barraInferior.matches && boton.closest('.site-nav__grupo--barra')) {
+                lista.style.top = lista.style.left = '';
+            } else {
+                const r = boton.getBoundingClientRect();
+                lista.style.top = `${Math.round(r.bottom + 6)}px`;
+                lista.style.left = `${Math.round(Math.max(8, Math.min(r.left, innerWidth - lista.offsetWidth - 8)))}px`;
+            }
             if (foco) lista.querySelector('a')?.focus();
         };
         boton.addEventListener('click', (evento) => abrir(!abierto(), { foco: evento.detail === 0 }));
