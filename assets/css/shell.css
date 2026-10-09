@@ -1490,6 +1490,12 @@ html.con-dialogo {
         display: grid;
     }
 
+    /* «Análisis» (ADR-029) va a la derecha de la barra: su lista se abre alineada a la derecha. */
+    .site-nav__grupo--derecha .site-nav__submenu {
+        right: .5rem;
+        left: auto;
+    }
+
     .site-nav .site-nav__grupo--barra .site-nav__submenu a {
         flex-direction: row;
         justify-content: flex-start;

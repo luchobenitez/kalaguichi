@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="es" data-theme="light">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="description" content="Kalaguichi.com: finanzas municipales del ejercicio 2025 (MEF) en un mapa de Paraguay por municipio, con los resultados de las municipales 2026 como filtro, y las tablas de Presupuesto y Balance.">
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="referrer" content="no-referrer">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; worker-src 'self'; connect-src 'self'; style-src 'self'; img-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Kalaguichi.com">
+    <meta property="og:locale" content="es_PY">
+    <meta property="og:title" content="Finanzas municipales · Ejercicio 2025">
+    <meta property="og:description" content="Kalaguichi.com: finanzas municipales del ejercicio 2025 (MEF) en un mapa de Paraguay por municipio, con los resultados de las municipales 2026 como filtro, y las tablas de Presupuesto y Balance.">
+    <meta property="og:url" content="https://kalaguichi.com/analisis/financiero/2025/">
+    <meta name="twitter:card" content="summary">
+    <link rel="icon" href="../../../assets/img/kalaguichi-isotipo.svg" type="image/svg+xml">
+    <meta name="color-scheme" content="light dark">
+    <title>Kalaguichi.com · Finanzas municipales · Ejercicio 2025</title>
+    <link rel="stylesheet" href="../../../assets/css/shell.css">
+    <link rel="stylesheet" href="../../../assets/css/resultados.css">
+    <link rel="stylesheet" href="../../../assets/css/finanzas.css">
+    <script type="module" src="../../../assets/js/sitio.js"></script>
+    <script type="module" src="../../../assets/js/shell.js"></script>
+    <script type="module" src="../../../assets/js/finanzas/finanzas.js"></script>
+</head>
+
+<body>
+<noscript>Las finanzas municipales necesitan JavaScript para leer sus cuadros y dibujar el mapa.</noscript>
+<div class="app-shell">
+    <div class="background-grid" aria-hidden="true"></div>
+    <div class="ambient-glow ambient-glow--orange" aria-hidden="true"></div>
+    <div class="ambient-glow ambient-glow--blue" aria-hidden="true"></div>
+
+    <header class="site-header">
+        <div class="site-header__inner">
+            <a href="../../../" class="brand">
+                <span class="brand__mark">
+                    <img src="../../../assets/img/kalaguichi-isotipo.svg" alt="">
+                </span>
+
+                <span class="brand__text">
+                    <strong>Kalaguichi.com</strong>
+                    <small>Finanzas municipales</small>
+                </span>
+            </a>
+
+            <nav class="site-nav" aria-label="Secciones del sitio">
+                <div class="site-nav__grupo site-nav__grupo--barra">
+                    <button type="button" class="site-nav__grupo-boton" aria-expanded="false" aria-controls="submenuPadron"><svg class="site-nav__icono" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"></rect><circle cx="9" cy="11" r="2"></circle><path d="M6 16c.8-1.4 1.8-2 3-2s2.2.6 3 2M14 10h4M14 14h4"></path></svg><span class="site-nav__texto">Padrón electoral</span><span class="site-nav__corto" aria-hidden="true">Padrón</span><svg class="site-nav__flecha" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg></button>
+                    <p class="site-nav__grupo-titulo" aria-hidden="true"><svg class="site-nav__icono" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"></rect><circle cx="9" cy="11" r="2"></circle><path d="M6 16c.8-1.4 1.8-2 3-2s2.2.6 3 2M14 10h4M14 14h4"></path></svg>Padrón electoral</p>
+                    <ul class="site-nav__submenu" id="submenuPadron" aria-label="Padrón electoral">
+                        <li><a href="../../../padron/" data-seccion="padron" data-pagina="consulta">Consulta</a></li>
+                        <li><a href="../../../padron/analisis/" data-seccion="padron" data-pagina="analisis">Análisis del padrón</a></li>
+                    </ul>
+                </div>
+                <a href="../../../trep/" data-seccion="trep"><svg class="site-nav__icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h16"></path><path d="M7 16v-5M12 16V6M17 16V8"></path></svg><span class="site-nav__texto">TREP</span><span class="site-nav__corto" aria-hidden="true">TREP</span></a>
+                <a href="../../../oficiales/" data-seccion="oficiales"><svg class="site-nav__icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 12l2 2 4-4"></path><path d="M12 3l7 3v5c0 4.5-3 8.2-7 10-4-1.8-7-5.5-7-10V6l7-3Z"></path></svg><span class="site-nav__texto">Resultados oficiales</span><span class="site-nav__corto" aria-hidden="true">Oficiales</span></a>
+                <div class="site-nav__grupo site-nav__grupo--barra site-nav__grupo--derecha" data-actual>
+                    <button type="button" class="site-nav__grupo-boton" aria-expanded="false" aria-controls="submenuAnalisis"><svg class="site-nav__icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5M4 19h16"></path><path d="M7 15l4-5 3 3 5-6"></path></svg><span class="site-nav__texto">Análisis</span><span class="site-nav__corto" aria-hidden="true">Análisis</span><svg class="site-nav__flecha" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg></button>
+                    <p class="site-nav__grupo-titulo" aria-hidden="true"><svg class="site-nav__icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5M4 19h16"></path><path d="M7 15l4-5 3 3 5-6"></path></svg>Análisis</p>
+                    <ul class="site-nav__submenu" id="submenuAnalisis" aria-label="Análisis">
+                        <li><a href="../../../analisis/" data-seccion="analisis" data-pagina="trep">TREP</a></li>
+                        <li><a href="../../../analisis/financiero/2025/" data-seccion="financiero" data-pagina="financiero" aria-current="page">Financiero</a></li>
+                    </ul>
+                </div>
+                <button type="button" class="site-nav__mas" aria-expanded="false" aria-controls="menuMas"><svg class="site-nav__icono" viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.25"></circle><circle cx="12" cy="12" r="1.25"></circle><circle cx="19" cy="12" r="1.25"></circle></svg><span class="site-nav__texto">Más secciones</span><span class="site-nav__corto" aria-hidden="true">Más</span></button>
+                <div class="site-nav__extra" id="menuMas">
+                    <div class="site-nav__grupo">
+                        <button type="button" class="site-nav__grupo-boton" aria-expanded="false" aria-controls="submenuMaquina"><svg class="site-nav__icono" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"></rect><path d="M8 20h8M12 16v4"></path><path d="M8.5 10l2.5 2.5 4.5-4.5"></path></svg><span class="site-nav__texto">Máquina de votación</span><span class="site-nav__corto" aria-hidden="true">Máquina</span><svg class="site-nav__flecha" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg></button>
+                        <p class="site-nav__grupo-titulo" aria-hidden="true"><svg class="site-nav__icono" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"></rect><path d="M8 20h8M12 16v4"></path><path d="M8.5 10l2.5 2.5 4.5-4.5"></path></svg>Máquina de votación</p>
+                        <ul class="site-nav__submenu" id="submenuMaquina" aria-label="Máquina de votación">
+                            <li><a href="../../../maquina-votacion/historia/" data-seccion="maquina" data-pagina="historia">Historia de la adquisición</a></li>
+                            <li><a href="../../../maquina-votacion/maquina/" data-seccion="maquina" data-pagina="maquina">La máquina</a></li>
+                            <li><a href="../../../maquina-votacion/vulnerabilidades/" data-seccion="maquina" data-pagina="vulnerabilidades">Vulnerabilidades documentadas</a></li>
+                        </ul>
+                    </div>
+                    <a href="../../../acerca/" data-seccion="acerca"><svg class="site-nav__icono" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 11v5M12 8h.01"></path></svg><span class="site-nav__texto">Acerca de</span><span class="site-nav__corto" aria-hidden="true">Acerca</span></a>
+                </div>
+            </nav>
+
+            <div class="site-header__acciones">
+                <button id="compartir" type="button" class="theme-toggle" aria-label="Compartir esta página" title="Compartir esta página">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                        <circle cx="18" cy="5" r="2.5"></circle><circle cx="6" cy="12" r="2.5"></circle><circle cx="18" cy="19" r="2.5"></circle>
+                        <path stroke-linecap="round" d="M8.2 10.8l7.6-4.4M8.2 13.2l7.6 4.4"></path>
+                    </svg>
+                </button>
+                <button
+                    id="themeToggle"
+                    type="button"
+                    class="theme-toggle"
+                    aria-label="Cambiar modo de visualización"
+                    title="Cambiar modo de visualización"
+                >
+                    <svg id="sunIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                        <circle cx="12" cy="12" r="4"></circle>
+                        <path stroke-linecap="round" d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path>
+                    </svg>
+
+                    <svg id="moonIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"></path>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <nav class="finanzas-subnav" aria-label="Páginas de Análisis">
+        <div class="finanzas-subnav__inner">
+            <span class="finanzas-subnav__seccion">Análisis</span>
+            <a href="../../">TREP</a>
+            <a href="./" aria-current="page">Financiero</a>
+        </div>
+    </nav>
+
+    <main class="finanzas" id="contenido" data-listo="false">
+        <header class="finanzas__cabecera">
+            <p class="finanzas__eyebrow">Análisis · Financiero</p>
+            <h1>Finanzas municipales · Ejercicio 2025</h1>
+            <p class="finanzas__corte" id="corteFinanzas"></p>
+            <p class="finanzas__intro">El presupuesto, el balance y 27 indicadores de cada municipalidad, con las cifras ya procesadas del
+                Informe Financiero 2025 del Ministerio de Economía y Finanzas. Un solo mapa de Paraguay por municipio, coloreado por el
+                indicador elegido, y una tabla con el Presupuesto y el Balance debajo.</p>
+        </header>
+
+        <section class="finanzas__controles" aria-label="Filtros">
+            <div class="finanzas__filtros">
+                <div class="finanzas__campo">
+                    <span class="finanzas__rotulo" id="rotuloCargo">Cargo electoral</span>
+                    <div class="segmentos" role="group" aria-labelledby="rotuloCargo" id="filtroCargo">
+                        <button type="button" data-cargo="intendencia" aria-pressed="true">Intendencia</button>
+                        <button type="button" data-cargo="junta" aria-pressed="false">Junta Municipal</button>
+                    </div>
+                </div>
+                <label class="campo-select">Departamento
+                    <select id="filtroDepartamento"><option value="">Todos</option></select>
+                </label>
+                <label class="campo-select">Distrito o municipio
+                    <select id="filtroMunicipio" disabled><option value="">Todos</option></select>
+                </label>
+                <details class="finanzas__listas" id="filtroListas">
+                    <summary id="resumenListas">Listas: todas</summary>
+                    <div class="finanzas__listas-cuerpo">
+                        <label class="finanzas__buscar-lista">Buscar una lista
+                            <input type="search" id="buscarLista" autocomplete="off">
+                        </label>
+                        <fieldset>
+                            <legend id="leyendaListas">Listas ganadoras</legend>
+                            <div id="opcionesListas"></div>
+                        </fieldset>
+                        <button type="button" class="boton-secundario" id="todasLasListas">Todas las listas</button>
+                    </div>
+                </details>
+                <div class="finanzas__campo finanzas__campo-indicador">
+                    <label class="campo-select">Indicador financiero
+                        <select id="filtroIndicador"></select>
+                    </label>
+                    <label class="finanzas__buscar-indicador">Buscar un indicador
+                        <input type="search" id="buscarIndicador" autocomplete="off" aria-controls="resultadosIndicador" aria-describedby="ayudaIndicador">
+                    </label>
+                    <p class="visualmente-oculto" id="ayudaIndicador">Escribí parte del nombre; Enter elige el primero.</p>
+                    <ul class="finanzas__resultados-indicador" id="resultadosIndicador" aria-label="Indicadores que coinciden" hidden></ul>
+                </div>
+                <button type="button" class="boton-secundario" id="restablecerFiltros">Restablecer filtros</button>
+            </div>
+            <p class="finanzas__advertencia" role="note" id="advertenciaFinanzas"></p>
+            <p class="finanzas__mensaje" id="mensajeFiltros" aria-live="polite"></p>
+            <p class="finanzas__ambito" id="ambitoFinanzas" aria-live="polite"></p>
+        </section>
+
+        <section class="finanzas__indicador" id="fichaIndicador" aria-label="El indicador elegido"></section>
+
+        <section class="finanzas__mapa-caja" aria-label="Mapa">
+            <div class="mapa finanzas__mapa" id="mapaFinanzas"></div>
+            <div class="finanzas__leyenda-caja">
+                <p class="finanzas__leyenda-titulo" id="tituloLeyenda"></p>
+                <ul class="leyenda finanzas__leyenda" id="leyendaFinanzas"></ul>
+            </div>
+            <p class="finanzas__fuente-oficial"><a data-fuente-oficial target="_blank" rel="noopener noreferrer">Fuente oficial: MEF · Informe Financiero 2025</a></p>
+            <p class="nota finanzas__dato" id="datoFinanzas" aria-live="polite"></p>
+        </section>
+
+        <section class="finanzas__cobertura" aria-labelledby="cobertura-titulo">
+            <h2 id="cobertura-titulo">Cobertura de los datos</h2>
+            <div id="coberturaFinanzas"></div>
+        </section>
+
+        <section class="finanzas__tabla-caja" aria-labelledby="tabla-titulo">
+            <h2 id="tabla-titulo">Presupuesto y Balance</h2>
+            <p class="finanzas__fuente-oficial"><a data-fuente-oficial target="_blank" rel="noopener noreferrer">Fuente oficial: MEF · Informe Financiero 2025</a>
+                <span id="tomoVista"></span></p>
+            <div class="pestanas finanzas__pestanas" role="tablist" aria-label="Vista de la tabla">
+                <button type="button" role="tab" id="pestanaPresupuesto" aria-controls="panelFinanzas" aria-selected="true" data-vista="presupuesto">Presupuesto</button>
+                <button type="button" role="tab" id="pestanaBalance" aria-controls="panelFinanzas" aria-selected="false" tabindex="-1" data-vista="balance">Balance</button>
+            </div>
+            <div class="finanzas__tabla-controles">
+                <label class="finanzas__buscar">Buscar un municipio
+                    <input type="search" id="buscarMunicipio" autocomplete="off">
+                </label>
+                <details class="finanzas__columnas" id="selectorColumnas">
+                    <summary>Columnas</summary>
+                    <div class="finanzas__columnas-cuerpo" id="opcionesColumnas"></div>
+                </details>
+                <label class="finanzas__todas"><input type="checkbox" id="todasLasColumnas"> Mostrar todas las columnas</label>
+                <button type="button" class="boton-secundario" id="descargarCsvFinanzas">Descargar CSV (vista completa)</button>
+            </div>
+            <div role="tabpanel" id="panelFinanzas" aria-labelledby="pestanaPresupuesto">
+                <div class="tabla-scroll finanzas__tabla-scroll"><table class="tabla finanzas__tabla" id="tablaFinanzas"></table></div>
+                <p class="nota" id="notaTabla" aria-live="polite"></p>
+                <nav class="finanzas__paginas" aria-label="Páginas de la tabla">
+                    <button type="button" class="boton-secundario" id="paginaAnterior">Anterior</button>
+                    <span id="paginaActual"></span>
+                    <button type="button" class="boton-secundario" id="paginaSiguiente">Siguiente</button>
+                </nav>
+            </div>
+        </section>
+
+        <section class="finanzas__metodo" aria-labelledby="metodo-titulo">
+            <h2 id="metodo-titulo">Fuentes y metodología</h2>
+            <div id="metodoFinanzas"></div>
+        </section>
+    </main>
+
+    <dialog class="finanzas__ficha" id="fichaMunicipio" aria-labelledby="fichaMunicipioTitulo">
+        <div class="finanzas__ficha-cabecera">
+            <h2 id="fichaMunicipioTitulo"></h2>
+            <button type="button" class="boton-secundario" id="cerrarFicha">Cerrar</button>
+        </div>
+        <div id="fichaMunicipioCuerpo"></div>
+    </dialog>
+
+    <footer class="site-footer">
+        <p>© <span id="currentYear"></span> Kalaguichi.com · Iniciativa independiente, no vinculada al TSJE.</p>
+        <p><a href="../../../padron/privacidad.html">Privacidad y límites de la consulta del padrón</a></p>
+    </footer>
+</div>
+</body>
+</html>

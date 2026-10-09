@@ -22,8 +22,34 @@ const caja = ([x0, y0, x1, y1]) => [[x0, y0], [x1, y1]];
 
 // geo: { distritos, departamentos } (GeoJSON con clave/nombre y departamento/nombre); etiquetas: { distritos: [{ clave,
 // nombre, centro }], departamentos: [{ codigo, nombre, centro }] }. opciones: etiqueta (texto accesible), atribucion (nodo),
-// pais (caja [x0, y0, x1, y1]), alTocar(clave), texto(clave) (globo al pasar el puntero), alCambiarTema(), margen() y
-// controles (opciones de agregarControles).
+// pais (caja [x0, y0, x1, y1]), alTocar(clave), texto(clave) (globo al pasar el puntero), alCambiarTema(), margen(),
+// controles (opciones de agregarControles) y estadosExtra (ADR 0027: además del color, un tramado, un punteado y un
+// contorno por distrito, para el mapa de las finanzas municipales).
+
+// Los patrones de los estados extra (tramado: rayas diagonales; puntos), dibujados en un lienzo con la tinta del tema.
+function patron(nombre, oscuro) {
+    const lado = 8;
+    const lienzo = document.createElement('canvas');
+    lienzo.width = lienzo.height = lado;
+    const c = lienzo.getContext('2d');
+    c.strokeStyle = c.fillStyle = oscuro ? 'rgba(226, 232, 240, 0.75)' : 'rgba(15, 23, 42, 0.6)';
+    if (nombre === 'k-patron-tramado') {
+        c.lineWidth = 1.2;
+        c.beginPath();
+        c.moveTo(0, lado);
+        c.lineTo(lado, 0);
+        c.moveTo(-2, 2);
+        c.lineTo(2, -2);
+        c.moveTo(lado - 2, lado + 2);
+        c.lineTo(lado + 2, lado - 2);
+        c.stroke();
+    } else {
+        c.beginPath();
+        c.arc(lado / 2, lado / 2, 1.3, 0, 2 * Math.PI);
+        c.fill();
+    }
+    return c.getImageData(0, 0, lado, lado);
+}
 export function crearMapaPais(geo, etiquetas, contenedor, opciones = {}) {
     const estado = { pintura: new Map(), elegido: null, hover: null, opacidad: 0.85,
                      elementos: { departamentos: true, distritos: true, nombres: true, base: true } };
@@ -69,6 +95,11 @@ export function crearMapaPais(geo, etiquetas, contenedor, opciones = {}) {
                   paint: { 'line-color': t.distrito, 'line-opacity': 0.85, 'line-width': ['interpolate', ['linear'], ['zoom'], 5, 0.25, 8, 0.8, 11, 1.4] } },
                 { id: 'k-departamentos-borde', type: 'line', source: 'k-departamentos', layout: { 'line-join': 'round' },
                   paint: { 'line-color': t.departamento, 'line-opacity': 0.8, 'line-width': ['interpolate', ['linear'], ['zoom'], 5, 0.8, 8, 1.6, 11, 2.4] } },
+                ...(opciones.estadosExtra ? [
+                    { id: 'k-marcado', type: 'line', source: 'k-distritos', layout: { 'line-join': 'round' },
+                      paint: { 'line-color': t.elegido, 'line-width': ['interpolate', ['linear'], ['zoom'], 5, 1, 10, 2],
+                               'line-opacity': ['case', ['boolean', ['feature-state', 'marcado'], false], 0.75, 0] } },
+                ] : []),
                 { id: 'k-hover', type: 'line', source: 'k-distritos',
                   paint: { 'line-color': t.elegido, 'line-width': 1.6, 'line-opacity': ['case', ['boolean', ['feature-state', 'hover'], false], 0.9, 0] } },
                 { id: 'k-elegido', type: 'line', source: 'k-distritos', layout: { 'line-join': 'round' },
@@ -88,11 +119,25 @@ export function crearMapaPais(geo, etiquetas, contenedor, opciones = {}) {
         };
     }
 
+    // estadosExtra: el tramado y el punteado son capas con patrón, encima del relleno; se agregan ya cargado el mapa, con
+    // sus imágenes registradas antes.
+    function agregarPatrones() {
+        for (const nombre of ['k-patron-tramado', 'k-patron-puntos']) if (!map.hasImage(nombre)) map.addImage(nombre, patron(nombre, temaOscuro()));
+        const capas = map.getStyle().layers;
+        const siguiente = capas[capas.findIndex((c) => c.id === 'k-relleno') + 1]?.id;
+        for (const [id, imagen, estadoExtra] of [['k-tramado', 'k-patron-tramado', 'tramado'], ['k-pendiente', 'k-patron-puntos', 'pendiente']]) {
+            map.addLayer({ id, type: 'fill', source: 'k-distritos',
+                           paint: { 'fill-pattern': imagen, 'fill-opacity': ['case', ['boolean', ['feature-state', estadoExtra], false], 1, 0] } }, siguiente);
+        }
+    }
+
     // Relleno, atenuado y elegido: estado por distrito (feature-state), sin volver a leer la geometría.
     function aplicar() {
         if (!map?.getSource('k-distritos')) return;
         for (const [clave, p] of estado.pintura) {
-            map.setFeatureState({ source: 'k-distritos', id: clave }, { color: p.color ?? null, atenuado: Boolean(p.atenuado), elegido: clave === estado.elegido });
+            map.setFeatureState({ source: 'k-distritos', id: clave }, { color: p.color ?? null, atenuado: Boolean(p.atenuado), elegido: clave === estado.elegido,
+                                                                        ...(opciones.estadosExtra ? { tramado: Boolean(p.tramado), pendiente: Boolean(p.pendiente),
+                                                                                                      marcado: Boolean(p.marcado) } : {}) });
         }
         aplicarAspecto();
     }
@@ -117,7 +162,10 @@ export function crearMapaPais(geo, etiquetas, contenedor, opciones = {}) {
         map.setPaintProperty('k-relleno', 'fill-color', ['coalesce', ['feature-state', 'color'], t.tierra]);
         map.setPaintProperty('k-distritos-borde', 'line-color', t.distrito);
         map.setPaintProperty('k-departamentos-borde', 'line-color', t.departamento);
-        for (const id of ['k-hover', 'k-elegido']) map.setPaintProperty(id, 'line-color', t.elegido);
+        for (const id of ['k-hover', 'k-elegido', ...(opciones.estadosExtra ? ['k-marcado'] : [])]) map.setPaintProperty(id, 'line-color', t.elegido);
+        if (opciones.estadosExtra) {
+            for (const nombre of ['k-patron-tramado', 'k-patron-puntos']) if (map.hasImage(nombre)) map.updateImage(nombre, patron(nombre, temaOscuro()));
+        }
         for (const id of ['k-nombres-departamentos', 'k-nombres-distritos']) {
             map.setPaintProperty(id, 'text-color', t.tinta);
             map.setPaintProperty(id, 'text-halo-color', t.halo);
@@ -169,6 +217,7 @@ export function crearMapaPais(geo, etiquetas, contenedor, opciones = {}) {
             map.once('load', resolver);
             map.once('error', (e) => (map.loaded() ? null : rechazar(e.error ?? e)));
         });
+        if (opciones.estadosExtra) agregarPatrones();
         aplicar();
         map.on('click', (evento) => {
             const clave = distritoEn(evento.point);
@@ -221,7 +270,9 @@ export function crearMapaPais(geo, etiquetas, contenedor, opciones = {}) {
     };
     api.vista = () => (map ? { centro: map.getCenter().toArray(), zoom: map.getZoom() } : null);
     // Lo pintado, para las pruebas.
-    api.leer = () => ({ pintura: Object.fromEntries([...estado.pintura].map(([k, p]) => [k, { color: p.color ?? null, atenuado: Boolean(p.atenuado) }])),
+    api.leer = () => ({ pintura: Object.fromEntries([...estado.pintura].map(([k, p]) => [k, { color: p.color ?? null, atenuado: Boolean(p.atenuado),
+                                                                                         ...(opciones.estadosExtra ? { tramado: Boolean(p.tramado), pendiente: Boolean(p.pendiente),
+                                                                                                                       marcado: Boolean(p.marcado) } : {}) }])),
                         elegido: estado.elegido, opacidad: estado.opacidad, elementos: { ...estado.elementos } });
     // Punto de la pantalla (relativo a la ventana) del rótulo de un distrito, para las pruebas.
     api.proyectar = (lonLat) => {

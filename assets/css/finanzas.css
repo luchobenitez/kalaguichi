@@ -1,0 +1,934 @@
+/* Finanzas municipales · Ejercicio 2025 (ADR-029; ADR 0027 del módulo): la página /analisis/financiero/2025/. Usa los
+   tokens de shell.css y los selectores, segmentos, pestañas, tablas, leyendas y botones de resultados.css. */
+
+.finanzas-subnav {
+    position: relative;
+    z-index: 1;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+}
+
+.finanzas-subnav__inner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .25rem .375rem;
+    width: min(100%, 76rem);
+    margin: 0 auto;
+    padding: .5rem 1rem;
+}
+
+.finanzas-subnav a,
+.finanzas-subnav__seccion {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.25rem;
+    padding: .375rem .75rem;
+    border: 1px solid transparent;
+    border-radius: 9999px;
+    color: var(--text-soft);
+    font-size: .8125rem;
+    font-weight: 700;
+}
+
+.finanzas-subnav__seccion {
+    color: var(--text);
+    font-weight: 800;
+}
+
+.finanzas-subnav__seccion::after {
+    content: "›";
+    margin-left: .5rem;
+    color: var(--text-muted);
+}
+
+.finanzas-subnav a:hover {
+    color: var(--orange-600);
+    background: var(--surface-soft);
+}
+
+.finanzas-subnav a[aria-current="page"] {
+    color: var(--orange-700);
+    border-color: rgba(249, 115, 22, .35);
+    background: rgba(249, 115, 22, .10);
+}
+
+html[data-theme="dark"] .finanzas-subnav a[aria-current="page"] {
+    color: var(--orange-400);
+}
+
+.finanzas {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    gap: 1.25rem;
+    width: min(100%, 76rem);
+    min-width: 0;
+    margin: 0 auto;
+    padding: 2rem 1rem 3rem;
+}
+
+.finanzas > * {
+    min-width: 0;
+}
+
+.finanzas__eyebrow {
+    margin: 0 0 .5rem;
+    color: var(--orange-700);
+    font-size: .8125rem;
+    font-weight: 800;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+}
+
+html[data-theme="dark"] .finanzas__eyebrow {
+    color: var(--orange-400);
+}
+
+.finanzas__cabecera h1 {
+    margin: 0;
+    color: var(--text);
+    font-size: clamp(1.75rem, 3.6vw, 2.5rem);
+    font-weight: 800;
+    letter-spacing: -.02em;
+    line-height: 1.15;
+}
+
+.finanzas__corte {
+    margin: .625rem 0 0;
+    color: var(--text);
+    font-size: .9375rem;
+    font-weight: 600;
+    line-height: 1.5;
+}
+
+.finanzas__intro {
+    max-width: 52rem;
+    margin: .75rem 0 0;
+    color: var(--text-soft);
+    line-height: 1.6;
+}
+
+.finanzas__error {
+    margin: 0;
+    padding: 1rem;
+    border: 1px solid var(--red-600);
+    border-radius: 1rem;
+    color: var(--text);
+    background: var(--surface);
+}
+
+/* Controles */
+.finanzas__controles,
+.finanzas__indicador,
+.finanzas__mapa-caja,
+.finanzas__cobertura,
+.finanzas__tabla-caja,
+.finanzas__metodo {
+    display: grid;
+    gap: .875rem;
+    min-width: 0;
+    padding: 1.25rem;
+    border: 1px solid var(--border);
+    border-radius: 1.25rem;
+    background: var(--surface);
+}
+
+/* Los hijos de las tarjetas (grid) no se estiran al ancho de su contenido: la tabla se desplaza dentro de su caja. */
+.finanzas__controles > *,
+.finanzas__indicador > *,
+.finanzas__mapa-caja > *,
+.finanzas__cobertura > *,
+.finanzas__tabla-caja > *,
+.finanzas__metodo > *,
+#panelFinanzas > * {
+    min-width: 0;
+    max-width: 100%;
+}
+
+.finanzas__filtros {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: .75rem 1rem;
+}
+
+.finanzas__campo {
+    display: grid;
+    gap: .375rem;
+}
+
+.finanzas__rotulo {
+    color: var(--text-muted);
+    font-size: .8125rem;
+    font-weight: 600;
+}
+
+.finanzas__filtros .campo-select {
+    flex-wrap: wrap;
+}
+
+.finanzas__filtros .campo-select select {
+    max-width: min(22rem, 100%);
+}
+
+.finanzas__campo-indicador select {
+    max-width: min(30rem, 100%);
+}
+
+/* Listas: un desplegable con búsqueda y casillas (varias listas se unen). */
+.finanzas__listas {
+    position: relative;
+}
+
+.finanzas__listas summary {
+    cursor: pointer;
+    max-width: 22rem;
+    padding: .5rem .875rem;
+    overflow: hidden;
+    border: 1px solid var(--border-strong);
+    border-radius: .75rem;
+    background: var(--input-bg);
+    color: var(--input-text);
+    font-size: .8125rem;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.finanzas__listas summary:focus-visible {
+    outline: 3px solid var(--orange-500);
+    outline-offset: 2px;
+}
+
+.finanzas__listas-cuerpo {
+    position: absolute;
+    z-index: 20;
+    top: calc(100% + .375rem);
+    left: 0;
+    display: grid;
+    gap: .625rem;
+    width: min(34rem, calc(100vw - 2rem));
+    padding: .875rem;
+    border: 1px solid var(--border-strong);
+    border-radius: 1rem;
+    background: var(--surface-solid);
+    box-shadow: 0 12px 32px rgba(15, 23, 42, .18);
+}
+
+.finanzas__buscar-lista,
+.finanzas__buscar {
+    display: grid;
+    gap: .25rem;
+    color: var(--text-muted);
+    font-size: .8125rem;
+    font-weight: 600;
+}
+
+.finanzas__buscar-lista input,
+.finanzas__buscar input {
+    min-width: 0;
+    padding: .5rem .75rem;
+    border: 1px solid var(--border-strong);
+    border-radius: .75rem;
+    background: var(--input-bg);
+    color: var(--input-text);
+    font: inherit;
+}
+
+.finanzas__listas fieldset {
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+
+.finanzas__listas legend {
+    margin-bottom: .375rem;
+    color: var(--text);
+    font-size: .8125rem;
+    font-weight: 800;
+}
+
+#opcionesListas {
+    display: grid;
+    gap: .125rem;
+    max-height: 18rem;
+    overflow: auto;
+}
+
+.finanzas__opcion-lista {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0 .5rem;
+    align-items: start;
+    padding: .375rem .25rem;
+    border-radius: .5rem;
+    color: var(--text);
+    font-size: .8125rem;
+    cursor: pointer;
+}
+
+.finanzas__opcion-lista:hover {
+    background: var(--surface-soft);
+}
+
+.finanzas__opcion-lista input {
+    margin-top: .2rem;
+}
+
+.finanzas__opcion-cuenta {
+    grid-column: 2;
+    color: var(--text-muted);
+    font-size: .75rem;
+}
+
+.finanzas__advertencia {
+    margin: 0;
+    padding: .75rem 1rem;
+    border-left: 4px solid var(--orange-500);
+    border-radius: .5rem;
+    background: color-mix(in srgb, var(--orange-500) 9%, var(--surface-solid));
+    color: var(--text);
+    font-size: .875rem;
+    font-weight: 600;
+    line-height: 1.5;
+}
+
+.finanzas__mensaje {
+    margin: 0;
+    padding: .625rem .875rem;
+    border: 1px solid var(--border-strong);
+    border-radius: .75rem;
+    color: var(--text);
+    font-size: .8125rem;
+}
+
+.finanzas__mensaje[hidden] {
+    display: none;
+}
+
+.finanzas__ambito {
+    margin: 0;
+    color: var(--text-soft);
+    font-size: .875rem;
+}
+
+/* Buscador del indicador: coincidencias literales (sin tildes) debajo del selector. */
+.finanzas__campo-indicador {
+    position: relative;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: .5rem .75rem;
+}
+
+.finanzas__buscar-indicador {
+    display: grid;
+    gap: .25rem;
+    color: var(--text-muted);
+    font-size: .8125rem;
+    font-weight: 600;
+}
+
+.finanzas__buscar-indicador input {
+    width: min(18rem, 100%);
+    padding: .5rem .75rem;
+    border: 1px solid var(--border-strong);
+    border-radius: .75rem;
+    background: var(--input-bg);
+    color: var(--input-text);
+    font: inherit;
+}
+
+.finanzas__resultados-indicador {
+    position: absolute;
+    z-index: 20;
+    top: calc(100% + .375rem);
+    left: 0;
+    display: grid;
+    gap: .125rem;
+    width: min(34rem, calc(100vw - 2rem));
+    max-height: 20rem;
+    margin: 0;
+    padding: .5rem;
+    overflow: auto;
+    border: 1px solid var(--border-strong);
+    border-radius: 1rem;
+    background: var(--surface-solid);
+    box-shadow: 0 12px 32px rgba(15, 23, 42, .18);
+    list-style: none;
+}
+
+.finanzas__resultados-indicador[hidden] {
+    display: none;
+}
+
+.finanzas__resultado {
+    display: grid;
+    width: 100%;
+    padding: .375rem .5rem;
+    border-radius: .5rem;
+    background: transparent;
+    color: var(--text);
+    font: inherit;
+    font-size: .8125rem;
+    font-weight: 700;
+    text-align: left;
+    cursor: pointer;
+}
+
+.finanzas__resultado:hover,
+.finanzas__resultado:focus-visible {
+    background: var(--surface-soft);
+    outline: 2px solid var(--orange-500);
+    outline-offset: -2px;
+}
+
+.finanzas__resultado-detalle,
+.finanzas__resultado-vacio {
+    color: var(--text-muted);
+    font-size: .75rem;
+    font-weight: 500;
+}
+
+.finanzas__resultado-vacio {
+    padding: .375rem .5rem;
+}
+
+/* El indicador elegido */
+.finanzas__indicador-rotulo {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: .75rem;
+    font-weight: 800;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+}
+
+.finanzas__indicador-nombre {
+    margin: 0;
+    color: var(--text);
+    font-size: 1.25rem;
+    font-weight: 800;
+}
+
+.finanzas__indicador-datos,
+.finanzas__cobertura-datos,
+.finanzas__metodo-datos {
+    display: grid;
+    grid-template-columns: minmax(8rem, 12rem) 1fr;
+    gap: .5rem 1rem;
+    margin: 0;
+    font-size: .875rem;
+    line-height: 1.55;
+}
+
+.finanzas__indicador-datos dt,
+.finanzas__cobertura-datos dt,
+.finanzas__metodo-datos dt {
+    color: var(--text-muted);
+    font-weight: 700;
+}
+
+.finanzas__indicador-datos dd,
+.finanzas__cobertura-datos dd,
+.finanzas__metodo-datos dd {
+    margin: 0;
+    color: var(--text);
+}
+
+.finanzas__indicador-subtitulo {
+    margin: -.375rem 0 0;
+    color: var(--text-soft);
+    font-size: .9375rem;
+    font-weight: 600;
+}
+
+/* El enlace a la fuente oficial (una sola configuración: la del manifiesto), junto al mapa y en la tabla. */
+.finanzas__fuente-oficial {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: .8125rem;
+}
+
+.finanzas__fuente-oficial a {
+    color: var(--orange-700);
+    font-weight: 700;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+html[data-theme="dark"] .finanzas__fuente-oficial a {
+    color: var(--orange-400);
+}
+
+/* Las columnas del «Presupuesto anual»: la opción del mapa y la marca de ampliación (no estaban en la hoja original). */
+.finanzas__col-opcion,
+.finanzas__col-marca {
+    display: block;
+    margin-top: .25rem;
+    color: var(--text-muted);
+    font-size: .6875rem;
+    font-weight: 600;
+}
+
+.finanzas__col-marca {
+    color: var(--orange-700);
+    font-weight: 800;
+    letter-spacing: .02em;
+    text-transform: uppercase;
+}
+
+html[data-theme="dark"] .finanzas__col-marca {
+    color: var(--orange-400);
+}
+
+/* Fuentes y metodología */
+.finanzas__atribucion {
+    margin: 0;
+    padding: .875rem 1rem;
+    border-left: 4px solid var(--orange-500);
+    border-radius: .5rem;
+    background: var(--surface-soft);
+    color: var(--text);
+    font-size: .875rem;
+    line-height: 1.6;
+}
+
+.finanzas__metodo-bloque {
+    display: grid;
+    gap: .5rem;
+}
+
+.finanzas__metodo-bloque h3 {
+    margin: .5rem 0 0;
+    color: var(--text);
+    font-size: 1rem;
+    font-weight: 800;
+}
+
+.finanzas__tomos,
+.finanzas__descargas {
+    display: grid;
+    gap: .375rem;
+    margin: 0;
+    padding-left: 1.125rem;
+}
+
+.finanzas__huella {
+    display: block;
+    color: var(--text-muted);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: .6875rem;
+    overflow-wrap: anywhere;
+}
+
+.finanzas__metodo-bloque a,
+.finanzas__descargas a {
+    color: var(--orange-700);
+    font-weight: 700;
+}
+
+html[data-theme="dark"] .finanzas__metodo-bloque a,
+html[data-theme="dark"] .finanzas__descargas a {
+    color: var(--orange-400);
+}
+
+.finanzas h2 {
+    margin: 0;
+    color: var(--text);
+    font-size: 1.125rem;
+    font-weight: 800;
+}
+
+/* Mapa y leyenda */
+.finanzas__mapa {
+    aspect-ratio: auto;
+    height: clamp(22rem, 64vh, 40rem);
+    max-height: none;
+    border: 1px solid var(--border);
+}
+
+.finanzas__mapa .mapa__globo {
+    white-space: pre-line;
+}
+
+.finanzas__leyenda-titulo {
+    margin: 0;
+    color: var(--text);
+    font-size: .875rem;
+    font-weight: 800;
+}
+
+.finanzas__leyenda {
+    margin: .5rem 0 0;
+}
+
+.finanzas__leyenda-n {
+    color: var(--text-muted);
+}
+
+.finanzas__muestra {
+    width: 1.25rem;
+    height: .875rem;
+    flex: 0 0 auto;
+    border: 1px solid var(--border-strong);
+    border-radius: 3px;
+}
+
+.finanzas__muestra--no_disponible {
+    background: repeating-linear-gradient(135deg, var(--text-soft) 0 1.5px, transparent 1.5px 5px), var(--surface-solid);
+}
+
+.finanzas__muestra--pendiente {
+    background: radial-gradient(circle, var(--text-soft) 1.1px, transparent 1.6px) 0 0 / 5px 5px, var(--surface-solid);
+}
+
+.finanzas__muestra--marcado {
+    border: 2px solid var(--text);
+    background: transparent;
+}
+
+.finanzas__muestra--fuera {
+    background: transparent;
+}
+
+.finanzas__leyenda-nota {
+    margin: .5rem 0 0;
+}
+
+.finanzas__dato {
+    margin: 0;
+}
+
+.finanzas__acciones {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem;
+}
+
+.finanzas__acciones[hidden],
+#verTodosMunicipios[hidden] {
+    display: none;
+}
+
+/* Tabla */
+.finanzas__pestanas {
+    margin: 0;
+}
+
+.finanzas__tabla-controles {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: .75rem 1rem;
+}
+
+.finanzas__columnas {
+    position: relative;
+}
+
+.finanzas__columnas summary {
+    cursor: pointer;
+    padding: .625rem 1rem;
+    border: 1px solid var(--border-strong);
+    border-radius: .875rem;
+    color: var(--text-soft);
+    font-weight: 600;
+}
+
+.finanzas__columnas summary:focus-visible {
+    outline: 3px solid var(--orange-500);
+    outline-offset: 2px;
+}
+
+.finanzas__columnas-cuerpo {
+    position: absolute;
+    z-index: 20;
+    top: calc(100% + .375rem);
+    left: 0;
+    display: grid;
+    gap: .125rem;
+    width: min(28rem, calc(100vw - 2rem));
+    max-height: 22rem;
+    padding: .75rem;
+    overflow: auto;
+    border: 1px solid var(--border-strong);
+    border-radius: 1rem;
+    background: var(--surface-solid);
+    box-shadow: 0 12px 32px rgba(15, 23, 42, .18);
+}
+
+.finanzas__opcion-columna {
+    padding: .25rem;
+    color: var(--text);
+    font-size: .8125rem;
+    cursor: pointer;
+}
+
+.finanzas__todas {
+    display: inline-flex;
+    align-items: center;
+    gap: .375rem;
+    min-height: 2.5rem;
+    color: var(--text);
+    font-size: .875rem;
+    font-weight: 600;
+}
+
+.finanzas__tabla caption {
+    padding: .5rem .625rem;
+    color: var(--text-muted);
+    font-size: .75rem;
+    text-align: left;
+}
+
+.finanzas__tabla thead th {
+    min-width: 7.5rem;
+    max-width: 13rem;
+    vertical-align: bottom;
+    white-space: normal;
+}
+
+.finanzas__tabla thead th:first-child {
+    min-width: 11rem;
+}
+
+/* Los nombres del diccionario, como se escriben: sin mayúsculas forzadas (son largos y llevan unidades como «Gs.»). */
+.finanzas__tabla .tabla__orden {
+    letter-spacing: 0;
+    text-align: inherit;
+    text-transform: none;
+}
+
+.finanzas__celda-municipio {
+    min-width: 11rem;
+}
+
+.finanzas__elegir {
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    padding: 0;
+    background: transparent;
+    color: var(--text);
+    font: inherit;
+    font-weight: 700;
+    text-align: left;
+    text-overflow: ellipsis;
+    cursor: pointer;
+}
+
+.finanzas__elegir:hover {
+    color: var(--orange-600);
+    text-decoration: underline;
+}
+
+.finanzas__celda-departamento {
+    color: var(--text-muted);
+    font-size: .75rem;
+    font-weight: 500;
+}
+
+/* El departamento y el botón de la ficha, en la segunda línea de la celda del municipio. */
+.finanzas__abrir-ficha {
+    margin-left: .5rem;
+    padding: .0625rem .5rem;
+    border: 1px solid var(--border-strong);
+    border-radius: 9999px;
+    background: transparent;
+    color: var(--text-soft);
+    font-size: .6875rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.finanzas__elegir:focus-visible,
+.finanzas__abrir-ficha:focus-visible {
+    outline: 3px solid var(--orange-500);
+    outline-offset: 2px;
+}
+
+.finanzas__celda-segunda {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .125rem 0;
+}
+
+.finanzas__nd {
+    color: var(--text-muted);
+}
+
+.finanzas__sin-informe {
+    color: var(--text-soft);
+    font-style: italic;
+}
+
+.finanzas__paginas {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .5rem 1rem;
+    margin-top: .75rem;
+    color: var(--text-soft);
+    font-size: .875rem;
+}
+
+.finanzas__paginas button:disabled {
+    cursor: not-allowed;
+    opacity: .45;
+}
+
+#verTodosMunicipios {
+    justify-self: start;
+}
+
+/* Ficha de un municipio */
+.finanzas__ficha {
+    width: min(52rem, calc(100vw - 2rem));
+    max-height: min(88vh, 60rem);
+    padding: 0;
+    border: 1px solid var(--border-strong);
+    border-radius: 1.25rem;
+    background: var(--surface-solid);
+    color: var(--text);
+    box-shadow: 0 24px 60px rgba(15, 23, 42, .35);
+}
+
+.finanzas__ficha::backdrop {
+    background: rgba(15, 23, 42, .55);
+}
+
+.finanzas__ficha-cabecera {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: .5rem 1rem;
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface-solid);
+}
+
+.finanzas__ficha-cabecera h2 {
+    margin: 0;
+    font-size: 1.125rem;
+    font-weight: 800;
+}
+
+#fichaMunicipioCuerpo {
+    display: grid;
+    gap: 1.25rem;
+    padding: 1rem 1.25rem 1.5rem;
+}
+
+.finanzas__ficha-seccion h3 {
+    margin: 0 0 .5rem;
+    color: var(--text);
+    font-size: .9375rem;
+    font-weight: 800;
+}
+
+.finanzas__ficha-datos {
+    display: grid;
+    grid-template-columns: minmax(10rem, 1fr) minmax(10rem, 1fr);
+    gap: 0;
+    margin: 0;
+    font-size: .8125rem;
+}
+
+.finanzas__ficha-datos dt,
+.finanzas__ficha-datos dd {
+    margin: 0;
+    padding: .375rem .25rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.finanzas__ficha-datos dt {
+    color: var(--text-soft);
+}
+
+.finanzas__ficha-datos dd {
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    text-align: right;
+}
+
+.finanzas__ficha-detalle {
+    display: block;
+    color: var(--text-muted);
+    font-size: .75rem;
+    font-weight: 500;
+}
+
+/* Celular: los filtros en columna y las fichas en una columna. */
+@media (max-width: 640px) {
+    .finanzas {
+        gap: 1rem;
+        padding: 1.25rem .75rem 2.5rem;
+    }
+
+    .finanzas__controles,
+    .finanzas__indicador,
+    .finanzas__mapa-caja,
+    .finanzas__cobertura,
+    .finanzas__tabla-caja,
+    .finanzas__metodo {
+        padding: 1rem;
+    }
+
+    .finanzas__filtros {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .finanzas__filtros .campo-select {
+        display: grid;
+    }
+
+    .finanzas__filtros .campo-select select,
+    .finanzas__campo-indicador select,
+    .finanzas__listas summary {
+        width: 100%;
+        max-width: 100%;
+    }
+
+    .finanzas__listas-cuerpo,
+    .finanzas__columnas-cuerpo {
+        position: static;
+        width: auto;
+        margin-top: .375rem;
+        box-shadow: none;
+    }
+
+    .finanzas__indicador-datos,
+    .finanzas__cobertura-datos,
+    .finanzas__metodo-datos,
+    .finanzas__ficha-datos {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .finanzas__indicador-datos dd,
+    .finanzas__cobertura-datos dd,
+    .finanzas__metodo-datos dd {
+        margin-bottom: .375rem;
+    }
+
+    .finanzas__ficha-datos dt {
+        padding-bottom: 0;
+        border-bottom: 0;
+    }
+
+    .finanzas__ficha-datos dd {
+        text-align: left;
+    }
+
+    .finanzas__mapa {
+        height: clamp(20rem, 70vh, 32rem);
+    }
+}
