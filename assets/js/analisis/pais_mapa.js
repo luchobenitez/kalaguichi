@@ -5,7 +5,56 @@
 import { geoNacional } from '../datos.js';
 import { crearMapaPais } from '../tablero/mapa_pais.js';
 import { enlaceOsm } from '../tablero/base_pais.js';
-import { el } from '../tablero/util.js';
+import { PASO_ELECTORES } from './pais_datos.js';
+import { el, fmt, cantidad, porcentaje } from '../tablero/util.js';
+
+// El gris de los distritos que no superan el mínimo de electores, en cada tema: neutro y distinto del fondo del mapa
+// (ninguna lista ganadora usa gris).
+const GRIS = { claro: '#9ca3af', oscuro: '#4b5563' };
+export const grisMinimo = () => GRIS[document.documentElement.dataset.theme === 'dark' ? 'oscuro' : 'claro'];
+
+// El mínimo de electores (ADR-025; también en ADR-027): deslizador de 0 al tope, de a PASO_ELECTORES, con el valor, los
+// extremos y la cuenta a la vista. id: el del <input>, único en la página; alMover(minimo) mientras se arrastra y
+// alSoltar(minimo) al soltar. mostrar(minimo, texto) refleja el estado.
+export function crearDeslizador(contenedor, { id, maximo, alMover, alSoltar }) {
+    const control = el('div', 'deslizador');
+    const etiqueta = el('label', 'deslizador__etiqueta');
+    const rango = el('input', 'deslizador__rango');
+    rango.type = 'range';
+    rango.id = id;
+    rango.min = '0';
+    rango.max = String(maximo);
+    rango.step = String(PASO_ELECTORES);
+    etiqueta.htmlFor = rango.id;
+    const valor = el('output', 'deslizador__valor');
+    valor.setAttribute('for', rango.id);
+    etiqueta.append('Electores habilitados (padrón): más de ', valor);
+    const extremos = el('p', 'deslizador__extremos');
+    extremos.append(el('span', null, '0'), el('span', null, fmt.format(maximo)));
+    const cuenta = el('p', 'deslizador__cuenta');
+    cuenta.setAttribute('aria-live', 'polite');
+    control.append(etiqueta, rango, extremos, cuenta);
+    contenedor.append(control);
+    rango.addEventListener('input', () => alMover(Number(rango.value)));
+    rango.addEventListener('change', () => alSoltar(Number(rango.value)));
+    return {
+        rango,
+        mostrar(minimo, texto) {
+            rango.value = String(minimo);
+            valor.value = fmt.format(minimo);
+            rango.setAttribute('aria-valuetext', `más de ${fmt.format(minimo)} electores`);
+            cuenta.textContent = texto;
+        },
+    };
+}
+
+// La cuenta del deslizador: cuántos de los distritos del filtro superan el mínimo y qué parte de los electores reúnen.
+export function textoCuenta(ctx, dentro, visibles, electoresDe) {
+    const total = dentro.reduce((a, d) => a + electoresDe(d), 0);
+    const suyos = visibles.reduce((a, d) => a + electoresDe(d), 0);
+    return `${visibles.length} de ${cantidad(dentro.length, 'distrito', 'distritos')} · ${porcentaje(suyos, total)} % de los electores` +
+        (ctx.filtro() ? ` de ${ctx.textoFiltro()}` : ' del país');
+}
 
 let geoEnCurso = null;
 // La geometría del país, una sola vez para los análisis que la usan.

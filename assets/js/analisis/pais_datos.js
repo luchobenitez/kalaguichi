@@ -85,6 +85,21 @@ export function textoTramo(k, formato = new Intl.NumberFormat('es-PY')) {
     return `${formato.format(CORTES_ELECTORES[k - 1])} a ${formato.format(CORTES_ELECTORES[k] - 1)}`;
 }
 
+// Votos de una lista en un distrito del cargo (ADR-027): los de un partido (su sigla) o, con LOCALES, la suma de las
+// alianzas y los movimientos locales del distrito; null si el distrito no tiene esa lista.
+export function votosDeLista(d, id) {
+    if (id === LOCALES) {
+        const locales = Object.entries(d.listas).filter(([, x]) => x.tipo !== 'partido');
+        return locales.length ? locales.reduce((a, [sigla]) => a + (d.votos[sigla] ?? 0), 0) : null;
+    }
+    return d.listas[id] ? d.votos[id] ?? 0 : null;
+}
+// Sus votos sobre los votos a listas del distrito, en %; null sin lista.
+export function pctDeLista(d, id) {
+    const v = votosDeLista(d, id);
+    return v === null || !d.votos_listas ? null : (100 * v) / d.votos_listas;
+}
+
 // Valor del componente k en el área; sin dato (Asunción, un área sin población) o intensidad sin personas pobres: null.
 export function valorIpm(datos, clave, k, area) {
     const x = datos.ipmPor.get(clave);

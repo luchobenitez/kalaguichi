@@ -30,6 +30,9 @@ const CATALOGO = [
       descripcionPais: 'El mapa con la lista más votada de cada distrito; los que no superan un mínimo de electores, en gris.' },
     { id: 'electores', titulo: 'Electores por distrito', soloPais: true,
       descripcionPais: 'El mapa de los electores habilitados de cada distrito según el padrón: los votos posibles.' },
+    // El mapa de los votos de una lista (ADR-027): porcentaje o cantidad, con el mínimo de electores de «Distritos».
+    { id: 'votos-lista', titulo: 'Votos de una lista', soloPais: true,
+      descripcionPais: 'El porcentaje o la cantidad de votos de una lista en cada distrito; los que no superan un mínimo de electores, en gris.' },
     { id: 'ranking', titulo: 'Ranking por lista', descripcion: 'Locales y barrios según el voto de cada lista.', descripcionDistrito: 'Locales según el voto de cada lista de la Junta.' },
     { id: 'trep-oficial', titulo: 'TREP vs oficial', descripcion: 'Diferencias entre las dos fuentes, por mesa y por local.', requiere: 'oficial' },
 ];
@@ -43,7 +46,7 @@ const MODULOS = { 'voto-cruzado': () => import('./voto_cruzado.js'), margen: () 
                   'trep-oficial': () => import('./trep_oficial.js') };
 const MODULOS_PAIS = { 'participacion-ipm': () => import('./pais_participacion.js'), 'ganador-ipm': () => import('./pais_ganador.js'),
                        'lista-ipm': () => import('./pais_lista.js'), distritos: () => import('./pais_distritos.js'),
-                       electores: () => import('./pais_electores.js') };
+                       electores: () => import('./pais_electores.js'), 'votos-lista': () => import('./pais_votos_lista.js') };
 const FECHA = /^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2}))?/;
 
 const estado = { analisis: 'voto-cruzado', filtro: '' };

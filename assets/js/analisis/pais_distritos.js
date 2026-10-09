@@ -3,15 +3,11 @@
 // color de su lista y los demás van en gris. Los electores son los del padrón (las personas habilitadas para votar), no
 // los habitantes. El deslizador va de 0 al máximo de un distrito; el mínimo va en el enlace (electores=…).
 import { descargarCsv, descargarPng, nombreArchivo, renderTablaOrdenable, alOrdenar } from './exportar.js';
-import { crearMapaAnalisis } from './pais_mapa.js';
-import { grupoDe, LOCALES, electoresDe, PASO_ELECTORES, maximoElectores, superaMinimo, minimoDelEnlace } from './pais_datos.js';
+import { crearMapaAnalisis, crearDeslizador, grisMinimo as gris, textoCuenta } from './pais_mapa.js';
+import { grupoDe, LOCALES, electoresDe, maximoElectores, superaMinimo, minimoDelEnlace } from './pais_datos.js';
 import { itemLeyenda } from '../tablero/mapa.js';
-import { el, fmt, pct, cantidad, porcentaje } from '../tablero/util.js';
+import { el, fmt, pct, cantidad } from '../tablero/util.js';
 
-// El gris de los distritos que no superan el mínimo, en cada tema: neutro y distinto del fondo del mapa (ninguna lista
-// ganadora usa gris).
-const GRIS = { claro: '#9ca3af', oscuro: '#4b5563' };
-const gris = () => GRIS[document.documentElement.dataset.theme === 'dark' ? 'oscuro' : 'claro'];
 const EN_LEYENDA_LOCALES = 'Alianza o movimiento local';
 
 export function crear(ctx) {
@@ -21,34 +17,19 @@ export function crear(ctx) {
     let filas = [];
     let mostradas = [];
 
-    // El mínimo de electores: deslizador de 0 al máximo, con el valor y la cuenta a la vista.
-    const control = el('div', 'deslizador');
-    const etiqueta = el('label', 'deslizador__etiqueta');
-    const rango = el('input', 'deslizador__rango');
-    rango.type = 'range';
-    rango.id = 'minimoElectores';
-    rango.min = '0';
-    rango.max = String(maximo);
-    rango.step = String(PASO_ELECTORES);
-    etiqueta.htmlFor = rango.id;
-    const valor = el('output', 'deslizador__valor');
-    valor.setAttribute('for', rango.id);
-    etiqueta.append('Electores habilitados (padrón): más de ', valor);
-    const extremos = el('p', 'deslizador__extremos');
-    extremos.append(el('span', null, '0'), el('span', null, fmt.format(maximo)));
-    const cuenta = el('p', 'deslizador__cuenta');
-    cuenta.setAttribute('aria-live', 'polite');
-    control.append(etiqueta, rango, extremos, cuenta);
-    ctx.controles.append(control);
-    rango.addEventListener('input', () => {
-        estado.minimo = Number(rango.value);
-        renderMapa();
-        renderResumen();
-    });
-    rango.addEventListener('change', () => {
-        renderTabla();
-        renderLectura();
-        ctx.alCambiar();
+    // El mínimo de electores: deslizador de 0 al máximo, con el valor y la cuenta a la vista (pais_mapa.js).
+    const deslizador = crearDeslizador(ctx.controles, {
+        id: 'minimoElectores', maximo,
+        alMover: (minimo) => {
+            estado.minimo = minimo;
+            renderMapa();
+            renderResumen();
+        },
+        alSoltar: () => {
+            renderTabla();
+            renderLectura();
+            ctx.alCambiar();
+        },
     });
 
     const textoDistrito = (clave) => {
@@ -99,14 +80,7 @@ export function crear(ctx) {
 
     function renderResumen() {
         const dentro = enFiltro();
-        const visibles = dentro.filter((d) => superaMinimo(d, estado.minimo));
-        const total = dentro.reduce((a, d) => a + electoresDe(d), 0);
-        const suyos = visibles.reduce((a, d) => a + electoresDe(d), 0);
-        rango.value = String(estado.minimo);
-        valor.value = fmt.format(estado.minimo);
-        rango.setAttribute('aria-valuetext', `más de ${fmt.format(estado.minimo)} electores`);
-        cuenta.textContent = `${visibles.length} de ${cantidad(dentro.length, 'distrito', 'distritos')} · ${porcentaje(suyos, total)} % de los electores` +
-            (ctx.filtro() ? ` de ${ctx.textoFiltro()}` : ' del país');
+        deslizador.mostrar(estado.minimo, textoCuenta(ctx, dentro, dentro.filter((d) => superaMinimo(d, estado.minimo)), electoresDe));
     }
 
     const columnas = () => [
