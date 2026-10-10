@@ -8,7 +8,9 @@ import { agregarControles } from './zoom_mapa.js';
 import { FUENTE_BASE, fuenteBase, capasBase, aplicarTemaBase, verBase, enlaceOsm } from './base_pais.js';
 
 // La vista no sale de Paraguay y sus alrededores (el país va de -62,6 a -54,3 de longitud y de -27,6 a -19,3 de latitud).
-const LIMITES = [[-67.5, -31], [-49.5, -16]];
+// Los límites de recorrido, holgados para que el país entre entero en cualquier proporción del mapa: con los de antes
+// (18° de ancho) un mapa ancho y bajo no podía alejarse y cortaba el norte y el sur (ADR-033).
+const LIMITES = [[-84, -40], [-33, -7]];
 const ZOOM_NOMBRES = 7;   // Desde este zoom, los nombres de los distritos en lugar de los de los departamentos.
 // Fondo, tierra del país, límites y textos de cada tema (las mismas tintas que el mapa sin calles de un distrito).
 const TEMAS = {
@@ -22,7 +24,7 @@ const caja = ([x0, y0, x1, y1]) => [[x0, y0], [x1, y1]];
 
 // geo: { distritos, departamentos } (GeoJSON con clave/nombre y departamento/nombre); etiquetas: { distritos: [{ clave,
 // nombre, centro }], departamentos: [{ codigo, nombre, centro }] }. opciones: etiqueta (texto accesible), atribucion (nodo),
-// pais (caja [x0, y0, x1, y1]), alTocar(clave), texto(clave) (globo al pasar el puntero), alCambiarTema(), margen(),
+// pais (caja [x0, y0, x1, y1]), alTocar(clave), texto(clave) (globo al pasar el puntero: un texto o un nodo), alCambiarTema(), margen(),
 // controles (opciones de agregarControles) y estadosExtra (ADR 0027: además del color, un tramado, un punteado y un
 // contorno por distrito, para el mapa de las finanzas municipales).
 
@@ -194,7 +196,8 @@ export function crearMapaPais(geo, etiquetas, contenedor, opciones = {}) {
             globo.hidden = true;
             return;
         }
-        globo.textContent = texto;
+        if (texto instanceof Node) globo.replaceChildren(texto);
+        else globo.textContent = texto;
         globo.hidden = false;
         const ancho = contenedor.clientWidth, alto = contenedor.clientHeight;
         const izquierda = Math.min(ancho - globo.offsetWidth - 8, Math.max(8, evento.point.x + 14));

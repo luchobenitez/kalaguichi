@@ -577,8 +577,14 @@ html[data-theme="dark"] .finanzas__descargas a {
     border-radius: 3px;
 }
 
+/* El dato no disponible: el gris de «sin informe» con el tramado del mapa (ADR-033; los mismos tonos que logica.js y
+   mapa_pais.js). */
 .finanzas__muestra--no_disponible {
-    background: repeating-linear-gradient(135deg, var(--text-soft) 0 1.5px, transparent 1.5px 5px), var(--surface-solid);
+    background: repeating-linear-gradient(135deg, rgba(15, 23, 42, .6) 0 1.5px, transparent 1.5px 5px), #9ca3af;
+}
+
+html[data-theme="dark"] .finanzas__muestra--no_disponible {
+    background: repeating-linear-gradient(135deg, rgba(226, 232, 240, .75) 0 1.5px, transparent 1.5px 5px), #4b5563;
 }
 
 .finanzas__muestra--pendiente {
@@ -757,13 +763,25 @@ html[data-theme="dark"] .finanzas__descargas a {
     gap: .125rem 0;
 }
 
-.finanzas__nd {
-    color: var(--text-muted);
+/* «N/D» y «Sin informe» en rojo y negrita (ADR-033): en la tabla, la ficha y los textos del mapa (finanzas__falta). Con
+   los selectores de la tabla y de la ficha, que fijan el color y el peso de sus celdas. */
+.finanzas__nd,
+.finanzas__sin-informe,
+.finanzas__falta,
+.tabla td.tabla__texto.finanzas__nd,
+.tabla td.tabla__texto.finanzas__sin-informe,
+.finanzas__ficha-datos dd.finanzas__nd,
+.finanzas__ficha-datos dd.finanzas__sin-informe {
+    color: var(--red-600);
+    font-weight: 800;
 }
 
-.finanzas__sin-informe {
-    color: var(--text-soft);
-    font-style: italic;
+html[data-theme="dark"] .finanzas__nd,
+html[data-theme="dark"] .finanzas__sin-informe,
+html[data-theme="dark"] .finanzas__falta,
+html[data-theme="dark"] .tabla td.tabla__texto.finanzas__nd,
+html[data-theme="dark"] .tabla td.tabla__texto.finanzas__sin-informe {
+    color: #f87171;
 }
 
 .finanzas__paginas {

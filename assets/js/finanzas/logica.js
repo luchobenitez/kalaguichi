@@ -1,6 +1,6 @@
 // Finanzas municipales · Ejercicio 2025 (ADR-029; ADR 0027 del módulo): la lógica de la página, sin el DOM. El estado del
 // enlace (con avisos para los parámetros desconocidos o incompatibles), el conjunto de municipios del filtro, el estado de
-// cada municipio en el mapa (el color de la escala nacional fija, el gris de «sin informe», el tramado de «no disponible»,
+// cada municipio en el mapa (el color de su clase fija, el gris de «sin informe», el gris tramado de «no disponible»,
 // el punteado de una correspondencia pendiente, solo el borde fuera del filtro), la leyenda, los textos, las filas de la
 // tabla y el CSV. Los valores no se recalculan: se leen tal como se prepararon. Se prueba con Node (tests/).
 
@@ -31,14 +31,42 @@ export const RESUMEN = {
 const PARAMETROS = ['cargo', 'departamento', 'municipio', 'listas', 'indicador', 'vista', 'columnas'];
 
 // --- Colores ------------------------------------------------------------------------------------------------------------
-// Financieros, nunca partidarios: viridis para la escala secuencial; marrón y verde azulado alrededor de un neutro para la
-// divergente. El gris es solo «sin informe» (el mismo de los análisis del país).
-const SECUENCIAL = ['#fde725', '#5ec962', '#21918c', '#3b528b', '#440154'];
-const NEGATIVOS = ['#8c510a', '#d8b365', '#f6e8c3'];
-const POSITIVOS = ['#c7eae5', '#5ab4ac', '#01665e'];
+// ADR-033: de verde (lo más bajo) a amarillo y a rojo (lo más alto), como un mapa de calor; los negativos, en el verde más
+// oscuro. Es una escala de magnitud: no califica un valor como bueno o malo, y los colores son financieros, nunca
+// partidarios. El gris es la falta de datos: liso, «sin informe»; tramado, el dato no disponible (el mismo gris de los
+// análisis del país). COLOR_CERO queda para un valor sin clase.
+export const CALOR = ['#1a9850', '#91cf60', '#d9ef8b', '#fee08b', '#fc8d59', '#d73027'];
+export const NEGATIVO = '#00592f';
 export const COLOR_CERO = '#ece7dc';
 const GRIS = { claro: '#9ca3af', oscuro: '#4b5563' };
 export const gris = (oscuro) => GRIS[oscuro ? 'oscuro' : 'claro'];
+
+// Las clases fijas de cada unidad (ADR-033): cada clase incluye su límite inferior y llega hasta el siguiente. Si el
+// indicador tiene negativos en el país, van en «Negativo» y la primera clase empieza en 0.
+const MM = 1e6;
+export const CLASES_FIJAS = {
+    PYG: { cortes: [15000, 30000, 60000, 120000, 300000].map((x) => x * MM), desdeCero: 'Entre 0 y 15.000MM', texto: 'en millones de guaraníes (MM)',
+           rotulos: ['Menos de 15.000MM', 'Entre 15.000MM y 30.000MM', 'Entre 30.000MM y 60.000MM', 'Entre 60.000MM y 120.000MM',
+                     'Entre 120.000MM y 300.000MM', 'Más de 300.000MM'] },
+    '%': { cortes: [10, 25, 50, 75, 90], desdeCero: 'Entre 0 y 10 %', texto: 'en porcentaje',
+           rotulos: ['Menos del 10 %', 'Entre 10 y 25 %', 'Entre 25 y 50 %', 'Entre 50 y 75 %', 'Entre 75 y 90 %', 'Más del 90 %'] },
+    veces: { cortes: [0.5, 1, 2, 5, 10], desdeCero: 'Entre 0 y 0,5', texto: 'en veces',
+             rotulos: ['Menos de 0,5', 'Entre 0,5 y 1', 'Entre 1 y 2', 'Entre 2 y 5', 'Entre 5 y 10', 'Más de 10'] },
+};
+
+// La escala fija de una unidad para los valores del país; null si la unidad no tiene clases fijas.
+export function escalaFija(unidad, valores) {
+    const fija = CLASES_FIJAS[unidad];
+    if (!fija) return null;
+    const conDato = valores.filter((v) => v !== null && v !== undefined);
+    if (!conDato.length) return { tipo: 'sin_valores', clases: [] };
+    const negativos = conDato.some((v) => v < 0);
+    const bordes = [negativos ? 0 : -Infinity, ...fija.cortes, Infinity];
+    const clases = fija.rotulos.map((rotulo, k) => ({ desde: bordes[k], hasta: bordes[k + 1], tramo: 'fija',
+                                                       rotulo: k === 0 && negativos ? fija.desdeCero : rotulo }));
+    if (negativos) clases.unshift({ desde: -Infinity, hasta: 0, tramo: 'negativo', rotulo: 'Negativo' });
+    return { tipo: 'fija', unidad, clases };
+}
 
 // n posiciones repartidas en una paleta de largo dado (una sola: la del medio).
 function repartir(n, largo) {
@@ -47,21 +75,25 @@ function repartir(n, largo) {
     return Array.from({ length: n }, (_, i) => Math.round((i * (largo - 1)) / (n - 1)));
 }
 
-// El color de cada clase de una escala, en el orden de sus clases.
+// El color de cada clase de una escala, en el orden de sus clases: en la fija, el de su lugar en CALOR («Negativo», el
+// verde más oscuro); en una del paquete (cuantiles, para una unidad sin clases fijas), repartidos del verde al rojo.
 export function coloresDeEscala(escala) {
-    if (escala.tipo === 'secuencial') return repartir(escala.clases.length, SECUENCIAL.length).map((i) => SECUENCIAL[i]);
-    if (escala.tipo !== 'divergente') return [];
-    const contar = (tramo) => escala.clases.filter((c) => c.tramo === tramo).length;
-    const tonos = { negativo: repartir(contar('negativo'), NEGATIVOS.length).map((i) => NEGATIVOS[i]),
-                    positivo: repartir(contar('positivo'), POSITIVOS.length).map((i) => POSITIVOS[i]) };
-    const usados = { negativo: 0, positivo: 0 };
-    return escala.clases.map((c) => (c.tramo === 'cero' ? COLOR_CERO : tonos[c.tramo][usados[c.tramo]++]));
+    if (escala.tipo === 'fija') {
+        const corrida = escala.clases[0]?.tramo === 'negativo' ? 1 : 0;
+        return escala.clases.map((c, k) => (c.tramo === 'negativo' ? NEGATIVO : CALOR[k - corrida]));
+    }
+    if (escala.tipo !== 'secuencial' && escala.tipo !== 'divergente') return [];
+    return repartir(escala.clases.length, CALOR.length).map((i) => CALOR[i]);
 }
 
 // La clase de un valor: la primera de su tramo cuyo «hasta» lo alcanza (las clases van en orden creciente; en la
 // divergente un valor nunca cruza el cero). Fuera de los extremos, la del extremo. null si la escala no tiene su tramo.
 export function claseDe(escala, v) {
     if (v === null || v === undefined || !escala?.clases?.length) return null;
+    if (escala.tipo === 'fija') {
+        const k = escala.clases.findIndex((c) => v >= c.desde && v < c.hasta);
+        return k < 0 ? null : k;
+    }
     const indices = escala.clases.map((c, k) => k).filter((k) => escala.tipo !== 'divergente'
         || escala.clases[k].tramo === (v < 0 ? 'negativo' : v > 0 ? 'positivo' : 'cero'));
     if (!indices.length) return null;
@@ -105,6 +137,7 @@ export function formatoCorto(v, unidad, extra = 0) {
 
 // Los rótulos de los intervalos, con los decimales necesarios para que dos límites seguidos no se lean iguales.
 export function rotulosEscala(escala, unidad) {
+    if (escala.tipo === 'fija') return escala.clases.map((c) => c.rotulo);
     const clases = escala.clases;
     for (let extra = 0; ; extra += 1) {
         const f = (v) => formatoCorto(v, unidad, extra);
@@ -149,6 +182,9 @@ export function crearModelo(datos) {
             return k === undefined ? null : indicadores.textos_motivo[k];
         },
     };
+    // La escala de cada métrica (ADR-033): las clases fijas de su unidad con los valores del país (los negativos deciden
+    // la clase «Negativo»); una unidad sin clases fijas conserva la del paquete (cuantiles).
+    for (const x of metricas) x.escala = escalaFija(x.unidad, lista.map((m) => modelo.valor(m.clave, x.campo))) ?? x.escala;
     for (const vista of VISTAS) if (datos[vista]) agregarHoja(modelo, vista, datos[vista]);
     return modelo;
 }
@@ -350,7 +386,7 @@ export function conjunto(modelo, e) {
 
 // --- Mapa ---------------------------------------------------------------------------------------------------------------
 // El estado de cada municipio: el gris de «sin informe» y el punteado de una correspondencia pendiente no dependen del
-// filtro (son señales documentales); dentro del filtro, el color de su clase o el tramado si el indicador no está
+// filtro (son señales documentales); dentro del filtro, el color de su clase o el gris tramado si el indicador no está
 // disponible; fuera, solo el borde. Con un filtro activo, los del filtro llevan además un contorno (marcado).
 export function pintura(modelo, e, claves, oscuro) {
     const metrica = modelo.porCampo.get(e.indicador);
@@ -365,7 +401,7 @@ export function pintura(modelo, e, claves, oscuro) {
         if (m.union?.estado !== 'unida') return { color: null, pendiente: true, marcado, categoria: 'pendiente' };
         if (!dentro) return { color: null, categoria: 'fuera' };
         const v = modelo.valor(clave, metrica.campo);
-        if (v === null) return { color: null, tramado: true, marcado, categoria: 'no_disponible' };
+        if (v === null) return { color: gris(oscuro), tramado: true, marcado, categoria: 'no_disponible' };
         const k = claseDe(metrica.escala, v);
         return { color: k === null ? COLOR_CERO : colores[k], marcado, categoria: 'valor', clase: k };
     };
@@ -382,7 +418,8 @@ export function leyenda(modelo, e, info, oscuro) {
     const cuenta = (categoria) => categorias.filter((c) => c.categoria === categoria).length;
     const colores = coloresDeEscala(escala);
     const rotulos = escala.clases.length ? rotulosEscala(escala, metrica.unidad) : [];
-    const millones = metrica.unidad === 'PYG' && escala.clases.some((c) => Math.abs(c.desde) >= 1e6 || Math.abs(c.hasta) >= 1e6);
+    const fija = escala.tipo === 'fija';
+    const millones = metrica.unidad === 'PYG' && (fija || escala.clases.some((c) => Math.abs(c.desde) >= 1e6 || Math.abs(c.hasta) >= 1e6));
     const tipo = escala.tipo === 'divergente' ? 'divergente alrededor de cero' : escala.tipo === 'secuencial' ? 'secuencial' : 'sin valores';
     const items = escala.clases.map((c, k) => ({ tipo: 'clase', color: colores[k], texto: rotulos[k], n: enClase(k), tramo: c.tramo }));
     const sinInforme = cuenta('sin_informe');
@@ -397,24 +434,34 @@ export function leyenda(modelo, e, info, oscuro) {
         if (fuera) items.push({ tipo: 'fuera', texto: `${TEXTO.fuera}: solo el borde`, n: fuera });
     }
     return {
-        titulo: `${metrica.nombre} (${UNIDAD_CORTA[metrica.unidad] ?? metrica.unidad}${millones ? '; M = millones' : ''})`,
-        nota: escala.clases.length ? `Escala nacional fija (${tipo}, por cuantiles de los ${metrica.cobertura} municipios con dato): no cambia al filtrar.`
-            : 'Ningún municipio tiene este indicador.',
+        titulo: `${metrica.nombre} (${UNIDAD_CORTA[metrica.unidad] ?? metrica.unidad}${millones ? `; ${fija ? 'MM' : 'M'} = millones` : ''})`,
+        nota: !escala.clases.length ? 'Ningún municipio tiene este indicador.'
+            : fija ? `Escala nacional fija, con clases fijas ${CLASES_FIJAS[metrica.unidad].texto}: de verde (lo más bajo) a amarillo y a rojo ` +
+                     '(lo más alto); gris, sin datos. No cambia al filtrar.'
+                : `Escala nacional fija (${tipo}, por cuantiles de los ${metrica.cobertura} municipios con dato): no cambia al filtrar.`,
         items,
     };
 }
 
 // --- Textos de un municipio -----------------------------------------------------------------------------------------------
 // El estado financiero de un municipio para la métrica activa: su valor, «no disponible» con su motivo, «sin informe» o
-// la correspondencia pendiente.
-export function textoFinanciero(modelo, clave, campo) {
+// la correspondencia pendiente. En partes [antes, falta, después]: la falta («sin informe» o el dato no disponible) va en
+// rojo y negrita en la página (ADR-033); null si no falta nada.
+export function partesFinancieras(modelo, clave, campo) {
     const m = modelo.porClave.get(clave);
     const metrica = modelo.porCampo.get(campo);
-    if (m.estado === 'sin_informe') return TEXTO.sinInforme;
-    if (m.union?.estado !== 'unida') return TEXTO.pendiente;
+    if (m.estado === 'sin_informe') return ['', TEXTO.sinInforme, ''];
+    if (m.union?.estado !== 'unida') return [TEXTO.pendiente, null, ''];
     const v = modelo.valor(clave, campo);
-    if (v === null) return `${metrica.nombre}: ${metrica.ampliacion ? 'dato no disponible' : TEXTO.noDisponible}${modelo.motivo(clave, campo) ? `. ${modelo.motivo(clave, campo)}` : ''}`;
-    return `${metrica.nombre}: ${formato(v, metrica.unidad)}`;
+    if (v === null) {
+        const motivo = modelo.motivo(clave, campo);
+        return [`${metrica.nombre}: `, metrica.ampliacion ? 'dato no disponible' : TEXTO.noDisponible, motivo ? `. ${motivo}` : ''];
+    }
+    return [`${metrica.nombre}: ${formato(v, metrica.unidad)}`, null, ''];
+}
+
+export function textoFinanciero(modelo, clave, campo) {
+    return partesFinancieras(modelo, clave, campo).filter(Boolean).join('');
 }
 
 // Las páginas del informe de un municipio (presupuesto en el tomo V-B; estados financieros en el V-A).
@@ -428,14 +475,20 @@ export function textoPaginas(m) {
 
 // El globo del mapa (y el dato al tocar): municipio y departamento, indicador y valor o su estado, contexto electoral y
 // páginas; una línea por tema.
-export function textoMunicipio(modelo, e, info, clave) {
+// En líneas de partes (la financiera, con su falta en el medio: ver partesFinancieras), para la página.
+export function lineasMunicipio(modelo, e, info, clave) {
     const m = modelo.porClave.get(clave);
     if (!m) return null;
-    const lineas = [`${m.nombre} · ${m.departamento_nombre}${info.claves.has(clave) ? '' : ` (${TEXTO.fuera.toLowerCase()})`}`,
-                    textoFinanciero(modelo, clave, e.indicador), textoElectoral(modelo, clave, e.cargo)];
+    const lineas = [[`${m.nombre} · ${m.departamento_nombre}${info.claves.has(clave) ? '' : ` (${TEXTO.fuera.toLowerCase()})`}`],
+                    partesFinancieras(modelo, clave, e.indicador), [textoElectoral(modelo, clave, e.cargo)]];
     const paginas = textoPaginas(m);
-    if (paginas) lineas.push(paginas);
-    return lineas.join('\n');
+    if (paginas) lineas.push([paginas]);
+    return lineas;
+}
+
+export function textoMunicipio(modelo, e, info, clave) {
+    const lineas = lineasMunicipio(modelo, e, info, clave);
+    return lineas ? lineas.map((partes) => partes.filter(Boolean).join('')).join('\n') : null;
 }
 
 // --- Tabla ----------------------------------------------------------------------------------------------------------------

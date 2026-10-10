@@ -266,7 +266,7 @@ async function iniciarMapa() {
         const api = crearMapaPais({ distritos, departamentos },
             { distritos: indice.distritos.map((d) => ({ clave: d.clave, nombre: d.nombre, centro: d.centro })), departamentos: indice.departamentos }, caja,
             { etiqueta: 'Mapa de Paraguay por municipio: finanzas municipales del ejercicio 2025', atribucion: pie, pais, estadosExtra: true,
-              texto: (clave) => L.textoMunicipio(modelo, estado, info, clave), alTocar: tocar, alCambiarTema: () => { pintarMapa(); dibujarLeyenda(); },
+              texto: (clave) => nodoMunicipio(clave, '\n'), alTocar: tocar, alCambiarTema: () => { pintarMapa(); dibujarLeyenda(); },
               leyendas: () => [document.querySelector('.finanzas__leyenda-caja')] });
         pie.replaceChildren(enlaceOsm(), ' (ODbL) · Protomaps · Límites: INE (CNPV 2022) · Finanzas: MEF, Informe Financiero 2025 · Contexto electoral: TREP');
         pie.title = 'Mapa base: rutas, ríos y arroyos de OpenStreetMap (ODbL), del build de Protomaps. Límites referenciales de los distritos y los ' +
@@ -299,7 +299,20 @@ function tocar(clave) {
         elegirMunicipio(clave);
         return;
     }
-    $('datoFinanzas').textContent = `${L.textoMunicipio(modelo, estado, info, clave).replace(/\n/g, ' · ')}. Para elegirlo, ampliá el filtro.`;
+    $('datoFinanzas').replaceChildren(nodoMunicipio(clave, ' · '), '. Para elegirlo, ampliá el filtro.');
+}
+
+// El texto de un municipio (globo del mapa y dato del elegido) con su falta («sin informe» o el dato no disponible) en rojo
+// y negrita (ADR-033); las líneas, separadas por el separador. null si la clave no es un municipio.
+function nodoMunicipio(clave, separador) {
+    const lineas = L.lineasMunicipio(modelo, estado, info, clave);
+    if (!lineas) return null;
+    const nodo = document.createDocumentFragment();
+    lineas.forEach((partes, i) => {
+        if (i) nodo.append(separador);
+        partes.forEach((parte, k) => { if (parte) nodo.append(k === 1 ? el('strong', 'finanzas__falta', parte) : parte); });
+    });
+    return nodo;
 }
 
 function muestra(item) {
@@ -328,7 +341,7 @@ function dibujarDato() {
         acciones.hidden = true;
         return;
     }
-    nodo.textContent = L.textoMunicipio(modelo, estado, info, estado.municipio).replace(/\n/g, ' · ');
+    nodo.replaceChildren(nodoMunicipio(estado.municipio, ' · '));
     acciones.hidden = false;
 }
 
@@ -344,7 +357,7 @@ function dibujarIndicador() {
     fila('Límites', m.limitacion ?? 'El diccionario no trae límites para este indicador.');
     const total = modelo.datos.manifiesto.cobertura;
     fila('Cobertura', `Con dato en ${fmt.format(m.cobertura)} de ${fmt.format(total.informantes)} municipios con informe; ${fmt.format(total.informantes - m.cobertura)} ` +
-        `sin el dato (tramados en el mapa, con su motivo) y ${fmt.format(total.sin_informe)} sin informe (en gris).`);
+        `sin el dato (en gris tramado en el mapa, con su motivo) y ${fmt.format(total.sin_informe)} sin informe (en gris liso).`);
     if (m.ampliacion) {
         const amp = modelo.ampliacion;
         const o = m.origen ?? {};
@@ -588,7 +601,7 @@ async function dibujarTabla() {
             tr.append(td);
         }
         const rango = vista === 'balance' ? m.fuente?.paginas_financieras : m.fuente?.paginas_presupuesto;
-        tr.append(el('td', 'tabla__texto', rango ?? L.TEXTO.nd));
+        tr.append(el('td', rango ? 'tabla__texto' : 'tabla__texto finanzas__nd', rango ?? L.TEXTO.nd));
         cuerpo.append(tr);
     }
     t.tBodies[0].replaceChildren(cuerpo);
@@ -638,7 +651,7 @@ function lista(dt, filas) {
     seccion.append(el('h3', null, dt));
     const dl = el('dl', 'finanzas__ficha-datos');
     for (const [nombre, valor, detalle] of filas) {
-        const dd = el('dd', valor === L.TEXTO.nd ? 'finanzas__nd' : null, valor);
+        const dd = el('dd', valor === L.TEXTO.nd ? 'finanzas__nd' : valor === L.TEXTO.sinInforme ? 'finanzas__sin-informe' : null, valor);
         if (detalle) dd.append(el('span', 'finanzas__ficha-detalle', detalle));
         dl.append(el('dt', null, nombre), dd);
     }
@@ -824,12 +837,16 @@ function dibujarMetodo() {
             'Inversiones Físicas son columnas publicadas («Valor presupuestario publicado»); el de Salarios es el grupo 100 del detalle ya extraído, ' +
             `con el ${salarios.decision}; el % de Transferencias Intergubernamentales se calcula sobre datos publicados. ${transferencias.regla} ` +
             `${transferencias.nivel} ${transferencias.excluidos} Si falta la clasificación: «${transferencias.motivo_si_falta}».`],
-        ['Escala del mapa', 'Una clasificación nacional por indicador, fija al filtrar: cuantiles de los municipios con dato (secuencial si no hay ' +
-            'negativos; divergente alrededor de cero si hay valores de los dos signos). Sirve solo para dibujar: no cambia el valor, no recorta extremos ' +
-            'ni porcentajes mayores que 100 y no califica un valor como bueno o malo. Los colores son financieros, nunca partidarios.'],
-        ['Ausencias', `Gris sólido: «${L.TEXTO.sinInforme}» (la ausencia en el informe al elaborarse, no un incumplimiento actual ni una deuda cero). ` +
-            'Tramado: el municipio presentó su informe pero el dato no está disponible (el motivo, en el globo y en la ficha). Un cero publicado tiene el ' +
-            `color de su clase. Punteado: «${L.TEXTO.pendiente}». Fuera del filtro: solo el borde.`],
+        ['Escala del mapa', 'Una clasificación nacional por indicador, fija al filtrar, con clases fijas según la unidad. En guaraníes: menos de ' +
+            '15.000MM, de 15.000MM a 30.000MM, de 30.000MM a 60.000MM, de 60.000MM a 120.000MM, de 120.000MM a 300.000MM y más de 300.000MM (MM: ' +
+            'millones; si el indicador tiene negativos, van aparte, en «Negativo»). En porcentaje: menos del 10 %, de 10 a 25 %, de 25 a 50 %, de 50 ' +
+            'a 75 %, de 75 a 90 % y más del 90 %. En veces: menos de 0,5, de 0,5 a 1, de 1 a 2, de 2 a 5, de 5 a 10 y más de 10. Cada clase incluye ' +
+            'su límite inferior. Los colores van de verde (lo más bajo) a amarillo y a rojo (lo más alto): es una escala de magnitud, que sirve solo ' +
+            'para dibujar, no cambia el valor ni califica un valor como bueno o malo. Los colores son financieros, nunca partidarios.'],
+        ['Ausencias', `Gris liso: «${L.TEXTO.sinInforme}» (la ausencia en el informe al elaborarse, no un incumplimiento actual ni una deuda cero). ` +
+            'Gris tramado: el municipio presentó su informe pero el dato no está disponible (el motivo, en el globo y en la ficha). Un cero publicado ' +
+            `tiene el color de su clase. Punteado: «${L.TEXTO.pendiente}». Fuera del filtro: solo el borde. En la tabla, la ficha y los textos del ` +
+            'mapa, «Sin informe» y «N/D» van en rojo.'],
         ['Unión territorial', 'Los municipios del MEF se unen a los distritos del sitio con un adaptador aparte: por departamento y nombre exactos, por el ' +
             'nombre de la nota del MEF (los sin informe) y, el resto, confirmados uno a uno. El código del MEF no es el del INE ni el del TSJE.'],
         ['Lo que no hace', 'No suma ingresos con gastos ni ratios, no calcula promedios nacionales ni consolidados oficiales y no atribuye la gestión de ' +
