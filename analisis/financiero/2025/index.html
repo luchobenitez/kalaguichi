@@ -172,6 +172,21 @@
         <section class="finanzas__indicador" id="fichaIndicador" aria-label="El indicador elegido"></section>
 
         <section class="finanzas__mapa-caja" aria-label="Mapa">
+            <div class="finanzas__rango" id="rangoFinanzas" role="group" aria-labelledby="rotuloRango">
+                <div class="finanzas__rango-cabecera">
+                    <span class="finanzas__rotulo" id="rotuloRango">Rango del indicador</span>
+                    <output class="finanzas__rango-valor" id="valorRango" for="rangoDesde rangoHasta"></output>
+                    <button type="button" class="boton-secundario finanzas__rango-todos esta-oculto" id="rangoTodos">Todos los valores</button>
+                </div>
+                <div class="finanzas__rango-control">
+                    <div class="finanzas__rango-barra" id="barraRango"></div>
+                    <input type="range" class="finanzas__rango-manija" id="rangoDesde" min="0" max="6" step="1" value="0" aria-label="Desde">
+                    <input type="range" class="finanzas__rango-manija" id="rangoHasta" min="0" max="6" step="1" value="6" aria-label="Hasta">
+                </div>
+                <ol class="finanzas__rango-clases" id="clasesRango" aria-hidden="true"></ol>
+                <ol class="finanzas__rango-marcas" id="marcasRango" aria-hidden="true"></ol>
+                <p class="finanzas__rango-cuenta" id="cuentaRango"></p>
+            </div>
             <div class="mapa finanzas__mapa" id="mapaFinanzas"></div>
             <div class="finanzas__leyenda-caja">
                 <p class="finanzas__leyenda-titulo" id="tituloLeyenda"></p>

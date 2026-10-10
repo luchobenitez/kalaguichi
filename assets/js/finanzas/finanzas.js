@@ -1,8 +1,9 @@
 // Finanzas municipales · Ejercicio 2025 (ADR-029; ADR 0027 del módulo): la página /analisis/financiero/2025/. Lee una sola
 // vez los datos preparados (datos/finanzas/municipalidad/2025/) y la geometría del país del sitio; arma los filtros (cargo,
-// departamento, municipio, listas e indicador, en el enlace), un solo mapa coroplético por municipio con la escala nacional
-// fija del indicador, su leyenda, la cobertura y la tabla de Presupuesto y Balance con la ficha de cada municipio y el CSV
-// del filtro. Al filtrar se vuelve a pintar el mismo mapa: no se recrea ni se vuelve a leer nada. Sin HTML desde datos.
+// departamento, municipio, listas e indicador, en el enlace), el deslizador del rango del indicador (ADR-034), un solo mapa
+// coroplético por municipio con la escala nacional fija del indicador, su leyenda, la cobertura y la tabla de Presupuesto y
+// Balance con la ficha de cada municipio y el CSV del filtro. Al filtrar se vuelve a pintar el mismo mapa: no se recrea ni
+// se vuelve a leer nada. Sin HTML desde datos.
 import { $, el, fmt } from '../tablero/util.js';
 import { geoNacional, indiceNacional } from '../datos.js';
 import { crearMapaPais } from '../tablero/mapa_pais.js';
@@ -71,7 +72,8 @@ function aplicar(mensajes = []) {
         mensajes = [...mensajes, 'El municipio elegido quedó fuera del filtro: se quitó la selección.'];
     }
     if (!info.municipios.length) {
-        mensajes = [...mensajes, 'Ningún municipio cumple todos los filtros a la vez: probá con otras listas, otro departamento o «Restablecer filtros».'];
+        mensajes = [...mensajes, 'Ningún municipio cumple todos los filtros a la vez: probá con otras listas, otro departamento, otro rango o ' +
+            '«Restablecer filtros».'];
     }
     reflejarControles();
     pintarMapa();
@@ -138,18 +140,20 @@ function armarControles() {
         }
         grupos.get(m.grupo).append(new Option(`${m.nombre} (${L.UNIDAD_CORTA[m.unidad] ?? m.unidad})`, m.campo));
     }
-    // Cambiar de indicador conserva el filtro, el encuadre y la selección.
-    sInd.addEventListener('change', () => {
-        estado = { ...estado, indicador: sInd.value };
-        aplicar();
-    });
+    // Cambiar de indicador conserva el filtro, el encuadre y la selección; el rango, solo si el nuevo tiene las mismas clases.
+    const cambiarIndicador = (campo) => {
+        const cambio = L.cambiarIndicador(modelo, estado, campo);
+        if (estado.rango || cambio.estado.rango) tabla.pagina = 0;
+        estado = cambio.estado;
+        aplicar(cambio.rangoQuitado ? [`El rango volvió a «${L.TEXTO.todos}»: las clases de «${modelo.porCampo.get(campo).nombre}» son otras.`] : []);
+    };
+    sInd.addEventListener('change', () => cambiarIndicador(sInd.value));
     const buscar = $('buscarIndicador');
     const resultados = $('resultadosIndicador');
     const elegirMetrica = (campo) => {
         buscar.value = '';
         resultados.hidden = true;
-        estado = { ...estado, indicador: campo };
-        aplicar();
+        cambiarIndicador(campo);
         sInd.focus();
     };
     buscar.addEventListener('input', () => {
@@ -213,6 +217,7 @@ function reflejarControles() {
     sMun.value = estado.municipio ?? '';
     reflejarListas();
     $('filtroIndicador').value = estado.indicador;
+    reflejarRango();
 }
 
 // Las opciones de listas se arman de nuevo solo al cambiar el cargo o el departamento (así no se pierde el foco).
@@ -252,6 +257,91 @@ function elegirMunicipio(clave) {
     aplicar();
 }
 
+// --- Rango del indicador (ADR-034) --------------------------------------------------------------------------------------
+// El deslizador de arriba del mapa: dos manijas (desde y hasta) que se paran en los bordes de las clases fijas del
+// indicador, sobre la barra de sus colores; entre ellas quedan las clases elegidas. Tocar una clase de la barra la elige
+// sola (otra vez: todas). La barra se arma de nuevo solo al cambiar las clases, así no se corta un arrastre.
+let clasesRango = null; // los rótulos con los que se armó la barra
+
+function armarRango() {
+    const [desde, hasta] = [$('rangoDesde'), $('rangoHasta')];
+    const mover = (manija) => {
+        let [a, b] = [Number(desde.value), Number(hasta.value)];
+        // Al menos una clase entre las manijas: la que se mueve se detiene junto a la otra.
+        if (a >= b) {
+            if (manija === desde) a = b - 1;
+            else b = a + 1;
+        }
+        desde.value = String(a);
+        hasta.value = String(b);
+        fijarRango(L.rangoDeManijas(Number(desde.max), a, b));
+    };
+    desde.addEventListener('input', () => mover(desde));
+    hasta.addEventListener('input', () => mover(hasta));
+    $('barraRango').addEventListener('click', (evento) => {
+        const tramo = evento.target.closest('[data-clase]');
+        if (!tramo) return;
+        const k = Number(tramo.dataset.clase);
+        fijarRango(estado.rango?.[0] === k && estado.rango[1] === k ? null : L.rangoDeManijas(Number(desde.max), k, k + 1));
+    });
+    $('rangoTodos').addEventListener('click', () => fijarRango(null));
+}
+
+function fijarRango(rango) {
+    if (String(rango) === String(estado.rango)) return;
+    estado = { ...estado, rango };
+    tabla.pagina = 0;
+    aplicar();
+}
+
+function reflejarRango() {
+    const metrica = modelo.porCampo.get(estado.indicador);
+    const { escala, unidad } = metrica;
+    const n = escala.clases.length;
+    const caja = $('rangoFinanzas');
+    caja.hidden = n < 2;
+    if (n < 2) return;
+    const [desde, hasta] = [$('rangoDesde'), $('rangoHasta')];
+    const rotulos = L.rotulosEscala(escala, unidad);
+    const marcas = L.marcasRango(escala);
+    if (rotulos.join('|') !== clasesRango) {
+        clasesRango = rotulos.join('|');
+        caja.style.setProperty('--clases', String(n));
+        for (const manija of [desde, hasta]) manija.max = String(n);
+        $('barraRango').replaceChildren(...rotulos.map((rotulo, k) => {
+            const tramo = el('span', 'finanzas__rango-tramo');
+            tramo.dataset.clase = String(k);
+            tramo.title = `Solo «${rotulo}» (otra vez: todos los valores)`;
+            return tramo;
+        }));
+        $('clasesRango').replaceChildren(...rotulos.map((rotulo) => el('li', null, rotulo)));
+        $('marcasRango').replaceChildren(...marcas.map((marca, k) => {
+            const li = el('li', null, marca ?? '');
+            li.style.setProperty('--borde', String(k));
+            return li;
+        }));
+    }
+    const colores = L.coloresDeEscala(escala);
+    const [a, b] = L.manijasDeRango(n, estado.rango);
+    const fuera = (k) => k < a || k >= b;
+    [...$('barraRango').children].forEach((tramo, k) => {
+        tramo.style.background = colores[k];
+        tramo.classList.toggle('esta-fuera', fuera(k));
+    });
+    [...$('clasesRango').children].forEach((li, k) => li.classList.toggle('esta-fuera', fuera(k)));
+    desde.value = String(a);
+    hasta.value = String(b);
+    const rotulo = L.rotuloRango(escala, unidad, estado.rango);
+    desde.setAttribute('aria-valuetext', `${rotulo} (desde ${marcas[a] ?? 'el valor más bajo'})`);
+    hasta.setAttribute('aria-valuetext', `${rotulo} (hasta ${marcas[b] ?? 'el valor más alto'})`);
+    $('rotuloRango').textContent = `Rango del indicador, ${L.CLASES_FIJAS[unidad]?.texto ?? 'por clases'}`;
+    $('valorRango').textContent = rotulo;
+    $('rangoTodos').classList.toggle('esta-oculto', !estado.rango);
+    const conDato = info.base.municipios.filter((m) => m.estado === 'informante' && modelo.valor(m.clave, metrica.campo) !== null).length;
+    $('cuentaRango').textContent = estado.rango ? `En el rango: ${fmt.format(info.municipios.length)} de ${cantidad(conDato, 'municipio', 'municipios')} con dato.`
+        : `${cantidad(conDato, 'municipio', 'municipios')} con dato. Mové las manijas o elegí una clase en la barra para ver solo un rango.`;
+}
+
 // --- Mapa ---------------------------------------------------------------------------------------------------------------
 async function iniciarMapa() {
     const caja = $('mapaFinanzas');
@@ -284,7 +374,7 @@ async function iniciarMapa() {
 
 function pintarMapa() {
     if (!mapa) return;
-    mapa.pintar(modelo.municipios.map((m) => m.clave), L.pintura(modelo, estado, info.claves, oscuro()));
+    mapa.pintar(modelo.municipios.map((m) => m.clave), L.pintura(modelo, estado, info.claves, oscuro(), info.base.claves));
     mapa.elegir(estado.municipio);
     if (estado.departamento !== encuadre) {
         const animar = encuadre !== undefined;
@@ -299,7 +389,7 @@ function tocar(clave) {
         elegirMunicipio(clave);
         return;
     }
-    $('datoFinanzas').replaceChildren(nodoMunicipio(clave, ' · '), '. Para elegirlo, ampliá el filtro.');
+    $('datoFinanzas').replaceChildren(nodoMunicipio(clave, ' · '), `. Para elegirlo, ampliá ${info.base.claves.has(clave) ? 'el rango' : 'el filtro'}.`);
 }
 
 // El texto de un municipio (globo del mapa y dato del elegido) con su falta («sin informe» o el dato no disponible) en rojo
@@ -325,7 +415,7 @@ function dibujarLeyenda() {
     const l = L.leyenda(modelo, estado, info, oscuro());
     $('tituloLeyenda').textContent = l.titulo;
     $('leyendaFinanzas').replaceChildren(...l.items.map((item) => {
-        const li = el('li', `finanzas__leyenda-item finanzas__leyenda-item--${item.tipo}`);
+        const li = el('li', `finanzas__leyenda-item finanzas__leyenda-item--${item.tipo}${item.apagada ? ' finanzas__leyenda-item--apagada' : ''}`);
         li.append(muestra(item), el('span', null, item.texto), el('span', 'finanzas__leyenda-n', `(${fmt.format(item.n)})`));
         return li;
     }));
@@ -383,6 +473,11 @@ function dibujarAmbito() {
     const partes = [];
     if (estado.departamento !== null) partes.push(modelo.departamentos.find((d) => d.codigo === estado.departamento).nombre);
     if (estado.listas.length) partes.push(`${L.ROTULO_CARGO[estado.cargo]}: ${estado.listas.map(siglaDe(estado.cargo)).join(', ')}`);
+    if (estado.rango) {
+        const metrica = modelo.porCampo.get(estado.indicador);
+        if (!partes.length) partes.push('Todo el país');
+        partes.push(`${metrica.nombre}: ${enOracion(L.rotuloRango(metrica.escala, metrica.unidad, estado.rango))}`);
+    }
     const alcance = partes.length ? partes.join(' · ') : 'Todo el país';
     let texto = `Mostrando: ${alcance} — ${cantidad(info.municipios.length, 'municipio', 'municipios')} (${fmt.format(info.informantes)} con informe, ` +
         `${fmt.format(info.sinInforme)} sin informe)`;
@@ -638,9 +733,11 @@ async function descargarCsv() {
             (vista === 'balance' ? 'Tomo V-A — Municipalidades: Situación Financiera' : 'Tomo V-B — Municipalidades: Situación Presupuestaria') },
         { titulo: 'url_fuente_oficial', v: () => modelo.datos.manifiesto.procedencia.url },
     ];
+    const metrica = modelo.porCampo.get(estado.indicador);
     const ambito = [estado.departamento === null ? null : modelo.departamentos.find((d) => d.codigo === estado.departamento).nombre,
                     estado.municipio === null ? null : modelo.porClave.get(estado.municipio).nombre,
-                    estado.listas.length ? `${estado.cargo}-${estado.listas.map(siglaDe(estado.cargo)).join('-')}` : null];
+                    estado.listas.length ? `${estado.cargo}-${estado.listas.map(siglaDe(estado.cargo)).join('-')}` : null,
+                    estado.rango ? `${metrica.nombre} ${L.rotuloRango(metrica.escala, metrica.unidad, estado.rango)}` : null];
     descargar(new Blob([L.textoCsv(columnas, filas)], { type: 'text/csv;charset=utf-8' }),
         `${nombreArchivo('finanzas-municipales-2025', L.ROTULO_VISTA[vista], ...ambito)}.csv`);
 }
@@ -843,9 +940,13 @@ function dibujarMetodo() {
             'a 75 %, de 75 a 90 % y más del 90 %. En veces: menos de 0,5, de 0,5 a 1, de 1 a 2, de 2 a 5, de 5 a 10 y más de 10. Cada clase incluye ' +
             'su límite inferior. Los colores van de verde (lo más bajo) a amarillo y a rojo (lo más alto): es una escala de magnitud, que sirve solo ' +
             'para dibujar, no cambia el valor ni califica un valor como bueno o malo. Los colores son financieros, nunca partidarios.'],
+        ['Rango', 'Arriba del mapa, un deslizador con dos manijas (desde y hasta) elige un rango de esas clases; al abrir abarca todas. El mapa, ' +
+            'la leyenda, la tabla y el CSV quedan con los municipios que tienen un valor del indicador en el rango; los demás del filtro, en el ' +
+            'mapa, solo con el borde, y sus clases, apagadas en la leyenda. El rango va en el enlace y se conserva al cambiar a un indicador con ' +
+            'las mismas clases.'],
         ['Ausencias', `Gris liso: «${L.TEXTO.sinInforme}» (la ausencia en el informe al elaborarse, no un incumplimiento actual ni una deuda cero). ` +
             'Gris tramado: el municipio presentó su informe pero el dato no está disponible (el motivo, en el globo y en la ficha). Un cero publicado ' +
-            `tiene el color de su clase. Punteado: «${L.TEXTO.pendiente}». Fuera del filtro: solo el borde. En la tabla, la ficha y los textos del ` +
+            `tiene el color de su clase. Punteado: «${L.TEXTO.pendiente}». Fuera del filtro o del rango: solo el borde. En la tabla, la ficha y los textos del ` +
             'mapa, «Sin informe» y «N/D» van en rojo.'],
         ['Unión territorial', 'Los municipios del MEF se unen a los distritos del sitio con un adaptador aparte: por departamento y nombre exactos, por el ' +
             'nombre de la nota del MEF (los sin informe) y, el resto, confirmados uno a uno. El código del MEF no es el del INE ni el del TSJE.'],
@@ -911,6 +1012,7 @@ async function iniciar() {
     dibujarCabecera();
     dibujarMetodo();
     armarControles();
+    armarRango();
     armarTabla();
     const { estado: leido, avisos } = L.leerEstado(location.hash.slice(1), modelo);
     estado = leido;

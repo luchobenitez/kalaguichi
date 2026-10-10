@@ -542,6 +542,207 @@ html[data-theme="dark"] .finanzas__descargas a {
     font-weight: 800;
 }
 
+/* El rango del indicador (ADR-034): dos manijas sobre la barra de las clases fijas, arriba del mapa. Las manijas se paran
+   en los bordes de las clases: la barra, los rótulos y las marcas dejan medio ancho de manija a cada lado. */
+.finanzas__rango {
+    --manija: 1.375rem;
+    --alto: 2.25rem;
+    --clases: 6;
+    display: grid;
+    gap: .375rem;
+}
+
+.finanzas__rango[hidden] {
+    display: none;
+}
+
+.finanzas__rango-cabecera {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .25rem .75rem;
+}
+
+.finanzas__rango-valor {
+    color: var(--text);
+    font-size: .9375rem;
+    font-weight: 800;
+}
+
+/* «Todos los valores»: compacto y con su lugar guardado aunque no se vea, para que la barra no salte al arrastrar. */
+.finanzas__rango-todos {
+    min-height: 2rem;
+    margin-left: auto;
+    padding: .25rem .75rem;
+    border-radius: .75rem;
+    font-size: .8125rem;
+}
+
+.finanzas__rango-todos.esta-oculto {
+    visibility: hidden;
+}
+
+.finanzas__rango-control {
+    position: relative;
+    height: var(--alto);
+}
+
+.finanzas__rango-barra {
+    position: absolute;
+    inset: calc((var(--alto) - 1rem) / 2) calc(var(--manija) / 2);
+    display: flex;
+    overflow: hidden;
+    border: 1px solid var(--border-strong);
+    border-radius: .5rem;
+}
+
+.finanzas__rango-tramo {
+    flex: 1 1 0;
+    cursor: pointer;
+    transition: opacity .15s ease;
+}
+
+.finanzas__rango-tramo + .finanzas__rango-tramo {
+    box-shadow: inset 1px 0 0 var(--surface);
+}
+
+.finanzas__rango-tramo.esta-fuera {
+    opacity: .2;
+}
+
+/* Las dos manijas: dos deslizadores transparentes, uno encima del otro; solo sus perillas reciben el puntero. */
+.finanzas__rango-manija {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    background: transparent;
+    pointer-events: none;
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+.finanzas__rango-manija::-webkit-slider-runnable-track {
+    height: 100%;
+    border: 0;
+    background: transparent;
+}
+
+.finanzas__rango-manija::-moz-range-track {
+    height: 100%;
+    border: 0;
+    background: transparent;
+}
+
+.finanzas__rango-manija::-webkit-slider-thumb {
+    width: var(--manija);
+    height: var(--manija);
+    margin-top: calc((var(--alto) - var(--manija)) / 2);
+    border: 3px solid var(--text);
+    border-radius: 50%;
+    background: var(--surface-solid);
+    box-shadow: 0 1px 4px rgba(15, 23, 42, .35);
+    cursor: grab;
+    pointer-events: auto;
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+.finanzas__rango-manija::-moz-range-thumb {
+    box-sizing: border-box;
+    width: var(--manija);
+    height: var(--manija);
+    border: 3px solid var(--text);
+    border-radius: 50%;
+    background: var(--surface-solid);
+    box-shadow: 0 1px 4px rgba(15, 23, 42, .35);
+    cursor: grab;
+    pointer-events: auto;
+}
+
+.finanzas__rango-manija:active::-webkit-slider-thumb {
+    cursor: grabbing;
+}
+
+.finanzas__rango-manija:active::-moz-range-thumb {
+    cursor: grabbing;
+}
+
+.finanzas__rango-manija:focus-visible {
+    outline: none;
+}
+
+.finanzas__rango-manija:focus-visible::-webkit-slider-thumb {
+    outline: 3px solid var(--orange-500);
+    outline-offset: 2px;
+}
+
+.finanzas__rango-manija:focus-visible::-moz-range-thumb {
+    outline: 3px solid var(--orange-500);
+    outline-offset: 2px;
+}
+
+/* Los rótulos de las clases, uno bajo cada tramo; en el celular, en su lugar, las marcas de los bordes. */
+.finanzas__rango-clases {
+    display: flex;
+    margin: 0;
+    padding: 0 calc(var(--manija) / 2);
+    list-style: none;
+}
+
+.finanzas__rango-clases li {
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 0 .125rem;
+    color: var(--text-soft);
+    font-size: .75rem;
+    font-weight: 600;
+    line-height: 1.25;
+    text-align: center;
+}
+
+.finanzas__rango-clases li.esta-fuera {
+    opacity: .45;
+}
+
+.finanzas__rango-marcas {
+    position: relative;
+    display: none;
+    height: 1rem;
+    margin: 0 calc(var(--manija) / 2);
+    padding: 0;
+    list-style: none;
+}
+
+.finanzas__rango-marcas li {
+    position: absolute;
+    top: 0;
+    left: calc(100% * var(--borde) / var(--clases));
+    color: var(--text-muted);
+    font-size: .6875rem;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    transform: translateX(-50%);
+}
+
+.finanzas__rango-cuenta {
+    margin: 0;
+    color: var(--text-soft);
+    font-size: .8125rem;
+}
+
+@media (pointer: coarse) {
+    .finanzas__rango {
+        --manija: 1.75rem;
+        --alto: 2.75rem;
+    }
+
+    .finanzas__rango-todos {
+        min-height: 2.75rem;
+    }
+}
+
 /* Mapa y leyenda */
 .finanzas__mapa {
     aspect-ratio: auto;
@@ -596,8 +797,14 @@ html[data-theme="dark"] .finanzas__muestra--no_disponible {
     background: transparent;
 }
 
-.finanzas__muestra--fuera {
+.finanzas__muestra--fuera,
+.finanzas__muestra--fuera_rango {
     background: transparent;
+}
+
+/* Las clases de fuera del rango elegido (ADR-034). */
+.finanzas__leyenda-item--apagada {
+    opacity: .45;
 }
 
 .finanzas__leyenda-nota {
@@ -948,5 +1155,17 @@ html[data-theme="dark"] .tabla td.tabla__texto.finanzas__sin-informe {
 
     .finanzas__mapa {
         height: clamp(20rem, 70vh, 32rem);
+    }
+
+    .finanzas__rango-cabecera .finanzas__rotulo {
+        flex-basis: 100%;
+    }
+
+    .finanzas__rango-clases {
+        display: none;
+    }
+
+    .finanzas__rango-marcas {
+        display: block;
     }
 }

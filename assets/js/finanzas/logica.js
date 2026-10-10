@@ -1,8 +1,9 @@
 // Finanzas municipales · Ejercicio 2025 (ADR-029; ADR 0027 del módulo): la lógica de la página, sin el DOM. El estado del
 // enlace (con avisos para los parámetros desconocidos o incompatibles), el conjunto de municipios del filtro, el estado de
 // cada municipio en el mapa (el color de su clase fija, el gris de «sin informe», el gris tramado de «no disponible»,
-// el punteado de una correspondencia pendiente, solo el borde fuera del filtro), la leyenda, los textos, las filas de la
-// tabla y el CSV. Los valores no se recalculan: se leen tal como se prepararon. Se prueba con Node (tests/).
+// el punteado de una correspondencia pendiente, solo el borde fuera del filtro o del rango), el rango del deslizador
+// (ADR-034), la leyenda, los textos, las filas de la tabla y el CSV. Los valores no se recalculan: se leen tal como se
+// prepararon. Se prueba con Node (tests/).
 
 export const CARGOS = ['intendencia', 'junta'];
 export const ROTULO_CARGO = { intendencia: 'Intendencia', junta: 'Junta Municipal' };
@@ -15,6 +16,8 @@ export const TEXTO = {
     noDisponible: 'Indicador no disponible',
     pendiente: 'Correspondencia territorial pendiente',
     fuera: 'Fuera del filtro',
+    fueraRango: 'Fuera del rango elegido',
+    todos: 'Todos los valores',
     nd: 'N/D',
     calculado: 'Indicador calculado sobre datos publicados',
 };
@@ -28,7 +31,7 @@ export const RESUMEN = {
     balance: ['activo_total_gs', 'activo_corriente_gs', 'disponible_gs', 'pasivo_total_gs', 'pasivo_corriente_gs', 'patrimonio_neto_cuenta8_gs',
               'ingresos_gestion_gs', 'egresos_gestion_gs'],
 };
-const PARAMETROS = ['cargo', 'departamento', 'municipio', 'listas', 'indicador', 'vista', 'columnas'];
+const PARAMETROS = ['cargo', 'departamento', 'municipio', 'listas', 'indicador', 'rango', 'vista', 'columnas'];
 
 // --- Colores ------------------------------------------------------------------------------------------------------------
 // ADR-033: de verde (lo más bajo) a amarillo y a rojo (lo más alto), como un mapa de calor; los negativos, en el verde más
@@ -42,16 +45,24 @@ const GRIS = { claro: '#9ca3af', oscuro: '#4b5563' };
 export const gris = (oscuro) => GRIS[oscuro ? 'oscuro' : 'claro'];
 
 // Las clases fijas de cada unidad (ADR-033): cada clase incluye su límite inferior y llega hasta el siguiente. Si el
-// indicador tiene negativos en el país, van en «Negativo» y la primera clase empieza en 0.
+// indicador tiene negativos en el país, van en «Negativo» y la primera clase empieza en 0. Para el deslizador (ADR-034):
+// los cortes escritos (numeros), su marca bajo la barra y las frases de un rango de varias clases.
 const MM = 1e6;
 export const CLASES_FIJAS = {
     PYG: { cortes: [15000, 30000, 60000, 120000, 300000].map((x) => x * MM), desdeCero: 'Entre 0 y 15.000MM', texto: 'en millones de guaraníes (MM)',
            rotulos: ['Menos de 15.000MM', 'Entre 15.000MM y 30.000MM', 'Entre 30.000MM y 60.000MM', 'Entre 60.000MM y 120.000MM',
-                     'Entre 120.000MM y 300.000MM', 'Más de 300.000MM'] },
+                     'Entre 120.000MM y 300.000MM', 'Más de 300.000MM'],
+           numeros: ['15.000', '30.000', '60.000', '120.000', '300.000'], marca: (x) => x,
+           frases: { menos: (h) => `Menos de ${h}MM`, entre: (d, h) => `Entre ${d}${d === '0' ? '' : 'MM'} y ${h}MM`, mas: (d) => `Más de ${d}MM`,
+                     ceroOMas: '0 o más' } },
     '%': { cortes: [10, 25, 50, 75, 90], desdeCero: 'Entre 0 y 10 %', texto: 'en porcentaje',
-           rotulos: ['Menos del 10 %', 'Entre 10 y 25 %', 'Entre 25 y 50 %', 'Entre 50 y 75 %', 'Entre 75 y 90 %', 'Más del 90 %'] },
+           rotulos: ['Menos del 10 %', 'Entre 10 y 25 %', 'Entre 25 y 50 %', 'Entre 50 y 75 %', 'Entre 75 y 90 %', 'Más del 90 %'],
+           numeros: ['10', '25', '50', '75', '90'], marca: (x) => `${x} %`,
+           frases: { menos: (h) => `Menos del ${h} %`, entre: (d, h) => `Entre ${d} y ${h} %`, mas: (d) => `Más del ${d} %`, ceroOMas: '0 % o más' } },
     veces: { cortes: [0.5, 1, 2, 5, 10], desdeCero: 'Entre 0 y 0,5', texto: 'en veces',
-             rotulos: ['Menos de 0,5', 'Entre 0,5 y 1', 'Entre 1 y 2', 'Entre 2 y 5', 'Entre 5 y 10', 'Más de 10'] },
+             rotulos: ['Menos de 0,5', 'Entre 0,5 y 1', 'Entre 1 y 2', 'Entre 2 y 5', 'Entre 5 y 10', 'Más de 10'],
+             numeros: ['0,5', '1', '2', '5', '10'], marca: (x) => x,
+             frases: { menos: (h) => `Menos de ${h}`, entre: (d, h) => `Entre ${d} y ${h}`, mas: (d) => `Más de ${d}`, ceroOMas: '0 o más' } },
 };
 
 // La escala fija de una unidad para los valores del país; null si la unidad no tiene clases fijas.
@@ -148,6 +159,61 @@ export function rotulosEscala(escala, unidad) {
 
 const y = (partes) => (partes.length < 2 ? partes.join('') : `${partes.slice(0, -1).join(', ')} y ${partes[partes.length - 1]}`);
 export const sinTildes = (texto) => String(texto ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+
+// --- Rango del deslizador (ADR-034) -------------------------------------------------------------------------------------
+// El rango son las clases [desde, hasta] de la escala del indicador (índices, inclusive); null, todas. Las dos manijas del
+// deslizador se paran en los bordes de las clases (0 … n): entre «desde» (a) y «hasta» (b) quedan las clases a … b − 1,
+// al menos una. Un rango con todas las clases se guarda como null: el enlace y el estado no tienen dos formas de «todo».
+export const manijasDeRango = (n, rango) => (rango ? [rango[0], rango[1] + 1] : [0, n]);
+export const rangoDeManijas = (n, a, b) => (a <= 0 && b >= n ? null : [a, b - 1]);
+
+// Si un valor cae en el rango: sin rango, cualquiera; con rango, un valor que falta nunca.
+export function enRango(escala, rango, v) {
+    if (!rango) return true;
+    const k = claseDe(escala, v);
+    return k !== null && k >= rango[0] && k <= rango[1];
+}
+
+// Los bordes de las clases fijas escritos sin la unidad (n + 1; null en los extremos abiertos), con el 0 si hay «Negativo».
+function bordesFijos(escala) {
+    const fija = escala.tipo === 'fija' ? CLASES_FIJAS[escala.unidad] : null;
+    if (!fija) return null;
+    return [null, ...(escala.clases[0]?.tramo === 'negativo' ? ['0'] : []), ...fija.numeros, null];
+}
+
+// Las marcas bajo la barra del deslizador, una por borde (null en los extremos abiertos o sin clases fijas).
+export function marcasRango(escala) {
+    const bordes = bordesFijos(escala);
+    if (!bordes) return Array.from({ length: escala.clases.length + 1 }, () => null);
+    return bordes.map((x) => (x === null ? null : CLASES_FIJAS[escala.unidad].marca(x)));
+}
+
+// El rótulo de un rango: «Todos los valores»; una clase, su rótulo; varias, de su borde inferior a su borde superior con las
+// frases de la unidad («Menos de 60.000MM», «Entre 10 y 75 %», «Más de 2», «0 o más»).
+export function rotuloRango(escala, unidad, rango) {
+    if (!rango) return TEXTO.todos;
+    const [d, h] = rango;
+    const rotulos = rotulosEscala(escala, unidad);
+    if (d === h) return rotulos[d];
+    const bordes = bordesFijos(escala);
+    if (!bordes) return `De «${rotulos[d]}» a «${rotulos[h]}»`;
+    const frases = CLASES_FIJAS[unidad].frases;
+    const [abajo, arriba] = [bordes[d], bordes[h + 1]];
+    if (abajo === null) return arriba === null ? TEXTO.todos : frases.menos(arriba);
+    if (arriba === null) return abajo === '0' ? frases.ceroOMas : frases.mas(abajo);
+    return frases.entre(abajo, arriba);
+}
+
+// Al cambiar de indicador se conserva el rango si el nuevo tiene las mismas clases (los mismos rótulos); si no, vuelve a
+// todos los valores (rangoQuitado). El municipio elegido que quede fuera del rango se quita al aplicar el estado.
+export function cambiarIndicador(modelo, e, campo) {
+    const clases = (c) => {
+        const m = modelo.porCampo.get(c);
+        return rotulosEscala(m.escala, m.unidad).join('|');
+    };
+    const conserva = Boolean(e.rango) && clases(e.indicador) === clases(campo);
+    return { estado: { ...e, indicador: campo, rango: conserva ? e.rango : null }, rangoQuitado: Boolean(e.rango) && !conserva };
+}
 
 // --- Modelo -------------------------------------------------------------------------------------------------------------
 // datos: los archivos de sitio/datos/finanzas/municipalidad/2025/ (manifiesto, catálogo, municipios, indicadores,
@@ -280,7 +346,8 @@ export function textoElectoral(modelo, clave, cargo) {
 
 // --- Estado del enlace -------------------------------------------------------------------------------------------------
 export function estadoInicial(modelo) {
-    return { cargo: 'intendencia', departamento: null, municipio: null, listas: [], indicador: modelo.inicial, vista: 'presupuesto', columnas: 'resumen' };
+    return { cargo: 'intendencia', departamento: null, municipio: null, listas: [], indicador: modelo.inicial, rango: null, vista: 'presupuesto',
+             columnas: 'resumen' };
 }
 
 const nombreDepartamento = (modelo, codigo) => modelo.departamentos.find((d) => d.codigo === codigo)?.nombre ?? String(codigo);
@@ -305,6 +372,16 @@ export function leerEstado(texto, modelo) {
     if (indicador !== null) {
         if (modelo.porCampo.has(indicador)) e.indicador = indicador;
         else avisos.push(`El indicador «${indicador}» no existe: se muestra «${modelo.porCampo.get(modelo.inicial).nombre}».`);
+    }
+    // El rango, en las posiciones de las clases del indicador (desde 1): «rango=3-4» o, una sola, «rango=3».
+    const rango = p.get('rango');
+    if (rango !== null) {
+        const metrica = modelo.porCampo.get(e.indicador);
+        const n = metrica.escala.clases.length;
+        const [, a, b = a] = /^(\d+)(?:-(\d+))?$/.exec(rango) ?? [];
+        const [d, h] = [Number(a) - 1, Number(b) - 1];
+        if (a !== undefined && d >= 0 && d <= h && h < n) e.rango = rangoDeManijas(n, d, h + 1);
+        else avisos.push(`El rango «${rango}» no existe en «${metrica.nombre}» (sus clases van de 1 a ${n}): se muestran todos los valores.`);
     }
     const vista = p.get('vista');
     if (vista !== null) {
@@ -331,7 +408,9 @@ export function leerEstado(texto, modelo) {
         else if (e.departamento !== null && m.departamento !== e.departamento) {
             avisos.push(`${m.nombre} no pertenece a ${nombreDepartamento(modelo, e.departamento)}: se quitó la selección del municipio.`);
         } else if (!conjunto(modelo, e).claves.has(municipio)) {
-            avisos.push(`${m.nombre} no está entre los municipios de las listas elegidas: se quitó la selección del municipio.`);
+            avisos.push(conjunto(modelo, { ...e, rango: null }).claves.has(municipio)
+                ? `${m.nombre} no está en el rango elegido: se quitó la selección del municipio.`
+                : `${m.nombre} no está entre los municipios de las listas elegidas: se quitó la selección del municipio.`);
         } else e.municipio = municipio;
     }
     const otros = [...new Set([...p.keys()].filter((k) => !PARAMETROS.includes(k)))];
@@ -347,6 +426,7 @@ export function textoEstado(e, modelo) {
     if (e.municipio !== null) p.set('municipio', e.municipio);
     if (e.listas.length) p.set('listas', e.listas.join(','));
     if (e.indicador !== modelo.inicial) p.set('indicador', e.indicador);
+    if (e.rango) p.set('rango', e.rango[0] === e.rango[1] ? String(e.rango[0] + 1) : `${e.rango[0] + 1}-${e.rango[1] + 1}`);
     if (e.vista !== 'presupuesto') p.set('vista', e.vista);
     if (e.columnas === 'todas') p.set('columnas', 'todas');
     return p.toString();
@@ -362,33 +442,38 @@ export function cambiarCargo(modelo, e, cargo) {
 }
 
 // --- Conjunto del filtro -----------------------------------------------------------------------------------------------
-export const hayFiltro = (e) => e.departamento !== null || e.listas.length > 0;
+export const hayFiltro = (e) => e.departamento !== null || e.listas.length > 0 || Boolean(e.rango);
 
-// Los municipios del filtro: departamento ∩ listas (varias listas se unen). Sin filtro de listas entran también los que no
-// tienen datos electorales. Los recuentos son de municipios únicos (un empate entre dos listas elegidas cuenta una vez).
+// El valor de la métrica que muestra el mapa (null sin informe o no disponible).
+const valorDelMapa = (modelo, m, campo) => (m.estado === 'informante' ? modelo.valor(m.clave, campo) : null);
+
+// Los municipios del filtro: departamento ∩ listas (varias listas se unen) y, con un rango, solo los que tienen un valor del
+// indicador en sus clases (ADR-034). Sin filtro de listas entran también los que no tienen datos electorales. Los
+// recuentos son de municipios únicos (un empate entre dos listas elegidas cuenta una vez). base: el filtro sin el rango.
 export function conjunto(modelo, e) {
     const elegidas = new Set(e.listas);
-    const municipios = [];
-    let empates = 0;
+    const base = [];
     for (const m of modelo.municipios) {
         if (e.departamento !== null && m.departamento !== e.departamento) continue;
-        if (elegidas.size) {
-            const x = electoralDe(modelo, m.clave, e.cargo);
-            if (!(x?.ganadoras ?? []).some((g) => elegidas.has(g.id))) continue;
-            if (x.empate) empates += 1;
-        }
-        municipios.push(m);
+        if (elegidas.size && !(electoralDe(modelo, m.clave, e.cargo)?.ganadoras ?? []).some((g) => elegidas.has(g.id))) continue;
+        base.push(m);
     }
+    const metrica = e.rango ? modelo.porCampo.get(e.indicador) : null;
+    const municipios = metrica ? base.filter((m) => enRango(metrica.escala, e.rango, valorDelMapa(modelo, m, metrica.campo))) : base;
+    const empates = elegidas.size ? municipios.filter((m) => electoralDe(modelo, m.clave, e.cargo).empate).length : 0;
     const sinInforme = municipios.filter((m) => m.estado === 'sin_informe').length;
-    return { claves: new Set(municipios.map((m) => m.clave)), municipios, empates, exclusivas: elegidas.size ? municipios.length - empates : null,
-             informantes: municipios.length - sinInforme, sinInforme };
+    const claves = new Set(municipios.map((m) => m.clave));
+    return { claves, municipios, empates, exclusivas: elegidas.size ? municipios.length - empates : null,
+             informantes: municipios.length - sinInforme, sinInforme,
+             base: metrica ? { claves: new Set(base.map((m) => m.clave)), municipios: base } : { claves, municipios } };
 }
 
 // --- Mapa ---------------------------------------------------------------------------------------------------------------
 // El estado de cada municipio: el gris de «sin informe» y el punteado de una correspondencia pendiente no dependen del
 // filtro (son señales documentales); dentro del filtro, el color de su clase o el gris tramado si el indicador no está
-// disponible; fuera, solo el borde. Con un filtro activo, los del filtro llevan además un contorno (marcado).
-export function pintura(modelo, e, claves, oscuro) {
+// disponible; fuera, solo el borde (fuera del rango, si está en el filtro sin el rango: base). Con un filtro activo, los
+// del filtro llevan además un contorno (marcado).
+export function pintura(modelo, e, claves, oscuro, base = claves) {
     const metrica = modelo.porCampo.get(e.indicador);
     const colores = coloresDeEscala(metrica.escala);
     const filtro = hayFiltro(e);
@@ -399,7 +484,7 @@ export function pintura(modelo, e, claves, oscuro) {
         if (!m) return { color: null, categoria: 'fuera' };
         if (m.estado === 'sin_informe') return { color: gris(oscuro), marcado, categoria: 'sin_informe' };
         if (m.union?.estado !== 'unida') return { color: null, pendiente: true, marcado, categoria: 'pendiente' };
-        if (!dentro) return { color: null, categoria: 'fuera' };
+        if (!dentro) return { color: null, categoria: base.has(clave) ? 'fuera_rango' : 'fuera' };
         const v = modelo.valor(clave, metrica.campo);
         if (v === null) return { color: gris(oscuro), tramado: true, marcado, categoria: 'no_disponible' };
         const k = claseDe(metrica.escala, v);
@@ -408,20 +493,25 @@ export function pintura(modelo, e, claves, oscuro) {
 }
 
 // La leyenda: el título (indicador, unidad y alcance de la escala), una entrada por clase con los municipios del filtro
-// que caen en ella y, fuera de la escala, las categorías de ausencia y de filtro.
+// que caen en ella (sin el rango: las clases de fuera del rango van apagadas, con los que quedaron sin color) y, fuera de
+// la escala, las categorías de ausencia, de filtro y de rango.
 export function leyenda(modelo, e, info, oscuro) {
     const metrica = modelo.porCampo.get(e.indicador);
     const escala = metrica.escala;
-    const pintar = pintura(modelo, e, info.claves, oscuro);
+    const base = info.base ?? info;
+    const pintar = pintura(modelo, e, info.claves, oscuro, base.claves);
     const categorias = modelo.municipios.map((m) => pintar(m.clave));
-    const enClase = (k) => categorias.filter((c) => c.categoria === 'valor' && c.clase === k).length;
+    const pintarSinRango = e.rango ? pintura(modelo, { ...e, rango: null }, base.claves, oscuro) : pintar;
+    const sinRango = e.rango ? modelo.municipios.map((m) => pintarSinRango(m.clave)) : categorias;
+    const enClase = (k) => sinRango.filter((c) => c.categoria === 'valor' && c.clase === k).length;
     const cuenta = (categoria) => categorias.filter((c) => c.categoria === categoria).length;
     const colores = coloresDeEscala(escala);
     const rotulos = escala.clases.length ? rotulosEscala(escala, metrica.unidad) : [];
     const fija = escala.tipo === 'fija';
     const millones = metrica.unidad === 'PYG' && (fija || escala.clases.some((c) => Math.abs(c.desde) >= 1e6 || Math.abs(c.hasta) >= 1e6));
     const tipo = escala.tipo === 'divergente' ? 'divergente alrededor de cero' : escala.tipo === 'secuencial' ? 'secuencial' : 'sin valores';
-    const items = escala.clases.map((c, k) => ({ tipo: 'clase', color: colores[k], texto: rotulos[k], n: enClase(k), tramo: c.tramo }));
+    const items = escala.clases.map((c, k) => ({ tipo: 'clase', color: colores[k], texto: rotulos[k], n: enClase(k), tramo: c.tramo,
+                                                 apagada: Boolean(e.rango) && (k < e.rango[0] || k > e.rango[1]) }));
     const sinInforme = cuenta('sin_informe');
     if (sinInforme) items.push({ tipo: 'sin_informe', color: gris(oscuro), texto: TEXTO.sinInforme, n: sinInforme });
     const noDisponible = cuenta('no_disponible');
@@ -432,13 +522,17 @@ export function leyenda(modelo, e, info, oscuro) {
         items.push({ tipo: 'marcado', texto: 'Con contorno: en el filtro', n: info.municipios.length });
         const fuera = cuenta('fuera');
         if (fuera) items.push({ tipo: 'fuera', texto: `${TEXTO.fuera}: solo el borde`, n: fuera });
+        const fueraRango = cuenta('fuera_rango');
+        if (fueraRango) items.push({ tipo: 'fuera_rango', texto: `${TEXTO.fueraRango}: solo el borde`, n: fueraRango });
     }
+    const rango = e.rango ? ` Rango elegido: ${rotuloRango(escala, metrica.unidad, e.rango)}; las clases de fuera, apagadas, con los municipios ` +
+        'que quedaron solo con el borde.' : '';
     return {
         titulo: `${metrica.nombre} (${UNIDAD_CORTA[metrica.unidad] ?? metrica.unidad}${millones ? `; ${fija ? 'MM' : 'M'} = millones` : ''})`,
         nota: !escala.clases.length ? 'Ningún municipio tiene este indicador.'
-            : fija ? `Escala nacional fija, con clases fijas ${CLASES_FIJAS[metrica.unidad].texto}: de verde (lo más bajo) a amarillo y a rojo ` +
-                     '(lo más alto); gris, sin datos. No cambia al filtrar.'
-                : `Escala nacional fija (${tipo}, por cuantiles de los ${metrica.cobertura} municipios con dato): no cambia al filtrar.`,
+            : (fija ? `Escala nacional fija, con clases fijas ${CLASES_FIJAS[metrica.unidad].texto}: de verde (lo más bajo) a amarillo y a rojo ` +
+                      '(lo más alto); gris, sin datos. No cambia al filtrar.'
+                : `Escala nacional fija (${tipo}, por cuantiles de los ${metrica.cobertura} municipios con dato): no cambia al filtrar.`) + rango,
         items,
     };
 }
@@ -479,7 +573,8 @@ export function textoPaginas(m) {
 export function lineasMunicipio(modelo, e, info, clave) {
     const m = modelo.porClave.get(clave);
     if (!m) return null;
-    const lineas = [[`${m.nombre} · ${m.departamento_nombre}${info.claves.has(clave) ? '' : ` (${TEXTO.fuera.toLowerCase()})`}`],
+    const fuera = info.claves.has(clave) ? '' : ` (${(info.base?.claves.has(clave) ? TEXTO.fueraRango : TEXTO.fuera).toLowerCase()})`;
+    const lineas = [[`${m.nombre} · ${m.departamento_nombre}${fuera}`],
                     partesFinancieras(modelo, clave, e.indicador), [textoElectoral(modelo, clave, e.cargo)]];
     const paginas = textoPaginas(m);
     if (paginas) lineas.push([paginas]);
