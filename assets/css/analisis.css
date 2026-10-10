@@ -215,6 +215,25 @@
     min-height: 1.25rem;
 }
 
+/* «Intendente vs Junta» (ADR-032): sobre el mapa, el grupo del mapa (con «ambos») y el mínimo de votos emitidos. */
+.ivj__mapa-controles {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .75rem 1.5rem;
+    margin: 0 0 .75rem;
+}
+
+.ivj__mapa-controles:empty,
+.ivj__mapa-grupo[hidden] {
+    display: none;
+}
+
+.ivj__mapa-controles .ivj__deslizador {
+    flex: 1 1 18rem;
+    max-width: 40rem;
+}
+
 /* El mínimo de electores de «Distritos»: el deslizador ocupa el ancho de los controles. */
 .deslizador {
     display: grid;

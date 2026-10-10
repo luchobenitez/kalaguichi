@@ -161,13 +161,25 @@ export function crearIntendenteJunta(datos, herramientas) {
     const filtroExterno = Boolean(herramientas.idFiltro);
     const fuente = herramientas.fuente ?? { nombre: 'TREP preliminar', momento: `corte ${datos.resumen.eleccion.corte}` };
     const estado = { grupo: 'L1', metrica: 'votos', vista: 'divergentes', filtro: '', busqueda: '', orden: null, local: null,
-                     todos: false, ambos: 'L1' };
+                     todos: false, ambos: 'L1', minEmitidos: 0, mapaGrupo: 'L1' };
     let mapa = null;
+    // El mapa en Análisis (ADR-032): sigue al grupo elegido (con «ambos», la Lista 1 o la Alianza con su botón) y tiene un
+    // deslizador de votos emitidos por mesa que quita del mapa las mesas con menos votos. La vista informe del TREP no pasa
+    // estas opciones: conserva el mapa de la lista 1 sin deslizador.
+    const mapaPorGrupo = Boolean(herramientas.mapaPorGrupo);
+    const conDeslizador = Boolean(herramientas.deslizadorEmitidos);
+    const emitidosMesa = datos.mesas.cargos['1'].emitidos;
+    const maxEmitidos = emitidosMesa.reduce((m, v) => (v !== null && v > m ? v : m), 0);
+    let controlesMapa = null;
     let graficos = [];
     let turno = 0;
     let preparado = false;
 
     const grupoPor = (id) => modelo.grupos.find((g) => g.id === id);
+    const grupoDelMapa = () => (!mapaPorGrupo ? 'L1' : estado.grupo === 'ambos' ? estado.mapaGrupo : estado.grupo);
+    // El rojo del mapa: en la lista 1, el «voto cruzado a lista 3» (ADR 0007); en la Alianza, su diferencia negativa.
+    const rojoDe = (id) => (id === 'L1' ? { titulo: VOTO_CRUZADO, texto: VOTO_CRUZADO.toLowerCase() }
+        : { titulo: 'Diferencia negativa de la Alianza', texto: 'diferencia negativa de la Alianza' });
     const gruposVista = () => (estado.grupo === 'ambos' ? modelo.grupos : [grupoPor(estado.grupo)]);
     const metrica = (f, g) => (estado.metrica === 'pct' ? f.grupos[g.id].pct : f.grupos[g.id].dif);
     const ascendente = (a, b) => (a === null) - (b === null) || a - b;
@@ -366,15 +378,75 @@ export function crearIntendenteJunta(datos, herramientas) {
     }
 
     // Enlace compartible (lo arma la página): grupo, métrica, tipo de gráfico y local elegido; con filtro externo, también él.
-    const estadoEnlace = () => ({ grupo: estado.grupo, metrica: estado.metrica, grafico: estado.vista, local: estado.local });
+    const estadoEnlace = () => ({ grupo: estado.grupo, metrica: estado.metrica, grafico: estado.vista, local: estado.local,
+                                  emitidos: estado.minEmitidos, grupoMapa: estado.mapaGrupo });
 
-    function aplicarEnlace({ grupo, metrica, grafico, local, filtro }) {
+    function aplicarEnlace({ grupo, metrica, grafico, local, filtro, emitidos, grupoMapa }) {
         if (filtroExterno) estado.filtro = filtro ?? '';
         estado.grupo = ['L1', 'AL', 'ambos'].includes(grupo) ? grupo : 'L1';
         estado.metrica = ['votos', 'pct'].includes(metrica) ? metrica : 'votos';
         estado.vista = ['divergentes', 'agrupadas'].includes(grafico) ? grafico : 'divergentes';
         estado.local = local && modelo.filas.some((f) => f.clave === local) ? local : null;
+        // El mínimo de votos emitidos: un entero entre 0 y el máximo de una mesa (lo demás vuelve a 0).
+        const minimo = Number(emitidos);
+        estado.minEmitidos = conDeslizador && Number.isInteger(minimo) && minimo > 0 ? Math.min(minimo, maxEmitidos) : 0;
+        estado.mapaGrupo = grupoMapa === 'AL' ? 'AL' : 'L1';
         estado.orden = null;
+    }
+
+    // Sobre el mapa (la caja está en la plantilla de Análisis): los botones del grupo del mapa (solo con «ambos») y el
+    // deslizador de votos emitidos por mesa.
+    function armarControlesMapa() {
+        const caja = $('controlesMapaIvj');
+        if (controlesMapa || !caja || !(conDeslizador || mapaPorGrupo)) return;
+        if (mapaPorGrupo) {
+            const grupo = el('div', 'segmentos ivj__mapa-grupo');
+            grupo.id = 'mapaGrupoIvj';
+            grupo.setAttribute('role', 'group');
+            grupo.setAttribute('aria-label', 'Grupo que muestra el mapa');
+            for (const g of modelo.grupos) {
+                const boton = el('button', null, `Mapa: ${g.nombre}`);
+                boton.type = 'button';
+                boton.dataset.ivjMapa = g.id;
+                boton.addEventListener('click', () => {
+                    estado.mapaGrupo = g.id;
+                    renderMapa(filtradas());
+                    herramientas.alCambiar?.();
+                });
+                grupo.append(boton);
+            }
+            caja.append(grupo);
+        }
+        if (conDeslizador) {
+            const control = el('div', 'deslizador ivj__deslizador');
+            const etiqueta = el('label', 'deslizador__etiqueta');
+            const rango = el('input', 'deslizador__rango');
+            rango.type = 'range';
+            rango.id = 'minEmitidosIvj';
+            rango.min = '0';
+            rango.max = String(maxEmitidos);
+            rango.step = '1';
+            etiqueta.htmlFor = rango.id;
+            const valor = el('output', 'deslizador__valor');
+            valor.id = 'valorMinEmitidosIvj';
+            valor.setAttribute('for', rango.id);
+            etiqueta.append('Mesas con al menos ', valor, ' votos emitidos');
+            const extremos = el('p', 'deslizador__extremos');
+            extremos.append(el('span', null, '0'), el('span', null, fmt.format(maxEmitidos)));
+            const cuenta = el('p', 'deslizador__cuenta');
+            cuenta.id = 'cuentaMinEmitidosIvj';
+            cuenta.setAttribute('aria-live', 'polite');
+            control.append(etiqueta, rango, extremos, cuenta);
+            // Mientras se arrastra, el mapa se vuelve a pintar una vez por cuadro; al soltar, el valor va al enlace.
+            let cuadro = 0;
+            rango.addEventListener('input', () => {
+                estado.minEmitidos = Number(rango.value);
+                cuadro ||= requestAnimationFrame(() => { cuadro = 0; renderMapa(filtradas()); });
+            });
+            rango.addEventListener('change', () => herramientas.alCambiar?.());
+            caja.append(control);
+        }
+        controlesMapa = caja;
     }
 
     // Ficha inferior (celular, tablet, mapa en pantalla completa): diferencias del local sin mover la página.
@@ -420,14 +492,26 @@ export function crearIntendenteJunta(datos, herramientas) {
 
     function renderMapa(filas) {
         if (!mapa) {
-            mapa = herramientas.crearMapa('mapaIvj', `Mapa de Asunción: ${VOTO_CRUZADO.toLowerCase()} por mesa (diferencia negativa de la lista 1)`, elegirLocal);
+            mapa = herramientas.crearMapa('mapaIvj', mapaPorGrupo ? 'Mapa de Asunción: diferencia entre el Intendente y la Junta del grupo elegido, por mesa'
+                : `Mapa de Asunción: ${VOTO_CRUZADO.toLowerCase()} por mesa (diferencia negativa de la lista 1)`, elegirLocal);
+            armarControlesMapa();
         }
-        const g = grupoPor('L1');
+        const idMapa = grupoDelMapa();
+        const g = grupoPor(idMapa);
+        const rojo = rojoDe(idMapa);
+        if (mapaPorGrupo) {
+            $('tituloMapaIvj').textContent = idMapa === 'L1' ? 'Mapa: voto cruzado de la lista 1 a la lista 3'
+                : `Mapa: ${g.rotuloInt} frente a la ${g.rotuloJun} (Alianza)`;
+        }
         const enPct = estado.metrica === 'pct';
-        const porMesa = modelo.mesas.L1;
+        const porMesa = modelo.mesas[idMapa];
         const valorMesa = (i) => (enPct ? porMesa.pct[i] : porMesa.dif[i]);
         const formato = (v) => (enPct ? signoPct(v) : `${signo(v)} votos`);
         const visibles = new Set(filas.map((f) => f.clave));
+        // Las mesas con menos votos emitidos que el mínimo del deslizador no se dibujan ni cuentan en la leyenda. Los quintiles
+        // salen de todas las mesas del filtro: al mover el deslizador los colores no cambian, solo se quitan puntos.
+        const minimo = conDeslizador ? estado.minEmitidos : 0;
+        const alcanza = (i) => !minimo || (emitidosMesa[i] ?? 0) >= minimo;
         const negativos = datos.filas.filter((f) => visibles.has(f.clave)).map((f) => valorMesa(f.i))
             .filter((v) => v !== null && v < 0).map((v) => -v);
         const { cortes, clase } = negativos.length ? herramientas.cuantiles(negativos) : { cortes: [], clase: () => 0 };
@@ -435,13 +519,19 @@ export function crearIntendenteJunta(datos, herramientas) {
         let positivas = 0, ceros = 0;
         const porClave = new Map(modelo.filas.map((f) => [f.clave, f]));
         const textoLocal = new Map([...porClave].map(([clave, f]) => {
-            const r = f.grupos.L1;
-            return [clave, `${f.nombre} · ${r.dif < 0 ? VOTO_CRUZADO.toLowerCase() : 'diferencia de la lista 1'}: ${signo(r.dif)} votos ` +
-                `(${signoPct(r.pct)}) · ${g.rotuloInt} ${fmt.format(r.int)} · ${g.rotuloJun} ${fmt.format(r.jun)}`];
+            const r = f.grupos[idMapa];
+            return [clave, `${f.nombre} · ${r.dif < 0 ? rojo.texto : `diferencia de ${idMapa === 'L1' ? 'la lista 1' : 'la Alianza'}`}: ` +
+                `${signo(r.dif)} votos (${signoPct(r.pct)}) · ${g.rotuloInt} ${fmt.format(r.int)} · ${g.rotuloJun} ${fmt.format(r.jun)}`];
         }));
+        let mesasFiltro = 0, mesasOcultas = 0;
         mapa.pintarMesas(({ i, clave }) => {
-            const v = valorMesa(i);
             const visible = visibles.has(clave);
+            if (visible) mesasFiltro += 1;
+            if (!alcanza(i)) {
+                if (visible) mesasOcultas += 1;
+                return null;
+            }
+            const v = valorMesa(i);
             if (visible) {
                 if (v !== null && v < 0) conteo[clase(-v)] += 1;
                 else if (v > 0) positivas += 1;
@@ -454,23 +544,23 @@ export function crearIntendenteJunta(datos, herramientas) {
         });
         mapa.marcar?.(estado.local);
         mapa.encuadrarLocales(localesEncuadre(filas));
-        // Locales con mayor diferencia negativa dentro del filtro y la búsqueda, numerados.
-        const valorLocal = (f) => (enPct ? f.grupos.L1.pct : f.grupos.L1.dif);
+        // Locales con mayor diferencia negativa dentro del filtro y la búsqueda, numerados (con todas sus mesas).
+        const valorLocal = (f) => (enPct ? f.grupos[idMapa].pct : f.grupos[idMapa].dif);
         const ranking = filas.filter((f) => valorLocal(f) !== null && valorLocal(f) < 0)
             .sort((a, b) => valorLocal(a) - valorLocal(b)).slice(0, TOP_MAPA);
         mapa.pintarRanking(ranking.map((f, k) => ({ clave: f.clave, puesto: k + 1, texto: `${k + 1}. ${f.nombre}: ${formato(valorLocal(f))}` })));
         const leyenda = $('leyendaMapaIvj');
-        leyenda.replaceChildren(itemLeyenda(ROJO, `${VOTO_CRUZADO}: el ${g.rotuloInt} obtuvo menos votos que la ${g.rotuloJun}`, 'leyenda__titulo'));
+        leyenda.replaceChildren(itemLeyenda(ROJO, `${rojo.titulo}: el ${g.rotuloInt} obtuvo menos votos que la ${g.rotuloJun}`, 'leyenda__titulo'));
         for (let k = 0; k < (negativos.length ? 5 : 0); k++) {
             const rango = enPct ? `${signoPct(-cortes[k])} a ${signoPct(-cortes[k + 1])}` : `${signo(-cortes[k])} a ${signo(-cortes[k + 1])} votos`;
             leyenda.append(itemLeyenda(herramientas.mezclar(ROJO, herramientas.opacidadPaso(k)), `${rango} · ${fmt.format(conteo[k])} ${conteo[k] === 1 ? 'mesa' : 'mesas'}`));
         }
         if (positivas) leyenda.append(itemLeyenda(VERDE, `Diferencia positiva (el ${g.rotuloInt} superó a su Junta) · ${fmt.format(positivas)} ${positivas === 1 ? 'mesa' : 'mesas'}`, null, 'rombo'));
         if (ceros) leyenda.append(itemLeyenda(GRIS, `Sin diferencia · ${fmt.format(ceros)} ${ceros === 1 ? 'mesa' : 'mesas'}`, null, 'cuadrado'));
-        if (ranking.length) leyenda.append(itemLeyenda(null, `Círculo numerado: ${cantidadLocales(ranking.length)} con más ${VOTO_CRUZADO.toLowerCase()}`, 'leyenda__anillo'));
+        if (ranking.length) leyenda.append(itemLeyenda(null, `Círculo numerado: ${cantidadLocales(ranking.length)} con más ${rojo.texto}`, 'leyenda__anillo'));
         leyenda.append(itemLeyenda(null, 'Contorno: zonas municipales oficiales', 'leyenda__contorno'));
         const caja = $('rankingIvj');
-        caja.replaceChildren(el('h3', null, `Locales con más ${VOTO_CRUZADO.toLowerCase()}`));
+        caja.replaceChildren(el('h3', null, `Locales con más ${rojo.texto}`));
         if (ranking.length) {
             const ol = el('ol');
             for (const f of ranking) {
@@ -478,7 +568,7 @@ export function crearIntendenteJunta(datos, herramientas) {
                 boton.type = 'button';
                 boton.dataset.local = f.clave;
                 boton.dataset.valor = String(valorLocal(f));
-                boton.title = `${g.rotuloInt}: ${fmt.format(f.grupos.L1.int)} · ${g.rotuloJun}: ${fmt.format(f.grupos.L1.jun)}`;
+                boton.title = `${g.rotuloInt}: ${fmt.format(f.grupos[idMapa].int)} · ${g.rotuloJun}: ${fmt.format(f.grupos[idMapa].jun)}`;
                 boton.append(el('span', 'ranking__nombre', f.nombre), el('span', 'ranking__valor', formato(valorLocal(f))));
                 const li = el('li');
                 li.append(boton);
@@ -486,13 +576,32 @@ export function crearIntendenteJunta(datos, herramientas) {
             }
             caja.append(ol);
         } else {
-            caja.append(el('p', 'nota', `No hay locales con ${VOTO_CRUZADO.toLowerCase()} en el filtro o la búsqueda.`));
+            caja.append(el('p', 'nota', `No hay locales con ${rojo.texto} en el filtro o la búsqueda.`));
         }
-        $('notaMapaIvj').textContent = `Cada punto es una mesa, dibujada alrededor de su local. Rojo: ${VOTO_CRUZADO.toLowerCase()}, es decir, mesas donde el ` +
+        // Los controles de arriba del mapa: el grupo (solo con «ambos») y el deslizador con la cuenta de las mesas que quedan.
+        if (controlesMapa) {
+            const botones = $('mapaGrupoIvj');
+            if (botones) {
+                botones.hidden = estado.grupo !== 'ambos';
+                for (const b of botones.querySelectorAll('[data-ivj-mapa]')) b.setAttribute('aria-pressed', String(b.dataset.ivjMapa === idMapa));
+            }
+            const rango = $('minEmitidosIvj');
+            if (rango) {
+                rango.value = String(minimo);
+                $('valorMinEmitidosIvj').value = fmt.format(minimo);
+                rango.setAttribute('aria-valuetext', `al menos ${fmt.format(minimo)} votos emitidos`);
+                const donde = estado.busqueda.trim() ? ' del filtro y la búsqueda' : estado.filtro ? ' del filtro' : '';
+                $('cuentaMinEmitidosIvj').textContent = `Se ven ${fmt.format(mesasFiltro - mesasOcultas)} de ${fmt.format(mesasFiltro)} mesas${donde}` +
+                    (mesasOcultas ? `; ${fmt.format(mesasOcultas)} con menos de ${fmt.format(minimo)} votos emitidos no se muestran.` : '.');
+            }
+        }
+        $('notaMapaIvj').textContent = `Cada punto es una mesa, dibujada alrededor de su local. Rojo: ${rojo.texto}, es decir, mesas donde el ` +
             `${g.rotuloInt} obtuvo menos votos que la ${g.rotuloJun}; más intenso, mayor diferencia (${enPct ? 'en %' : 'en votos'}, quintiles). ` +
             'Es una lectura de la diferencia: las actas no dicen a qué candidatura fue cada voto, y parte puede haber ido a otras listas o a ' +
             'votos en blanco o nulos. Las mesas con diferencia positiva van en rombo y las sin diferencia en cuadrado. Los círculos numerados marcan ' +
-            'los locales con mayor diferencia negativa dentro del filtro. Tocá un local para ver sus mesas.';
+            'los locales con mayor diferencia negativa dentro del filtro. Tocá un local para ver sus mesas.' +
+            (minimo ? ` Con el deslizador solo se dibujan las mesas con al menos ${fmt.format(minimo)} votos emitidos (los colores siguen siendo ` +
+                'los de todas las mesas del filtro); los gráficos, la tabla y el ranking de locales siguen con todas las mesas.' : '');
     }
 
     function renderMesasLocal() {

@@ -20,6 +20,9 @@ export function crear(ctx) {
         // Mapa de MapLibre con el mapa base; la página se desplaza: el mapa se mueve con dos dedos (o Ctrl + rueda).
         crearMapa: (id, etiqueta, alElegir) => crearMapaGL(ctx.datos, document.getElementById(id), { etiqueta, gestosCooperativos: true,
                                                                                                   alTocarLocal: alElegir }),
+        // ADR-032: el mapa sigue al grupo elegido y tiene el deslizador de votos emitidos por mesa.
+        mapaPorGrupo: true,
+        deslizadorEmitidos: true,
         mezclar, cuantiles, opacidadPaso, movimiento,
         ficha: ctx.ficha,
         usarFicha: () => ANGOSTO.matches || Boolean(document.querySelector('.mapa--pantalla')),
@@ -41,11 +44,13 @@ export function crear(ctx) {
         estadoEnlace: () => {
             const e = ivj.estadoEnlace();
             return { grupo: e.grupo === 'L1' ? null : e.grupo, metrica: e.metrica === 'votos' ? null : e.metrica,
-                     grafico: e.grafico === 'divergentes' ? null : e.grafico, local: e.local };
+                     grafico: e.grafico === 'divergentes' ? null : e.grafico, local: e.local, emitidos: e.emitidos || null,
+                     grupo_mapa: e.grupo === 'ambos' && e.grupoMapa === 'AL' ? 'AL' : null };
         },
         // El hash se aplica en el próximo render (junto con el filtro de la sección).
         aplicarEnlace(p) {
-            enlace = { grupo: p.get('grupo'), metrica: p.get('metrica'), grafico: p.get('grafico'), local: p.get('local') };
+            enlace = { grupo: p.get('grupo'), metrica: p.get('metrica'), grafico: p.get('grafico'), local: p.get('local'),
+                       emitidos: p.get('emitidos'), grupoMapa: p.get('grupo_mapa') };
         },
     };
 }
