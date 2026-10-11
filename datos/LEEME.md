@@ -4,6 +4,10 @@ Todos los datos que usan las secciones TREP, Resultados oficiales y Análisis vi
 navegador pide al mismo origen. No hay servidor ni base de datos: agregar una elección o publicar resultados
 oficiales es agregar archivos con este esquema y actualizar `elecciones.json`.
 
+Todos los archivos de esta carpeta están descritos en el catálogo DCAT `catalog.json`, con su tamaño y su SHA-256
+(ADR-039); cómo usarlo, en [README.md](README.md). Después de cambiar o agregar datos hay que regenerarlo con
+`python tools/catalogo_datos.py`: el validador del sitio rechaza un catálogo que no coincide con los archivos.
+
 ## `elecciones.json` (manifiesto)
 
 ```json

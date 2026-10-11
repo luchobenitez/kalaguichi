@@ -175,6 +175,26 @@ html[data-theme="dark"] .acerca__texto a {
     margin: 0;
 }
 
+/* El prompt para asistentes de IA (ADR-039): se copia tal cual, con sus renglones, y no desborda en celular. */
+.acerca__prompt {
+    margin: 0 0 1rem;
+    padding: .875rem 1rem;
+    border: 1px solid var(--border-strong);
+    border-radius: 12px;
+    background: var(--surface-soft);
+    color: var(--text);
+    font-size: .8125rem;
+    line-height: 1.55;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.acerca__prompt code,
+.acerca__texto p code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: .9em;
+}
+
 /* Pantalla ancha: índice a la izquierda, fijo al desplazar; el texto mantiene su ancho de lectura. */
 @media (min-width: 1024px) {
     .acerca {

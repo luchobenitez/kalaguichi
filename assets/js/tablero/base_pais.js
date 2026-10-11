@@ -1,14 +1,15 @@
 // Mapa base del país (ADR-026; ADR 0024 del módulo): las rutas, los ríos, los arroyos, los espejos de agua y los nombres de
 // lugares de datos/mapa_base/pais.pmtiles (OpenStreetMap, por partes con HTTP Range), con colores parecidos a los de
-// OpenStreetMap en cada tema. Lo usan el mapa del país (mapa_pais.js), el tablero de un distrito fuera de Asunción
+// OpenStreetMap en cada tema. Sin calles ni caminos vecinales (ADR-038): de los caminos menores, el archivo trae solo los
+// tramos con número de ruta (PY o D). Lo usan el mapa del país (mapa_pais.js), el tablero de un distrito fuera de Asunción
 // (mapa_gl.js) y los mapas del país de Análisis. Las capas van sobre el relleno de los distritos, como referencia.
 
 export const FUENTE_BASE = 'k-base';
 const COLORES = {
     claro: { agua: '#aad3df', rio: '#5b9bd5', arroyo: '#8fbfe0', casco: '#8f8f8f', autopista: '#e892a2', troncal: '#f9b29c', primaria: '#fcd6a4',
-             secundaria: '#f7fabf', menor: '#ffffff', tinta: '#0f172a', tintaRio: '#2f6fa8', halo: '#ffffff' },
+             secundaria: '#f7fabf', tinta: '#0f172a', tintaRio: '#2f6fa8', halo: '#ffffff' },
     oscuro: { agua: '#1d3a5c', rio: '#3f78b5', arroyo: '#2f5f8f', casco: '#0b1220', autopista: '#c9788c', troncal: '#c98d6f', primaria: '#b69766',
-              secundaria: '#a3a37a', menor: '#6b7689', tinta: '#e2e8f0', tintaRio: '#93c5fd', halo: '#0f172a' },
+              secundaria: '#a3a37a', tinta: '#e2e8f0', tintaRio: '#93c5fd', halo: '#0f172a' },
 };
 export const coloresBase = (oscuro) => COLORES[oscuro ? 'oscuro' : 'claro'];
 // La fuente: el archivo del mismo origen (absoluta(ruta) da la dirección desde la raíz del sitio).
@@ -16,8 +17,9 @@ export const fuenteBase = (absoluta) => ({ type: 'vector', url: `pmtiles://${abs
 
 const ancho = (pares) => ['interpolate', ['exponential', 1.5], ['zoom'], ...pares];
 const clase = (...clases) => ['in', ['get', 'clase'], ['literal', clases]];
-const PRINCIPALES = ['autopista', 'troncal', 'primaria', 'secundaria'];
-const MENORES = ['terciaria', 'local', 'calle'];
+// Las rutas: autopistas, troncales, primarias y secundarias y, de las clases menores, los tramos con número de ruta, que van
+// con el color de las secundarias.
+const RUTAS = ['autopista', 'troncal', 'primaria', 'secundaria', 'terciaria', 'local', 'tierra', 'calle'];
 const colorRuta = (c) => ['match', ['get', 'clase'], 'autopista', c.autopista, 'troncal', c.troncal, 'primaria', c.primaria, c.secundaria];
 
 // Las capas de la base: lineas (agua, ríos, arroyos y rutas, debajo de los límites) y rotulos (nombres de ríos, números de
@@ -31,13 +33,9 @@ export function capasBase(oscuro, { lugares = false } = {}) {
           paint: { 'line-color': c.arroyo, 'line-width': ancho([10, 0.4, 14, 1.4]) } },
         { id: 'kb-rios', type: 'line', ...base, 'source-layer': 'water', filter: clase('rio'), layout: { 'line-cap': 'round', 'line-join': 'round' },
           paint: { 'line-color': c.rio, 'line-width': ancho([4, 0.6, 6, 0.9, 8, 1.2, 12, 2.2, 14, 3.5]) } },
-        { id: 'kb-menores-casco', type: 'line', ...base, 'source-layer': 'roads', filter: clase(...MENORES), minzoom: 11, layout: { 'line-join': 'round' },
-          paint: { 'line-color': c.casco, 'line-width': ancho([11, 0.6, 14, 4.5]) } },
-        { id: 'kb-menores', type: 'line', ...base, 'source-layer': 'roads', filter: clase(...MENORES), layout: { 'line-cap': 'round', 'line-join': 'round' },
-          paint: { 'line-color': c.menor, 'line-width': ancho([9, 0.4, 14, 3.4]) } },
-        { id: 'kb-principales-casco', type: 'line', ...base, 'source-layer': 'roads', filter: clase(...PRINCIPALES), minzoom: 7, layout: { 'line-join': 'round' },
+        { id: 'kb-principales-casco', type: 'line', ...base, 'source-layer': 'roads', filter: clase(...RUTAS), minzoom: 7, layout: { 'line-join': 'round' },
           paint: { 'line-color': c.casco, 'line-width': ancho([7, 1.4, 10, 3, 14, 8]) } },
-        { id: 'kb-principales', type: 'line', ...base, 'source-layer': 'roads', filter: clase(...PRINCIPALES), layout: { 'line-cap': 'round', 'line-join': 'round' },
+        { id: 'kb-principales', type: 'line', ...base, 'source-layer': 'roads', filter: clase(...RUTAS), layout: { 'line-cap': 'round', 'line-join': 'round' },
           paint: { 'line-color': colorRuta(c), 'line-width': ancho([4, 0.8, 6, 1.1, 8, 1.5, 10, 2.2, 14, 6]) } },
     ];
     const halo = { 'text-halo-color': c.halo, 'text-halo-width': 1.5 };
@@ -65,8 +63,7 @@ export function aplicarTemaBase(map, oscuro) {
     pintar('kb-agua', 'fill-color', c.agua);
     pintar('kb-arroyos', 'line-color', c.arroyo);
     pintar('kb-rios', 'line-color', c.rio);
-    for (const id of ['kb-menores-casco', 'kb-principales-casco']) pintar(id, 'line-color', c.casco);
-    pintar('kb-menores', 'line-color', c.menor);
+    pintar('kb-principales-casco', 'line-color', c.casco);
     pintar('kb-principales', 'line-color', colorRuta(c));
     pintar('kb-nombres-rios', 'text-color', c.tintaRio);
     for (const id of ['kb-refs', 'kb-lugares']) pintar(id, 'text-color', c.tinta);

@@ -40,21 +40,24 @@ python scripts/mapa_base.py todo --pmtiles RUTA_AL_EJECUTABLE_DE_PMTILES [--buil
 
 ## Paraguay
 
-`pais.pmtiles` (12,5 MB) sale del build `20261008` de Protomaps (datos de OpenStreetMap al 2026-10-08 04:00 UTC):
+`pais.pmtiles` (8,3 MB) sale del build `20261008` de Protomaps (datos de OpenStreetMap al 2026-10-08 04:00 UTC):
 
 1. `pmtiles extract` lee del build mundial las teselas de Paraguay hasta z13 (los arroyos están solo en ese zoom), con la
    región de los departamentos del INE unidos y unos 9 km de margen (los ríos de frontera quedan enteros).
 2. `scripts/mapa_base/pais.mjs` se queda con tres capas y vuelve a cortarlas en z4 a z12 con geojson-vt, que simplifica
    cada zoom; cada clase tiene su zoom mínimo, con poco detalle al alejar (el país) y algo más al acercar (un distrito):
-   - `roads`: autopistas y troncales desde z4, primarias z6, secundarias z8, terciarias z9, caminos locales y calles z11;
-     con `clase`, `ref` (el número de ruta) y `nombre`. Sin caminos de tierra, senderos, servicios ni pistas de aviación.
+   - `roads`: solo las rutas, sin calles ni caminos vecinales (ADR-038): autopistas y troncales desde z4, primarias z6 y
+     secundarias z8; de las terciarias, los caminos vecinales, los de tierra y las calles, solo los tramos con número de
+     ruta nacional (PY) o departamental (D), para que las rutas no queden cortadas. Una ruta con número va entera desde z6
+     (nacional) o z8 (departamental). Con `clase`, `ref` (el número de ruta) y `nombre`. Sin senderos, servicios ni pistas
+     de aviación.
    - `water`: espejos de agua de 1 km² o más desde z4, de 5 ha z9, de media hectárea z11 (los tajamares más chicos no
      van); ríos con nombre z5, sin nombre z9; arroyos con nombre z10, sin nombre z11; canales z11. Con `clase` y `nombre`.
    - `places`: ciudades z7, pueblos z9, localidades z10, caseríos z11 y barrios z12, con `clase` y `nombre`.
 3. `pmtiles convert` lo pasa a PMTiles. Desde z13, MapLibre agranda las teselas de z12.
 
-Lo que pide una vista típica: el país, de 14 a 77 KB (z4 a z6); un departamento (Central, z9), 89 KB; un distrito urbano
-(Luque, z11 o z12), unos 280 KB; uno grande del Chaco (z8), 12 KB. Cifras por zoom y por vista: `procedencia.json`.
+Lo que pide una vista típica: el país, de 14 a 81 KB (z4 a z6); un departamento (Central, z9), 78 KB; un distrito urbano
+(Luque, z11 o z12), unos 60 KB; uno grande del Chaco (z8), 15 KB. Cifras por zoom y por vista: `procedencia.json`.
 
 ```
 python scripts/mapa_base.py pais --pmtiles RUTA_AL_EJECUTABLE_DE_PMTILES --build 20261008

@@ -1291,6 +1291,9 @@ function renderFijos() {
             if (span) span.textContent = texto;
         }
         $('buscarLocal').placeholder = 'Nombre o dirección del local';
+        // El mapa base del país no trae calles (ADR-038).
+        const conBase = document.querySelector('[data-base="calles"]');
+        if (conBase) conBase.textContent = 'Rutas y ríos';
     }
 }
 

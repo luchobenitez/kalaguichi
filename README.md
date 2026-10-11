@@ -83,7 +83,9 @@ abre el tablero de Luque), así que se puede copiar y compartir.
   huella en el catálogo de candidaturas.
 
 Las fechas, los cortes y las condiciones de cada fuente están en [Acerca de](https://kalaguichi.com/acerca/) y en el
-diálogo «Fuente» de cada sección.
+diálogo «Fuente» de cada sección. Todos los archivos de datos están descritos en el catálogo W3C DCAT
+[datos/catalog.json](https://kalaguichi.com/datos/catalog.json), con su tamaño, su SHA-256 y sus campos; la guía para
+usarlo desde programas y asistentes de IA está en [datos/README.md](https://kalaguichi.com/datos/README.md).
 
 ## Privacidad y datos de personas
 
@@ -141,9 +143,10 @@ diálogo «Fuente» de cada sección.
 | Todo el país | El TREP abre en el mapa de Paraguay; cada distrito tiene su tablero y su análisis; la Intendencia está en todo el país, con el nombre de cada candidatura. | ADR-022, ADR-024 |
 | Pobreza | El IPM del INE por barrio y por distrito, como comparación entre agregados. | ADR-023 |
 | Electores | Los mapas por cantidad usan los electores habilitados del padrón, y así se rotulan. | ADR-025, ADR-027 |
-| Mapas | OpenStreetMap copiado en el sitio: Asunción con todas sus capas y un mapa liviano para el país. | ADR-021, ADR-026 |
+| Mapas | OpenStreetMap copiado en el sitio: Asunción con todas sus capas y, para el país, un mapa liviano con solo rutas, ríos, arroyos y lugares (sin calles ni caminos vecinales). | ADR-021, ADR-026, ADR-038 |
 | Finanzas | Los datos del MEF tal como se publicaron, con clases fijas y un filtro electoral que no atribuye la gestión. | ADR-029, ADR-030, ADR-033, ADR-034 |
 | Visualización financiera | Gráficos dibujados en el navegador, sin imágenes pregeneradas; «N/D» distinto de «—». | ADR-035, ADR-036 |
+| Datos abiertos | Un catálogo W3C DCAT 3 (JSON-LD) generado desde los archivos, con el SHA-256 y los campos de cada uno y plantillas para las series; rutas estables y versiones por corte; una guía y un prompt de dos pasos para asistentes de IA. | ADR-039 |
 | Fotos | Solo con procedencia (SHA-256) y derechos verificados. | ADR-013 |
 | Forma de trabajo | Un pedido, una tarea y un ADR; publicación verificada en vivo y registrada. | ADR-014, ADR-031 |
 | Licencias | AGPL-3.0 para el código y CC BY-SA 4.0 para el contenido propio. | ADR-037 |
