@@ -1,0 +1,37 @@
+name: Propuesta
+description: Un análisis, una fuente de datos o una mejora que te gustaría ver en el sitio.
+title: "[Propuesta] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        El sitio trabaja con fuentes públicas y verificables, muestra en cada análisis su fuente, su método y sus límites, y nunca publica datos de personas del padrón.
+        **Los issues son públicos:** no incluyas cédulas, fechas de nacimiento, nombres de electores ni otros datos personales.
+  - type: textarea
+    id: propuesta
+    attributes:
+      label: Qué proponés
+    validations:
+      required: true
+  - type: textarea
+    id: para_que
+    attributes:
+      label: Para qué serviría
+      description: Qué pregunta ayudaría a responder y a quién.
+  - type: textarea
+    id: datos
+    attributes:
+      label: Fuentes de datos
+      description: Qué datos públicos harían falta y dónde se publican.
+  - type: textarea
+    id: referencias
+    attributes:
+      label: Referencias u otras ideas
+  - type: checkboxes
+    id: privacidad
+    attributes:
+      label: Antes de enviar
+      options:
+        - label: No incluí cédulas, fechas de nacimiento, nombres de electores ni otros datos personales.
+          required: true

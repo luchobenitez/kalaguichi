@@ -1,0 +1,68 @@
+name: Dato observado
+description: Un número, un nombre o una ubicación del sitio no coincide con su fuente oficial.
+title: "[Dato] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Kalaguichi.com no produce ni certifica los datos: los toma de publicaciones oficiales (TSJE, INE, MEF y otras) y dice en cada sección de cuál. Antes de enviar, mirá el diálogo «Fuente» o «Cómo leer» de la página: el TREP es preliminar, los «electores» son los habilitados del padrón y los indicadores financieros calculados no son calificaciones oficiales.
+        **Los issues son públicos:** no incluyas cédulas, fechas de nacimiento, nombres de electores ni otros datos personales.
+  - type: input
+    id: direccion
+    attributes:
+      label: Dirección de la página
+      description: La dirección completa, con lo que va después de `#`, para ver la misma selección.
+      placeholder: https://kalaguichi.com/trep/#eleccion=municipales&anio=2026&distrito=11-17
+    validations:
+      required: true
+  - type: dropdown
+    id: seccion
+    attributes:
+      label: Sección
+      options:
+        - Padrón electoral (Análisis del padrón)
+        - TREP
+        - Resultados oficiales
+        - Análisis → TREP
+        - Análisis → Financiero
+        - Análisis → Visualización financiera
+        - Máquina de votación
+        - Acerca de
+    validations:
+      required: true
+  - type: textarea
+    id: sitio
+    attributes:
+      label: Qué muestra el sitio
+      description: El valor, el nombre o la ubicación, y dónde aparece (mapa, tabla, gráfico, ficha).
+    validations:
+      required: true
+  - type: textarea
+    id: fuente
+    attributes:
+      label: Qué dice la fuente
+    validations:
+      required: true
+  - type: input
+    id: enlace
+    attributes:
+      label: Enlace a la fuente
+      description: Una publicación oficial o un documento que se pueda verificar.
+    validations:
+      required: true
+  - type: input
+    id: corte
+    attributes:
+      label: Fecha o corte de la fuente
+      placeholder: Por ejemplo, el corte del TREP o la fecha de publicación
+  - type: textarea
+    id: comentario
+    attributes:
+      label: Comentario
+  - type: checkboxes
+    id: privacidad
+    attributes:
+      label: Antes de enviar
+      options:
+        - label: No incluí cédulas, fechas de nacimiento, nombres de electores ni otros datos personales.
+          required: true

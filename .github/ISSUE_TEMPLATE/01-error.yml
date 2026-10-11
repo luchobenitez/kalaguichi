@@ -1,0 +1,72 @@
+name: Error en el sitio
+description: Algo no funciona o se ve mal en una página.
+title: "[Error] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Gracias por avisar. **Los issues son públicos:** no incluyas cédulas, fechas de nacimiento, nombres de electores ni otros datos personales, tampoco en las capturas.
+        Una falla de seguridad no va acá: seguí la [política de seguridad](https://github.com/luchobenitez/kalaguichi/security/policy).
+  - type: input
+    id: direccion
+    attributes:
+      label: Dirección de la página
+      description: Copiá la dirección completa de la barra del navegador; lo que va después de `#` guarda la selección (distrito, cargo, análisis).
+      placeholder: https://kalaguichi.com/trep/#eleccion=municipales&anio=2026&distrito=11-17
+    validations:
+      required: true
+  - type: textarea
+    id: que_paso
+    attributes:
+      label: Qué pasó
+      description: Qué viste, con el texto exacto de un mensaje de error si lo hubo.
+    validations:
+      required: true
+  - type: textarea
+    id: esperado
+    attributes:
+      label: Qué esperabas que pasara
+  - type: textarea
+    id: pasos
+    attributes:
+      label: Cómo reproducirlo
+      placeholder: |
+        1. Abrí la página.
+        2. Elegí …
+        3. Toqué …
+  - type: dropdown
+    id: dispositivo
+    attributes:
+      label: Dispositivo
+      options:
+        - Computadora
+        - Tablet
+        - Celular
+    validations:
+      required: true
+  - type: input
+    id: navegador
+    attributes:
+      label: Navegador y versión
+      placeholder: Chrome 151, Firefox 140, Safari 18…
+  - type: dropdown
+    id: tema
+    attributes:
+      label: Tema
+      options:
+        - Claro
+        - Oscuro
+        - No sé
+  - type: textarea
+    id: capturas
+    attributes:
+      label: Capturas
+      description: Podés arrastrar imágenes acá. Revisá que no muestren datos personales.
+  - type: checkboxes
+    id: privacidad
+    attributes:
+      label: Antes de enviar
+      options:
+        - label: No incluí cédulas, fechas de nacimiento, nombres de electores ni otros datos personales.
+          required: true

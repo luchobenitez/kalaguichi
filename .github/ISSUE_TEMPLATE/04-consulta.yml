@@ -1,0 +1,28 @@
+name: Consulta
+description: Una pregunta sobre los datos, los métodos o el proyecto.
+title: "[Consulta] "
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Muchas respuestas están en [Acerca de](https://kalaguichi.com/acerca/) y en los diálogos «Fuente» y «Método» y en «Cómo leer» de cada sección.
+        La consulta del padrón de este sitio es una **demostración con datos sintéticos**: para saber dónde votás o si figurás en el padrón, consultá a la Justicia Electoral (https://www.tsje.gov.py/).
+        **Los issues son públicos:** no incluyas cédulas, fechas de nacimiento, nombres de electores ni otros datos personales.
+  - type: input
+    id: direccion
+    attributes:
+      label: Dirección de la página (si es sobre una)
+  - type: textarea
+    id: consulta
+    attributes:
+      label: Tu consulta
+    validations:
+      required: true
+  - type: checkboxes
+    id: privacidad
+    attributes:
+      label: Antes de enviar
+      options:
+        - label: No incluí cédulas, fechas de nacimiento, nombres de electores ni otros datos personales.
+          required: true

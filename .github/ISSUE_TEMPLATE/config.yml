@@ -1,0 +1,9 @@
+# Sin issues en blanco: cada formulario lleva el aviso de privacidad (los issues son públicos).
+blank_issues_enabled: false
+contact_links:
+  - name: Falla de seguridad o datos personales expuestos
+    url: https://github.com/luchobenitez/kalaguichi/security/policy
+    about: No la publiques en un issue. La política de seguridad explica cómo avisar en privado.
+  - name: Acerca de Kalaguichi.com
+    url: https://kalaguichi.com/acerca/
+    about: Qué es el proyecto, sus fuentes y licencias y la privacidad de la consulta del padrón.
