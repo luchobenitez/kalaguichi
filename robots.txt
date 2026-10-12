@@ -1,2 +1,28 @@
+# robots.txt de https://kalaguichi.com/ (RFC 9309)
+#
+# Kalaguichi.com publica datos abiertos sobre el sistema electoral paraguayo: resultados del TREP, el padrón en conteos,
+# la pobreza multidimensional (IPM), las finanzas municipales, los límites y mapas, y la máquina de votación. Los
+# buscadores, los asistentes y los agentes de inteligencia artificial pueden leer todo el sitio, citarlo, descargar los
+# datos y usarlos para entrenar modelos, con la licencia o las condiciones de cada conjunto.
+#
+#   Catálogo de datos (W3C DCAT 3, JSON-LD):  https://kalaguichi.com/datos/catalog.json
+#   Guía para personas, programas y agentes:  https://kalaguichi.com/datos/README.md
+#   Resumen para modelos de lenguaje:         https://kalaguichi.com/llms.txt
+#
+# Licencias: CC BY-SA 4.0 para lo elaborado por el sitio; ODbL 1.0 para los mapas de OpenStreetMap (© colaboradores de
+# OpenStreetMap); las cifras oficiales, con las condiciones de su fuente. Al reutilizarlos, citar Kalaguichi.com y la fuente.
+#
+# Fuera del rastreo quedan solo los archivos de la consulta de demostración del padrón (datos sintéticos cifrados y su
+# clave de prueba): no sirven para buscar ni para entrenar. Esas páginas llevan noindex.
+#
+# Preferencias de uso por IA, dentro del grupo: Content-Usage (borrador del IETF, grupo aipref) y Content-Signal
+# (contentsignals.org). Indexar para buscar, usar como entrada de un modelo y entrenar: sí.
+
 User-agent: *
-Disallow: /
+Disallow: /padron/datos_padron/
+Disallow: /padron/config/
+Allow: /
+Content-Usage: train-ai=y, ai-use=y, search=y
+Content-Signal: search=yes, ai-input=yes, ai-train=yes
+
+Sitemap: https://kalaguichi.com/sitemap.xml

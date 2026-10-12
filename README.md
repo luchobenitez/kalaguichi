@@ -85,7 +85,10 @@ abre el tablero de Luque), así que se puede copiar y compartir.
 Las fechas, los cortes y las condiciones de cada fuente están en [Acerca de](https://kalaguichi.com/acerca/) y en el
 diálogo «Fuente» de cada sección. Todos los archivos de datos están descritos en el catálogo W3C DCAT
 [datos/catalog.json](https://kalaguichi.com/datos/catalog.json), con su tamaño, su SHA-256 y sus campos; la guía para
-usarlo desde programas y asistentes de IA está en [datos/README.md](https://kalaguichi.com/datos/README.md).
+usarlo desde programas y asistentes de IA está en [datos/README.md](https://kalaguichi.com/datos/README.md). Los
+buscadores y los agentes de IA pueden leer todo el sitio y usar sus datos, también para entrenar modelos
+([robots.txt](https://kalaguichi.com/robots.txt), [sitemap.xml](https://kalaguichi.com/sitemap.xml) y
+[llms.txt](https://kalaguichi.com/llms.txt)).
 
 ## Privacidad y datos de personas
 
@@ -147,6 +150,7 @@ usarlo desde programas y asistentes de IA está en [datos/README.md](https://kal
 | Finanzas | Los datos del MEF tal como se publicaron, con clases fijas y un filtro electoral que no atribuye la gestión. | ADR-029, ADR-030, ADR-033, ADR-034 |
 | Visualización financiera | Gráficos dibujados en el navegador, sin imágenes pregeneradas; «N/D» distinto de «—». | ADR-035, ADR-036 |
 | Datos abiertos | Un catálogo W3C DCAT 3 (JSON-LD) generado desde los archivos, con el SHA-256 y los campos de cada uno y plantillas para las series; rutas estables y versiones por corte; una guía y un prompt de dos pasos para asistentes de IA. | ADR-039 |
+| Buscadores e IA | Todo el sitio se puede rastrear, indexar y usar con IA, también para entrenar modelos: robots.txt con las preferencias de uso (IETF y Content Signals), sitemap.xml, llms.txt y la ficha schema.org de los conjuntos. Quedan fuera de los buscadores la demo del padrón y las direcciones viejas. | ADR-040 |
 | Fotos | Solo con procedencia (SHA-256) y derechos verificados. | ADR-013 |
 | Forma de trabajo | Un pedido, una tarea y un ADR; publicación verificada en vivo y registrada. | ADR-014, ADR-031 |
 | Licencias | AGPL-3.0 para el código y CC BY-SA 4.0 para el contenido propio. | ADR-037 |

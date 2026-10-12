@@ -489,6 +489,14 @@ finanzas municipales y los límites en GeoJSON), con un archivo cada uno y la pl
   por municipalidad.
 - **CORS abierto.** GitHub Pages responde con `Access-Control-Allow-Origin: *`: una página de cualquier dominio puede leer
   los datos con `fetch`. No hace falta (ni sirve) una política «no-CORS».
+- **Rastreo y uso por IA.** [`robots.txt`](https://kalaguichi.com/robots.txt) deja leer todo el sitio a cualquier programa
+  (buscadores, asistentes y agentes de IA) y solo deja fuera los archivos de la consulta de demostración del padrón.
+  Declara además las preferencias de uso, con el borrador del IETF (`Content-Usage: train-ai=y, ai-use=y, search=y`) y con
+  Content Signals (`Content-Signal: search=yes, ai-input=yes, ai-train=yes`): se puede indexar, usar como entrada de un
+  modelo y entrenar, con la licencia o las condiciones de cada conjunto. Las páginas indexables están en
+  [`sitemap.xml`](https://kalaguichi.com/sitemap.xml); un resumen para modelos de lenguaje, en
+  [`llms.txt`](https://kalaguichi.com/llms.txt); y los conjuntos, también en schema.org (`Dataset`), en
+  [Acerca de](https://kalaguichi.com/acerca/#datos-abiertos), para buscadores de datos como Google Dataset Search.
 - **Formatos.** JSON en UTF-8 (`application/json`, RFC 8259); GeoJSON en WGS84, longitud y latitud (`application/geo+json`,
   RFC 7946); fotos WebP (`image/webp`); mosaicos PMTiles v3 (`application/octet-stream`), que se leen por partes con
   HTTP Range; y la documentación en Markdown (`text/markdown`).
