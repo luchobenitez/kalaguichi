@@ -1527,6 +1527,12 @@ html.con-dialogo {
         display: none;
     }
 
+    /* El histórico (ADR-042) pone la elección y el año en selectores, que en celular ocupan un renglón más. La vista informe
+       (Asunción, municipales 2026, con la barra fija) los deja en su título, como antes: la elección se cambia desde el mapa. */
+    body:has(#visor[data-modo="informe"]) .barra-contexto__ruta .barra-contexto__paso:is([data-contexto="eleccion"], [data-contexto="anio"]) {
+        display: none;
+    }
+
     .barra-contexto__paso[data-contexto="distrito"] {
         display: flex;
         flex: 1 1 0;

@@ -22,20 +22,29 @@ if ((pedido.get('analisis') === 'voto-cruzado' || pedido.get('cargo') === 'c') &
 }
 
 const fuente = visor.dataset.fuente || 'trep';
-const contexto = await manifiesto().then((m) => elegir(m, { eleccion: pedido.get('eleccion'), anio: pedido.get('anio') })).catch(() => null);
-// El país existe donde el año declara datos nacionales de la fuente y la página tiene su plantilla (la sección del TREP).
+// La elección y el año del hash entre los que tienen la fuente de la página (ADR-042: el TREP no ofrece el histórico).
+const contexto = await manifiesto().then((m) => ({ ...elegir(m, { eleccion: pedido.get('eleccion'), anio: pedido.get('anio') }, fuente), manifiesto: m }))
+    .catch(() => null);
+// El país existe donde el año declara datos nacionales de la fuente y la página tiene su plantilla (TREP y Resultados
+// oficiales).
 const conPais = Boolean(contexto?.anio.nacional?.fuentes?.includes(fuente)) && Boolean(document.getElementById('plantillaPais'));
 const lista = conPais ? await listaDistritos(contexto.eleccion.id, contexto.anio.anio).catch((error) => { console.warn(error); return null; }) : null;
 const claves = new Set(lista?.distritos.map(([clave]) => clave) ?? []);
+// Sin datos por mesa (los años del histórico con resultados solo por distrito, ADR-042), un distrito se ve en el mapa del
+// país, elegido: no hay tablero mesa por mesa.
+const porMesa = (contexto?.anio.nacional?.nivel ?? 'mesa') === 'mesa';
+// La vista informe es la página vertical de Asunción en las municipales (dos cargos, barrios y zonas municipales).
+const conInforme = Boolean(document.getElementById('plantillaInforme')) && (!contexto || contexto.eleccion.id === 'municipales');
 
 // La vista que corresponde a un hash: 'informe' (solo Asunción), 'tablero' (Asunción u otro distrito, con su clave) o
 // 'pais'.
 function vistaDe(hash) {
     const { distrito } = ambitoDe(hash);
     const deAsuncion = !lista || distrito === null || distrito === ASUNCION || !claves.has(distrito);
-    if (modoDe(hash) === 'informe' && document.getElementById('plantillaInforme') && deAsuncion) return 'informe';
+    if (modoDe(hash) === 'informe' && conInforme && deAsuncion && porMesa) return 'informe';
     if (!lista) return 'tablero';
-    if (distrito === ASUNCION) return 'tablero';
+    if (!porMesa) return 'pais';
+    if (distrito === ASUNCION && claves.has(ASUNCION)) return 'tablero';
     if (distrito && claves.has(distrito) && TABLERO_DE_DISTRITO) return `tablero:${distrito}`;
     return 'pais';
 }

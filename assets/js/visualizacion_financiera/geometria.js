@@ -457,6 +457,81 @@ function firmadas(g, { ancho, medir }) {
     return { ancho, alto: alto + 14, elementos };
 }
 
+// --- Líneas: la evolución histórica (M57) ----------------------------------------------------------------------------------
+// Un eje de años parejo (de 2004 a 2025) y un eje de valores con el cero; cada serie, en segmentos entre años seguidos con
+// dato (un hueco no se une: un año sin balance no es un cero ni se interpola). Los años que el MEF no publicó van como una
+// franja tramada; los que la municipalidad no figura en el tomo o no existía, como una marca tramada sobre el eje.
+const nfEje = new Intl.NumberFormat('es-PY', { maximumFractionDigits: 2 });
+const rotuloEje = (m, unidad) => (unidad === 'gs' ? mm(m) : unidad === 'pct' ? `${nfEje.format(m)} %` : nfEje.format(m));
+const textoValor = (x, unidad) => (unidad === 'gs' ? gs(x) : unidad === 'pct' ? porciento(x) : veces(x));
+
+function lineas(g, { ancho, medir }) {
+    const izq = ancho < 520 ? 66 : 86;
+    const der = 18;
+    const arriba = 26;
+    const altoPlot = 300;
+    const alto = arriba + altoPlot + 40;
+    const n = g.anios.length;
+    const paso = (ancho - izq - der) / n;
+    const x = (k) => izq + paso * (k + 0.5);
+    const valores = g.series.flatMap((s) => s.puntos.map((p) => p.valor).filter((v) => v !== null && v !== undefined));
+    let min = Math.min(0, ...valores, ...(g.referencia ? [g.referencia.valor] : []));
+    let max = Math.max(0, ...valores, ...(g.referencia ? [g.referencia.valor] : []));
+    const pad = (max - min) * 0.08 || 1;
+    max += max > 0 ? pad : 0;
+    min -= min < 0 ? pad : 0;
+    const y = (v) => arriba + ((max - v) / (max - min)) * altoPlot;
+    const elementos = [];
+    // Los años sin balance, detrás de todo.
+    g.anios.forEach((anio, k) => {
+        const p = g.series[0].puntos[k];
+        if (p.estado === 'sin_datos_anio') {
+            elementos.push({ t: 'rect', x: x(k) - paso * 0.42, y: arriba, w: paso * 0.84, h: altoPlot, rol: 'nd', patron: 'nd', rx: 0, id: `hueco-${anio}`,
+                             foco: { etiqueta: `${anio}: ${p.texto}` }, info: info(String(anio), p.texto) });
+        } else if (p.estado === 'sin_informe' || p.estado === 'parte_de') {
+            elementos.push({ t: 'rect', x: x(k) - paso * 0.3, y: y(min) - 12, w: paso * 0.6, h: 12, rol: 'nd', patron: 'nd', rx: 0, id: `hueco-${anio}`,
+                             foco: { etiqueta: `${anio}: ${p.texto}` }, info: info(String(anio), p.texto) });
+        }
+    });
+    for (const m of marcas(min, max)) {
+        elementos.push(linea(izq, y(m), ancho - der, y(m), m === 0 ? 'cero' : 'guia'), texto(izq - 6, y(m), rotuloEje(m, g.unidad), { tam: 10.5, ancla: 'end', rol: 'suave' }));
+    }
+    if (g.referencia) {
+        const yr = y(g.referencia.valor);
+        elementos.push(linea(izq, yr, ancho - der, yr, 'referencia', { punteado: true }),
+                       fondoRotulo(ancho - der - medir(g.referencia.texto, 10.5) - 4, yr - 16, medir(g.referencia.texto, 10.5), 14),
+                       texto(ancho - der - 4, yr - 9, g.referencia.texto, { tam: 10.5, ancla: 'end', rol: 'suave' }));
+    }
+    // Los años: todos si entran; si no, cada dos o cada cinco, contados desde el último (que siempre lleva su rótulo).
+    const cada = paso >= 34 ? 1 : paso >= 17 ? 2 : 5;
+    g.anios.forEach((anio, k) => {
+        if ((n - 1 - k) % cada === 0) elementos.push(texto(x(k), arriba + altoPlot + 16, String(anio), { tam: 10.5, ancla: 'middle', rol: 'suave' }));
+        elementos.push(linea(x(k), arriba + altoPlot, x(k), arriba + altoPlot + 4, 'eje'));
+    });
+    elementos.push(linea(izq, arriba + altoPlot, ancho - der, arriba + altoPlot, 'eje'));
+    // Las series: primero los segmentos, después los puntos (encima, con su globo).
+    for (const s of g.series) {
+        for (let k = 0; k < n - 1; k++) {
+            const a = s.puntos[k].valor;
+            const b = s.puntos[k + 1].valor;
+            if (a === null || b === null) continue;
+            elementos.push(linea(x(k), y(a), x(k + 1), y(b), s.rol, { serie: true }));
+        }
+    }
+    const radio = Math.max(2.6, Math.min(4.2, paso * 0.16));
+    for (const s of g.series) {
+        s.puntos.forEach((p, k) => {
+            if (p.valor === null) return;
+            const lineasInfo = [textoValor(p.valor, g.unidad)];
+            if (p.factor) lineasInfo.push(`${gs(p.nominal)} de ${p.anio} × ${nfEje.format(Math.round(p.factor * 10000) / 10000)} (IPC)`);
+            lineasInfo.push(p.texto);
+            elementos.push({ t: 'rect', x: x(k) - radio, y: y(p.valor) - radio, w: 2 * radio, h: 2 * radio, rx: radio, rol: s.rol, id: `${s.id}-${p.anio}`,
+                             foco: { etiqueta: `${s.rotulo}, ${p.anio}: ${textoValor(p.valor, g.unidad)}` }, info: info(`${s.rotulo} · ${p.anio}`, ...lineasInfo) });
+        });
+    }
+    return { ancho, alto, elementos };
+}
+
 // --- Leyendas ------------------------------------------------------------------------------------------------------------
 const TEXTO_ROL = {
     presupuesto: 'Presupuesto vigente', inicial: 'Presupuesto inicial', aumento: 'Aumento (modificación positiva)', reduccion: 'Reducción (modificación negativa)',
@@ -468,6 +543,11 @@ const TEXTO_ROL = {
 
 export function leyenda(v, escena) {
     if (!escena) return [];
+    if (v.grafico?.tipo === 'lineas') {
+        const huecos = v.grafico.series[0].puntos.some((p) => p.valor === null);
+        return [...v.grafico.series.map((s) => ({ rol: s.rol, texto: s.rotulo, linea: true })),
+                ...(huecos ? [{ rol: 'nd', patron: 'nd', texto: 'Año sin balance (no publicado, sin informe o el distrito no existía)' }] : [])];
+    }
     if (v.grafico?.tipo === 'treemap') {
         return [...CLASES_EJECUCION.map((c) => ({ rol: c.id, texto: c.texto })), { rol: 'ejnd', patron: 'nd', texto: 'Sin cociente (vigente cero o sin dato)' }];
     }
@@ -487,8 +567,8 @@ export function leyenda(v, escena) {
 }
 
 // La escena del gráfico de una vista, al ancho pedido (cada formato tiene un ancho mínimo; debajo, la caja se desplaza).
-export const ANCHO_MINIMO = { sankey: 620, treemap: 320, cascada: 560, vinetas: 560, barras: 480, apilada: 360, firmadas: 560 };
-const DIBUJOS = { sankey, treemap, cascada, vinetas, barras, apilada, firmadas };
+export const ANCHO_MINIMO = { sankey: 620, treemap: 320, cascada: 560, vinetas: 560, barras: 480, apilada: 360, firmadas: 560, lineas: 330 };
+const DIBUJOS = { sankey, treemap, cascada, vinetas, barras, apilada, firmadas, lineas };
 
 export function escena(v, { ancho = 960, medir = medidaAproximada } = {}) {
     if (!v.grafico) return null;
@@ -549,4 +629,4 @@ export function componer(v, esc, { municipio, departamento, ejercicio, corte, ve
 export const textoCambio = (c) => `Cambio de formato: ${NOMBRE_FORMATO[c.a] ?? c.a} en lugar de ${NOMBRE_FORMATO[c.de] ?? c.de}, porque ${c.causa}.`;
 
 export const NOMBRE_FORMATO = { sankey: 'un Sankey', barras_firmadas: 'barras con signo', cascada: 'una cascada', vinetas: 'viñetas', treemap: 'un treemap',
-                                barra_apilada: 'una barra apilada', barras: 'barras', composicion: 'una composición con signo' };
+                                barra_apilada: 'una barra apilada', barras: 'barras', composicion: 'una composición con signo', lineas: 'líneas' };

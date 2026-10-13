@@ -105,7 +105,7 @@ export function crear(ctx) {
             nota.textContent = `${cantidad(calculo.todos.length, 'distrito', 'distritos')}` +
                 (fuera ? `; ${cantidad(fuera, 'queda', 'quedan')} fuera del gráfico por no tener el dato del INE` : '') +
                 `. Lista más votada: la de más votos de ${ctx.nombreCargo()} en el distrito; «Locales» reúne a las alianzas y los movimientos locales` +
-                `${ctx.cargo() === '1' ? ' (y las listas solo de Intendencia)' : ''}. ` +
+                `${ctx.esIntendencia() ? ' (y las listas solo de Intendencia)' : ''}. ` +
                 'Ventaja: puntos de la primera sobre la segunda, sobre los votos a listas.';
         } else {
             mostradas = renderTablaOrdenable(tabla, columnasTramos(), calculo.grupos.map((g, i) => Object.assign(g, { n: i + 1 })), estado);

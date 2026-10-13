@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <meta name="description" content="Kalaguichi.com: los gráficos financieros del ejercicio 2025 de cada municipalidad (MEF), dibujados en el navegador a partir de los datos, con su tabla, sus límites de interpretación y descargas en PNG, SVG y CSV.">
+    <meta name="description" content="Kalaguichi.com: los gráficos financieros de cada municipalidad (MEF), dibujados en el navegador a partir de los datos: los 14 del ejercicio 2025 y, de 2004 a 2024, los del balance y el estado de resultados, con la evolución histórica, su tabla, sus límites de interpretación y descargas en PNG, SVG y CSV.">
     <link rel="canonical" href="https://kalaguichi.com/analisis/visualizacion-financiera/2025/">
     <meta name="referrer" content="no-referrer">
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; worker-src 'self'; connect-src 'self'; style-src 'self'; img-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
@@ -11,7 +11,7 @@
     <meta property="og:site_name" content="Kalaguichi.com">
     <meta property="og:locale" content="es_PY">
     <meta property="og:title" content="Visualización financiera · Ejercicio 2025">
-    <meta property="og:description" content="Kalaguichi.com: los gráficos financieros del ejercicio 2025 de cada municipalidad (MEF), dibujados en el navegador a partir de los datos, con su tabla, sus límites de interpretación y descargas en PNG, SVG y CSV.">
+    <meta property="og:description" content="Kalaguichi.com: los gráficos financieros de cada municipalidad (MEF), dibujados en el navegador a partir de los datos: los 14 del ejercicio 2025 y, de 2004 a 2024, los del balance y el estado de resultados, con la evolución histórica, su tabla, sus límites de interpretación y descargas en PNG, SVG y CSV.">
     <meta property="og:url" content="https://kalaguichi.com/analisis/visualizacion-financiera/2025/">
     <meta name="twitter:card" content="summary">
     <link rel="icon" href="../../../assets/img/kalaguichi-isotipo.svg" type="image/svg+xml">
@@ -119,11 +119,13 @@
     <main class="kvf" id="contenido" data-listo="false">
         <header class="kvf__cabecera">
             <p class="kvf__eyebrow">Análisis · Visualización financiera</p>
-            <h1>Visualización financiera · Ejercicio 2025</h1>
+            <h1 id="kvfTitulo">Visualización financiera · Ejercicio 2025</h1>
             <p class="kvf__corte" id="kvfCorte"></p>
-            <p class="kvf__intro">Elegí una municipalidad y un tipo de gráfico: el navegador lo dibuja con las cifras del Informe Financiero 2025 del
-                Ministerio de Economía y Finanzas, con su tabla exacta, lo que muestra, su límite de interpretación y la fuente. Cada vista se
-                descarga en PNG, SVG y CSV, y la ficha de la municipalidad en un HTML que se abre sin conexión.</p>
+            <p class="kvf__intro">Elegí un ejercicio, una municipalidad y un tipo de gráfico: el navegador lo dibuja con las cifras de los Informes
+                Financieros del Ministerio de Economía y Finanzas (de 2025, los 14 gráficos; de 2004 a 2024, los del balance y el estado de
+                resultados, los únicos que el MEF publicó de esos años), con su tabla exacta, lo que muestra, su límite de interpretación y la
+                fuente. La evolución histórica sigue a la municipalidad de 2004 a 2025. Cada vista se descarga en PNG, SVG y CSV, y la ficha de la
+                municipalidad en un HTML que se abre sin conexión.</p>
             <p class="error-carga" id="kvfErrorInicio" hidden></p>
         </header>
 
@@ -156,8 +158,8 @@
 
         <section class="kvf__inicio" id="kvfInicio" aria-labelledby="kvfInicioTitulo">
             <h2 id="kvfInicioTitulo">Elegí una municipalidad</h2>
-            <p>Buscala por su nombre o elegí primero el departamento. Las 16 que no presentaron informe en el corte también están en la lista,
-                con su situación documental y sin cifras.</p>
+            <p id="kvfInicioTexto">Buscala por su nombre o elegí primero el departamento. Las 16 que no presentaron informe en el corte también están
+                en la lista, con su situación documental y sin cifras.</p>
         </section>
 
         <section class="kvf__galeria" id="kvfGaleria" aria-label="Miniaturas de los gráficos" hidden></section>

@@ -1,6 +1,6 @@
 {
-  "version": 1,
-  "nota": "Manifiesto de las elecciones del sitio (ver LEEME.md). Los selectores de elección y año se construyen desde aquí.",
+  "version": 2,
+  "nota": "Manifiesto de las elecciones del sitio (ADR-016, ADR-022, ADR-042 y ADR-043). Cada año declara sus cargos, sus fuentes (TREP y cómputo oficial, solo las que existen) y el nivel de sus datos nacionales (por mesa o solo por distrito). Los años históricos (1996-2025, del TSJE) toman los departamentos y el IPM de municipales 2026 («geometria»); sus distritos son los de entonces: «geometria.distritos» dice de qué año es el mapa y «geometria.propios», el límite de cada distrito que abarcaba varios de hoy. Ver datos/LEEME.md.",
   "elecciones": [
     {
       "id": "municipales",
@@ -18,7 +18,8 @@
             "fuentes": [
               "trep"
             ],
-            "nota": "La Intendencia y la Junta Municipal de los 263 distritos, mesa por mesa (planillas del TREP del TSJE; ADR-024)."
+            "nota": "La Intendencia y la Junta Municipal de los 263 distritos, mesa por mesa (planillas del TREP del TSJE; ADR-024).",
+            "nivel": "mesa"
           },
           "cargos": [
             "intendencia",
@@ -45,6 +46,2033 @@
             "oficial": {
               "estado": "pendiente",
               "nombre": "Cómputo oficial"
+            }
+          },
+          "tipos_cargo": {
+            "intendencia": "uninominal",
+            "junta": "plurinominal"
+          },
+          "bancas_cargo": {
+            "junta": "distrito"
+          }
+        },
+        {
+          "anio": 2021,
+          "fecha": "2021-10-10",
+          "ambito": "Asunción",
+          "nacional": {
+            "nombre": "Paraguay",
+            "cargos": [
+              "intendencia",
+              "junta"
+            ],
+            "fuentes": [
+              "oficial"
+            ],
+            "nivel": "mesa"
+          },
+          "geometria": {
+            "eleccion": "municipales",
+            "anio": 2026,
+            "distritos": {
+              "eleccion": "municipales",
+              "anio": 2021
+            },
+            "propios": {
+              "1-8": "1-8-965829c5",
+              "15-0": "15-0-c2ba85f0"
+            }
+          },
+          "cargos": [
+            "intendencia",
+            "junta"
+          ],
+          "nombres_cargo": {
+            "intendencia": "Intendente municipal",
+            "junta": "Junta municipal"
+          },
+          "etiquetas_cargo": {
+            "intendencia": "Intendencia",
+            "junta": "Junta"
+          },
+          "claves_cargo": {
+            "intendencia": "1",
+            "junta": "2"
+          },
+          "tipos_cargo": {
+            "intendencia": "uninominal",
+            "junta": "plurinominal"
+          },
+          "bancas_cargo": {
+            "junta": "distrito"
+          },
+          "fuentes": {
+            "oficial": {
+              "estado": "publicado",
+              "nombre": "Cómputo oficial (TSJE)"
+            }
+          }
+        },
+        {
+          "anio": 2015,
+          "fecha": "2015-11-15",
+          "ambito": "Asunción",
+          "nacional": {
+            "nombre": "Paraguay",
+            "cargos": [
+              "intendencia",
+              "junta"
+            ],
+            "fuentes": [
+              "oficial"
+            ],
+            "nivel": "mesa"
+          },
+          "geometria": {
+            "eleccion": "municipales",
+            "anio": 2026,
+            "distritos": {
+              "eleccion": "municipales",
+              "anio": 2015
+            },
+            "propios": {
+              "1-0": "1-0-114b1c54",
+              "1-3": "1-3-d0e22e87",
+              "1-8": "1-8-965829c5",
+              "13-0": "13-0-4ff96cbe",
+              "14-0": "14-0-d67e5afc",
+              "14-11": "14-11-04c6cfa9",
+              "14-13": "14-13-fb633363",
+              "15-0": "15-0-c2ba85f0",
+              "15-9": "15-9-de843723",
+              "17-3": "17-3-bf836f65",
+              "2-11": "2-11-f56470f9",
+              "2-29": "2-29-a71c4cd7",
+              "9-13": "9-13-823cad0f"
+            }
+          },
+          "cargos": [
+            "intendencia",
+            "junta"
+          ],
+          "nombres_cargo": {
+            "intendencia": "Intendente municipal",
+            "junta": "Junta municipal"
+          },
+          "etiquetas_cargo": {
+            "intendencia": "Intendencia",
+            "junta": "Junta"
+          },
+          "claves_cargo": {
+            "intendencia": "1",
+            "junta": "2"
+          },
+          "tipos_cargo": {
+            "intendencia": "uninominal",
+            "junta": "plurinominal"
+          },
+          "bancas_cargo": {
+            "junta": "distrito"
+          },
+          "fuentes": {
+            "oficial": {
+              "estado": "publicado",
+              "nombre": "Cómputo oficial (TSJE)"
+            }
+          }
+        },
+        {
+          "anio": 2010,
+          "fecha": "2010-11-07",
+          "ambito": "Asunción",
+          "nacional": {
+            "nombre": "Paraguay",
+            "cargos": [
+              "intendencia",
+              "junta"
+            ],
+            "fuentes": [
+              "oficial"
+            ],
+            "nivel": "mesa"
+          },
+          "geometria": {
+            "eleccion": "municipales",
+            "anio": 2026,
+            "distritos": {
+              "eleccion": "municipales",
+              "anio": 2010
+            },
+            "propios": {
+              "1-0": "1-0-c6308dd7",
+              "1-3": "1-3-d0e22e87",
+              "10-21": "10-21-c0432b90",
+              "10-33": "10-33-63939216",
+              "13-0": "13-0-7afe3803",
+              "13-3": "13-3-fdc90b4d",
+              "14-0": "14-0-d67e5afc",
+              "14-1": "14-1-6f7080b4",
+              "14-11": "14-11-04c6cfa9",
+              "14-13": "14-13-fb633363",
+              "14-15": "14-15-80064d71",
+              "15-0": "15-0-c2ba85f0",
+              "15-9": "15-9-de843723",
+              "17-3": "17-3-bf836f65",
+              "2-11": "2-11-f56470f9",
+              "2-29": "2-29-a71c4cd7",
+              "2-7": "2-7-336764ab",
+              "5-23": "5-23-e1731279",
+              "6-17": "6-17-59760d46",
+              "9-13": "9-13-823cad0f"
+            }
+          },
+          "cargos": [
+            "intendencia",
+            "junta"
+          ],
+          "nombres_cargo": {
+            "intendencia": "Intendente municipal",
+            "junta": "Junta municipal"
+          },
+          "etiquetas_cargo": {
+            "intendencia": "Intendencia",
+            "junta": "Junta"
+          },
+          "claves_cargo": {
+            "intendencia": "1",
+            "junta": "2"
+          },
+          "tipos_cargo": {
+            "intendencia": "uninominal",
+            "junta": "plurinominal"
+          },
+          "bancas_cargo": {
+            "junta": "distrito"
+          },
+          "fuentes": {
+            "oficial": {
+              "estado": "publicado",
+              "nombre": "Cómputo oficial (TSJE)"
+            }
+          }
+        },
+        {
+          "anio": 2006,
+          "fecha": "2006-11-19",
+          "ambito": "Asunción",
+          "nacional": {
+            "nombre": "Paraguay",
+            "cargos": [
+              "intendencia",
+              "junta"
+            ],
+            "fuentes": [
+              "oficial"
+            ],
+            "nivel": "mesa"
+          },
+          "geometria": {
+            "eleccion": "municipales",
+            "anio": 2026,
+            "distritos": {
+              "eleccion": "municipales",
+              "anio": 2006
+            },
+            "propios": {
+              "1-0": "1-0-0d353435",
+              "1-3": "1-3-772df6b9",
+              "10-21": "10-21-c0432b90",
+              "10-33": "10-33-63939216",
+              "13-0": "13-0-7afe3803",
+              "13-3": "13-3-fdc90b4d",
+              "14-0": "14-0-d67e5afc",
+              "14-1": "14-1-6f7080b4",
+              "14-13": "14-13-fb633363",
+              "14-15": "14-15-80064d71",
+              "15-0": "15-0-3cf3d870",
+              "15-9": "15-9-de843723",
+              "16-1": "16-1-0738945b",
+              "17-3": "17-3-bf836f65",
+              "2-11": "2-11-f56470f9",
+              "2-29": "2-29-a71c4cd7",
+              "2-7": "2-7-336764ab",
+              "4-5": "4-5-47ea643c",
+              "5-23": "5-23-95066839",
+              "6-17": "6-17-59760d46",
+              "9-13": "9-13-823cad0f"
+            }
+          },
+          "cargos": [
+            "intendencia",
+            "junta"
+          ],
+          "nombres_cargo": {
+            "intendencia": "Intendente municipal",
+            "junta": "Junta municipal"
+          },
+          "etiquetas_cargo": {
+            "intendencia": "Intendencia",
+            "junta": "Junta"
+          },
+          "claves_cargo": {
+            "intendencia": "1",
+            "junta": "2"
+          },
+          "tipos_cargo": {
+            "intendencia": "uninominal",
+            "junta": "plurinominal"
+          },
+          "bancas_cargo": {
+            "junta": "distrito"
+          },
+          "fuentes": {
+            "oficial": {
+              "estado": "publicado",
+              "nombre": "Cómputo oficial (TSJE)"
+            }
+          }
+        },
+        {
+          "anio": 2001,
+          "fecha": "2001-11-18",
+          "nacional": {
+            "nombre": "Paraguay",
+            "cargos": [
+              "intendencia",
+              "junta"
+            ],
+            "fuentes": [
+              "oficial"
+            ],
+            "nivel": "distrito"
+          },
+          "geometria": {
+            "eleccion": "municipales",
+            "anio": 2026,
+            "distritos": {
+              "eleccion": "municipales",
+              "anio": 2001
+            }
+          },
+          "cargos": [
+            "intendencia",
+            "junta"
+          ],
+          "nombres_cargo": {
+            "intendencia": "Intendente municipal",
+            "junta": "Junta municipal"
+          },
+          "etiquetas_cargo": {
+            "intendencia": "Intendencia",
+            "junta": "Junta"
+          },
+          "claves_cargo": {
+            "intendencia": "1",
+            "junta": "2"
+          },
+          "tipos_cargo": {
+            "intendencia": "uninominal",
+            "junta": "plurinominal"
+          },
+          "bancas_cargo": {
+            "junta": "distrito"
+          },
+          "fuentes": {
+            "oficial": {
+              "estado": "publicado",
+              "nombre": "Cómputo oficial (TSJE)"
+            }
+          }
+        },
+        {
+          "anio": 1996,
+          "fecha": "1996-11-17",
+          "nacional": {
+            "nombre": "Paraguay",
+            "cargos": [
+              "intendencia",
+              "junta"
+            ],
+            "fuentes": [
+              "oficial"
+            ],
+            "nivel": "distrito"
+          },
+          "geometria": {
+            "eleccion": "municipales",
+            "anio": 2026,
+            "distritos": {
+              "eleccion": "municipales",
+              "anio": 1996
+            }
+          },
+          "cargos": [
+            "intendencia",
+            "junta"
+          ],
+          "nombres_cargo": {
+            "intendencia": "Intendente municipal",
+            "junta": "Junta municipal"
+          },
+          "etiquetas_cargo": {
+            "intendencia": "Intendencia",
+            "junta": "Junta"
+          },
+          "claves_cargo": {
+            "intendencia": "1",
+            "junta": "2"
+          },
+          "tipos_cargo": {
+            "intendencia": "uninominal",
+            "junta": "plurinominal"
+          },
+          "bancas_cargo": {
+            "junta": "distrito"
+          },
+          "fuentes": {
+            "oficial": {
+              "estado": "publicado",
+              "nombre": "Cómputo oficial (TSJE)"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "generales",
+      "nombre": "Generales",
+      "anios": [
+        {
+          "anio": 2023,
+          "fecha": "2023-04-30",
+          "ambito": "Asunción",
+          "nacional": {
+            "nombre": "Paraguay",
+            "cargos": [
+              "presidencia",
+              "senado",
+              "diputados",
+              "gobernacion",
+              "junta-departamental"
+            ],
+            "fuentes": [
+              "oficial"
+            ],
+            "nivel": "mesa"
+          },
+          "geometria": {
+            "eleccion": "municipales",
+            "anio": 2026
+          },
+          "cargos": [
+            "presidencia",
+            "senado",
+            "diputados",
+            "gobernacion",
+            "junta-departamental"
+          ],
+          "nombres_cargo": {
+            "presidencia": "Presidente y Vicepresidente de la República",
+            "senado": "Cámara de Senadores",
+            "diputados": "Cámara de Diputados",
+            "gobernacion": "Gobernador",
+            "junta-departamental": "Junta departamental"
+          },
+          "etiquetas_cargo": {
+            "presidencia": "Presidencia",
+            "senado": "Senado",
+            "diputados": "Diputados",
+            "gobernacion": "Gobernación",
+            "junta-departamental": "Junta dep."
+          },
+          "claves_cargo": {
+            "presidencia": "1",
+            "senado": "2",
+            "diputados": "3",
+            "gobernacion": "4",
+            "junta-departamental": "5"
+          },
+          "tipos_cargo": {
+            "presidencia": "uninominal",
+            "senado": "plurinominal",
+            "diputados": "plurinominal",
+            "gobernacion": "uninominal",
+            "junta-departamental": "plurinominal"
+          },
+          "bancas_cargo": {
+            "senado": "nacional",
+            "diputados": "departamento",
+            "junta-departamental": "departamento"
+          },
+          "fuentes": {
+            "oficial": {
+              "estado": "publicado",
+              "nombre": "Cómputo oficial (TSJE)"
+            }
+          }
+        },
+        {
+          "anio": 2018,
+          "fecha": "2018-04-22",
+          "ambito": "Asunción",
+          "nacional": {
+            "nombre": "Paraguay",
+            "cargos": [
+              "presidencia",
+              "senado",
+              "parlasur",
+              "diputados",
+              "gobernacion",
+              "junta-departamental"
+            ],
+            "fuentes": [
+              "oficial"
+            ],
+            "nivel": "mesa"
+          },
+          "geometria": {
+            "eleccion": "municipales",
+            "anio": 2026,
+            "distritos": {
+              "eleccion": "generales",
+              "anio": 2018
+            },
+            "propios": {
+              "1-0": "1-0-114b1c54",
+              "1-8": "1-8-965829c5",
+              "13-0": "13-0-4ff96cbe",
+              "14-0": "14-0-d67e5afc",
+              "14-11": "14-11-04c6cfa9",
+              "15-0": "15-0-c2ba85f0",
+              "15-9": "15-9-de843723",
+              "17-3": "17-3-bf836f65",
+              "2-29": "2-29-a71c4cd7"
+            }
+          },
+          "cargos": [
+            "presidencia",
+            "senado",
+            "parlasur",
+            "diputados",
+            "gobernacion",
+            "junta-departamental"
+          ],
+          "nombres_cargo": {
+            "presidencia": "Presidente y Vicepresidente de la República",
+            "senado": "Cámara de Senadores",
+            "parlasur": "Parlamento del Mercosur",
+            "diputados": "Cámara de Diputados",
+            "gobernacion": "Gobernador",
+            "junta-departamental": "Junta departamental"
+          },
+          "etiquetas_cargo": {
+            "presidencia": "Presidencia",
+            "senado": "Senado",
+            "parlasur": "Parlasur",
+            "diputados": "Diputados",
+            "gobernacion": "Gobernación",
+            "junta-departamental": "Junta dep."
+          },
+          "claves_cargo": {
+            "presidencia": "1",
+            "senado": "2",
+            "parlasur": "3",
+            "diputados": "4",
+            "gobernacion": "5",
+            "junta-departamental": "6"
+          },
+          "tipos_cargo": {
+            "presidencia": "uninominal",
+            "senado": "plurinominal",
+            "parlasur": "plurinominal",
+            "diputados": "plurinominal",
+            "gobernacion": "uninominal",
+            "junta-departamental": "plurinominal"
+          },
+          "bancas_cargo": {
+            "senado": "nacional",
+            "parlasur": "nacional",
+            "diputados": "departamento",
+            "junta-departamental": "departamento"
+          },
+          "fuentes": {
+            "oficial": {
+              "estado": "publicado",
+              "nombre": "Cómputo oficial (TSJE)"
+            }
+          }
+        },
+        {
+          "anio": 2013,
+          "fecha": "2013-04-21",
+          "ambito": "Asunción",
+          "nacional": {
+            "nombre": "Paraguay",
+            "cargos": [
+              "presidencia",
+              "senado",
+              "parlasur",
+              "diputados",
+              "gobernacion",
+              "junta-departamental"
+            ],
+            "fuentes": [
+              "oficial"
+            ],
+            "nivel": "mesa"
+          },
+          "geometria": {
+            "eleccion": "municipales",
+            "anio": 2026,
+            "distritos": {
+              "eleccion": "generales",
+              "anio": 2013
+            },
+            "propios": {
+              "1-0": "1-0-a35d2fea",
+              "1-3": "1-3-d0e22e87",
+              "13-0": "13-0-4ff96cbe",
+              "13-3": "13-3-fdc90b4d",
+              "14-0": "14-0-d67e5afc",
+              "14-11": "14-11-04c6cfa9",
+              "14-13": "14-13-fb633363",
+              "14-15": "14-15-80064d71",
+              "15-0": "15-0-c2ba85f0",
+              "15-9": "15-9-de843723",
+              "17-3": "17-3-bf836f65",
+              "2-11": "2-11-f56470f9",
+              "2-29": "2-29-a71c4cd7",
+              "9-13": "9-13-823cad0f"
+            }
+          },
+          "cargos": [
+            "presidencia",
+            "senado",
+            "parlasur",
+            "diputados",
+            "gobernacion",
+            "junta-departamental"
+          ],
+          "nombres_cargo": {
+            "presidencia": "Presidente y Vicepresidente de la República",
+            "senado": "Cámara de Senadores",
+            "parlasur": "Parlamento del Mercosur",
+            "diputados": "Cámara de Diputados",
+            "gobernacion": "Gobernador",
+            "junta-departamental": "Junta departamental"
+          },
+          "etiquetas_cargo": {
+            "presidencia": "Presidencia",
+            "senado": "Senado",
+            "parlasur": "Parlasur",
+            "diputados": "Diputados",
+            "gobernacion": "Gobernación",
+            "junta-departamental": "Junta dep."
+          },
+          "claves_cargo": {
+            "presidencia": "1",
+            "senado": "2",
+            "parlasur": "3",
+            "diputados": "4",
+            "gobernacion": "5",
+            "junta-departamental": "6"
+          },
+          "tipos_cargo": {
+            "presidencia": "uninominal",
+            "senado": "plurinominal",
+            "parlasur": "plurinominal",
+            "diputados": "plurinominal",
+            "gobernacion": "uninominal",
+            "junta-departamental": "plurinominal"
+          },
+          "bancas_cargo": {
+            "senado": "nacional",
+            "parlasur": "nacional",
+            "diputados": "departamento",
+            "junta-departamental": "departamento"
+          },
+          "fuentes": {
+            "oficial": {
+              "estado": "publicado",
+              "nombre": "Cómputo oficial (TSJE)"
+            }
+          }
+        },
+        {
+          "anio": 2008,
+          "fecha": "2008-04-20",
+          "ambito": "Asunción",
+          "nacional": {
+            "nombre": "Paraguay",
+            "cargos": [
+              "presidencia",
+              "senado",
+              "parlasur",
+              "diputados",
+              "gobernacion",
+              "junta-departamental"
+            ],
+            "fuentes": [
+              "oficial"
+            ],
+            "nivel": "mesa"
+          },
+          "geometria": {
+            "eleccion": "municipales",
+            "anio": 2026,
+            "distritos": {
+              "eleccion": "generales",
+              "anio": 2008
+            },
+            "propios": {
+              "1-0": "1-0-0d353435",
+              "1-3": "1-3-772df6b9",
+              "10-21": "10-21-c0432b90",
+              "10-33": "10-33-63939216",
+              "13-0": "13-0-7afe3803",
+              "13-3": "13-3-fdc90b4d",
+              "14-0": "14-0-d67e5afc",
+              "14-1": "14-1-6f7080b4",
+              "14-11": "14-11-04c6cfa9",
+              "14-13": "14-13-fb633363",
+              "14-15": "14-15-80064d71",
+              "15-0": "15-0-73163f0f",
+              "15-9": "15-9-de843723",
+              "16-1": "16-1-0738945b",
+              "17-3": "17-3-bf836f65",
+              "2-11": "2-11-f56470f9",
+              "2-29": "2-29-a71c4cd7",
+              "2-7": "2-7-336764ab",
+              "4-5": "4-5-47ea643c",
+              "5-23": "5-23-95066839",
+              "6-17": "6-17-59760d46",
+              "9-13": "9-13-823cad0f"
+            }
+          },
+          "cargos": [
+            "presidencia",
+            "senado",
+            "parlasur",
+            "diputados",
+            "gobernacion",
+            "junta-departamental"
+          ],
+          "nombres_cargo": {
+            "presidencia": "Presidente y Vicepresidente de la República",
+            "senado": "Cámara de Senadores",
+            "parlasur": "Parlamento del Mercosur",
+            "diputados": "Cámara de Diputados",
+            "gobernacion": "Gobernador",
+            "junta-departamental": "Junta departamental"
+          },
+          "etiquetas_cargo": {
+            "presidencia": "Presidencia",
+            "senado": "Senado",
+            "parlasur": "Parlasur",
+            "diputados": "Diputados",
+            "gobernacion": "Gobernación",
+            "junta-departamental": "Junta dep."
+          },
+          "claves_cargo": {
+            "presidencia": "1",
+            "senado": "2",
+            "parlasur": "3",
+            "diputados": "4",
+            "gobernacion": "5",
+            "junta-departamental": "6"
+          },
+          "tipos_cargo": {
+            "presidencia": "uninominal",
+            "senado": "plurinominal",
+            "parlasur": "plurinominal",
+            "diputados": "plurinominal",
+            "gobernacion": "uninominal",
+            "junta-departamental": "plurinominal"
+          },
+          "bancas_cargo": {
+            "senado": "nacional",
+            "parlasur": "nacional",
+            "diputados": "departamento",
+            "junta-departamental": "departamento"
+          },
+          "fuentes": {
+            "oficial": {
+              "estado": "publicado",
+              "nombre": "Cómputo oficial (TSJE)"
+            }
+          }
+        },
+        {
+          "anio": 2003,
+          "fecha": "2003-04-27",
+          "ambito": "Asunción",
+          "nacional": {
+            "nombre": "Paraguay",
+            "cargos": [
+              "presidencia",
+              "senado",
+              "diputados",
+              "gobernacion",
+              "junta-departamental"
+            ],
+            "fuentes": [
+              "oficial"
+            ],
+            "nivel": "mesa"
+          },
+          "geometria": {
+            "eleccion": "municipales",
+            "anio": 2026,
+            "distritos": {
+              "eleccion": "generales",
+              "anio": 2003
+            },
+            "propios": {
+              "1-0": "1-0-0d353435",
+              "1-3": "1-3-772df6b9",
+              "10-21": "10-21-c0432b90",
+              "10-33": "10-33-63939216",
+              "10-5": "10-5-f60f87ae",
+              "13-0": "13-0-7afe3803",
+              "13-3": "13-3-fdc90b4d",
+              "14-0": "14-0-d67e5afc",
+              "14-1": "14-1-6f7080b4",
+              "14-11": "14-11-04c6cfa9",
+              "14-13": "14-13-3a6d357c",
+              "14-15": "14-15-80064d71",
+              "15-0": "15-0-b4e9cf5d",
+              "16-0": "16-0-8400202f",
+              "16-1": "16-1-0738945b",
+              "17-3": "17-3-fef7d152",
+              "2-11": "2-11-f56470f9",
+              "2-29": "2-29-a71c4cd7",
+              "2-7": "2-7-336764ab",
+              "4-5": "4-5-47ea643c",
+              "5-23": "5-23-95066839",
+              "6-17": "6-17-59760d46",
+              "9-13": "9-13-823cad0f"
+            }
+          },
+          "cargos": [
+            "presidencia",
+            "senado",
+            "diputados",
+            "gobernacion",
+            "junta-departamental"
+          ],
+          "nombres_cargo": {
+            "presidencia": "Presidente y Vicepresidente de la República",
+            "senado": "Cámara de Senadores",
+            "diputados": "Cámara de Diputados",
+            "gobernacion": "Gobernador",
+            "junta-departamental": "Junta departamental"
+          },
+          "etiquetas_cargo": {
+            "presidencia": "Presidencia",
+            "senado": "Senado",
+            "diputados": "Diputados",
+            "gobernacion": "Gobernación",
+            "junta-departamental": "Junta dep."
+          },
+          "claves_cargo": {
+            "presidencia": "1",
+            "senado": "2",
+            "diputados": "3",
+            "gobernacion": "4",
+            "junta-departamental": "5"
+          },
+          "tipos_cargo": {
+            "presidencia": "uninominal",
+            "senado": "plurinominal",
+            "diputados": "plurinominal",
+            "gobernacion": "uninominal",
+            "junta-departamental": "plurinominal"
+          },
+          "bancas_cargo": {
+            "senado": "nacional",
+            "diputados": "departamento",
+            "junta-departamental": "departamento"
+          },
+          "fuentes": {
+            "oficial": {
+              "estado": "publicado",
+              "nombre": "Cómputo oficial (TSJE)"
+            }
+          }
+        },
+        {
+          "anio": 1998,
+          "fecha": "1998-05-10",
+          "nacional": {
+            "nombre": "Paraguay",
+            "cargos": [
+              "presidencia",
+              "senado",
+              "diputados",
+              "gobernacion",
+              "junta-departamental"
+            ],
+            "fuentes": [
+              "oficial"
+            ],
+            "nivel": "distrito"
+          },
+          "geometria": {
+            "eleccion": "municipales",
+            "anio": 2026,
+            "distritos": {
+              "eleccion": "generales",
+              "anio": 1998
+            }
+          },
+          "cargos": [
+            "presidencia",
+            "senado",
+            "diputados",
+            "gobernacion",
+            "junta-departamental"
+          ],
+          "nombres_cargo": {
+            "presidencia": "Presidente y Vicepresidente de la República",
+            "senado": "Cámara de Senadores",
+            "diputados": "Cámara de Diputados",
+            "gobernacion": "Gobernador",
+            "junta-departamental": "Junta departamental"
+          },
+          "etiquetas_cargo": {
+            "presidencia": "Presidencia",
+            "senado": "Senado",
+            "diputados": "Diputados",
+            "gobernacion": "Gobernación",
+            "junta-departamental": "Junta dep."
+          },
+          "claves_cargo": {
+            "presidencia": "1",
+            "senado": "2",
+            "diputados": "3",
+            "gobernacion": "4",
+            "junta-departamental": "5"
+          },
+          "tipos_cargo": {
+            "presidencia": "uninominal",
+            "senado": "plurinominal",
+            "diputados": "plurinominal",
+            "gobernacion": "uninominal",
+            "junta-departamental": "plurinominal"
+          },
+          "bancas_cargo": {
+            "senado": "nacional",
+            "diputados": "departamento",
+            "junta-departamental": "departamento"
+          },
+          "fuentes": {
+            "oficial": {
+              "estado": "publicado",
+              "nombre": "Cómputo oficial (TSJE)"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "complementarias",
+      "nombre": "Complementarias",
+      "anios": [
+        {
+          "anio": 2025,
+          "fechas": [
+            "2025-11-09"
+          ],
+          "nacional": {
+            "nombre": "Paraguay",
+            "cargos": [
+              "intendencia"
+            ],
+            "fuentes": [
+              "oficial"
+            ],
+            "nivel": "distrito"
+          },
+          "geometria": {
+            "eleccion": "municipales",
+            "anio": 2026
+          },
+          "cargos": [
+            "intendencia"
+          ],
+          "nombres_cargo": {
+            "intendencia": "Intendente municipal"
+          },
+          "etiquetas_cargo": {
+            "intendencia": "Intendencia"
+          },
+          "claves_cargo": {
+            "intendencia": "1"
+          },
+          "tipos_cargo": {
+            "intendencia": "uninominal"
+          },
+          "bancas_cargo": {},
+          "fuentes": {
+            "oficial": {
+              "estado": "publicado",
+              "nombre": "Cómputo oficial (TSJE)"
+            }
+          }
+        },
+        {
+          "anio": 2023,
+          "fechas": [
+            "2023-01-15",
+            "2023-09-10"
+          ],
+          "nacional": {
+            "nombre": "Paraguay",
+            "cargos": [
+              "intendencia"
+            ],
+            "fuentes": [
+              "oficial"
+            ],
+            "nivel": "distrito"
+          },
+          "geometria": {
+            "eleccion": "municipales",
+            "anio": 2026
+          },
+          "cargos": [
+            "intendencia"
+          ],
+          "nombres_cargo": {
+            "intendencia": "Intendente municipal"
+          },
+          "etiquetas_cargo": {
+            "intendencia": "Intendencia"
+          },
+          "claves_cargo": {
+            "intendencia": "1"
+          },
+          "tipos_cargo": {
+            "intendencia": "uninominal"
+          },
+          "bancas_cargo": {},
+          "fuentes": {
+            "oficial": {
+              "estado": "publicado",
+              "nombre": "Cómputo oficial (TSJE)"
+            }
+          }
+        },
+        {
+          "anio": 2022,
+          "fechas": [
+            "2022-03-27",
+            "2022-10-30"
+          ],
+          "nacional": {
+            "nombre": "Paraguay",
+            "cargos": [
+              "intendencia",
+              "junta"
+            ],
+            "fuentes": [
+              "oficial"
+            ],
+            "nivel": "distrito"
+          },
+          "geometria": {
+            "eleccion": "municipales",
+            "anio": 2026
+          },
+          "cargos": [
+            "intendencia",
+            "junta"
+          ],
+          "nombres_cargo": {
+            "intendencia": "Intendente municipal",
+            "junta": "Junta municipal"
+          },
+          "etiquetas_cargo": {
+            "intendencia": "Intendencia",
+            "junta": "Junta"
+          },
+          "claves_cargo": {
+            "intendencia": "1",
+            "junta": "2"
+          },
+          "tipos_cargo": {
+            "intendencia": "uninominal",
+            "junta": "plurinominal"
+          },
+          "bancas_cargo": {
+            "junta": "distrito"
+          },
+          "fuentes": {
+            "oficial": {
+              "estado": "publicado",
+              "nombre": "Cómputo oficial (TSJE)"
+            }
+          }
+        },
+        {
+          "anio": 2019,
+          "fechas": [
+            "2019-02-10",
+            "2019-05-05",
+            "2019-12-01"
+          ],
+          "nacional": {
+            "nombre": "Paraguay",
+            "cargos": [
+              "intendencia",
+              "junta"
+            ],
+            "fuentes": [
+              "oficial"
+            ],
+            "nivel": "distrito"
+          },
+          "geometria": {
+            "eleccion": "municipales",
+            "anio": 2026,
+            "distritos": {
+              "eleccion": "complementarias",
+              "anio": 2019
+            }
+          },
+          "cargos": [
+            "intendencia",
+            "junta"
+          ],
+          "nombres_cargo": {
+            "intendencia": "Intendente municipal",
+            "junta": "Junta municipal"
+          },
+          "etiquetas_cargo": {
+            "intendencia": "Intendencia",
+            "junta": "Junta"
+          },
+          "claves_cargo": {
+            "intendencia": "1",
+            "junta": "2"
+          },
+          "tipos_cargo": {
+            "intendencia": "uninominal",
+            "junta": "plurinominal"
+          },
+          "bancas_cargo": {
+            "junta": "distrito"
+          },
+          "fuentes": {
+            "oficial": {
+              "estado": "publicado",
+              "nombre": "Cómputo oficial (TSJE)"
+            }
+          }
+        },
+        {
+          "anio": 2018,
+          "fechas": [
+            "2018-02-18"
+          ],
+          "nacional": {
+            "nombre": "Paraguay",
+            "cargos": [
+              "intendencia"
+            ],
+            "fuentes": [
+              "oficial"
+            ],
+            "nivel": "distrito"
+          },
+          "geometria": {
+            "eleccion": "municipales",
+            "anio": 2026,
+            "distritos": {
+              "eleccion": "generales",
+              "anio": 2018
+            }
+          },
+          "cargos": [
+            "intendencia"
+          ],
+          "nombres_cargo": {
+            "intendencia": "Intendente municipal"
+          },
+          "etiquetas_cargo": {
+            "intendencia": "Intendencia"
+          },
+          "claves_cargo": {
+            "intendencia": "1"
+          },
+          "tipos_cargo": {
+            "intendencia": "uninominal"
+          },
+          "bancas_cargo": {},
+          "fuentes": {
+            "oficial": {
+              "estado": "publicado",
+              "nombre": "Cómputo oficial (TSJE)"
+            }
+          }
+        },
+        {
+          "anio": 2017,
+          "fechas": [
+            "2017-03-26",
+            "2017-12-10"
+          ],
+          "nacional": {
+            "nombre": "Paraguay",
+            "cargos": [
+              "intendencia",
+              "junta"
+            ],
+            "fuentes": [
+              "oficial"
+            ],
+            "nivel": "distrito"
+          },
+          "geometria": {
+            "eleccion": "municipales",
+            "anio": 2026,
+            "distritos": {
+              "eleccion": "generales",
+              "anio": 2018
+            }
+          },
+          "cargos": [
+            "intendencia",
+            "junta"
+          ],
+          "nombres_cargo": {
+            "intendencia": "Intendente municipal",
+            "junta": "Junta municipal"
+          },
+          "etiquetas_cargo": {
+            "intendencia": "Intendencia",
+            "junta": "Junta"
+          },
+          "claves_cargo": {
+            "intendencia": "1",
+            "junta": "2"
+          },
+          "tipos_cargo": {
+            "intendencia": "uninominal",
+            "junta": "plurinominal"
+          },
+          "bancas_cargo": {
+            "junta": "distrito"
+          },
+          "fuentes": {
+            "oficial": {
+              "estado": "publicado",
+              "nombre": "Cómputo oficial (TSJE)"
+            }
+          }
+        },
+        {
+          "anio": 2016,
+          "fechas": [
+            "2016-06-19",
+            "2016-10-30"
+          ],
+          "nacional": {
+            "nombre": "Paraguay",
+            "cargos": [
+              "intendencia"
+            ],
+            "fuentes": [
+              "oficial"
+            ],
+            "nivel": "distrito"
+          },
+          "geometria": {
+            "eleccion": "municipales",
+            "anio": 2026,
+            "distritos": {
+              "eleccion": "municipales",
+              "anio": 2015
+            }
+          },
+          "cargos": [
+            "intendencia"
+          ],
+          "nombres_cargo": {
+            "intendencia": "Intendente municipal"
+          },
+          "etiquetas_cargo": {
+            "intendencia": "Intendencia"
+          },
+          "claves_cargo": {
+            "intendencia": "1"
+          },
+          "tipos_cargo": {
+            "intendencia": "uninominal"
+          },
+          "bancas_cargo": {},
+          "fuentes": {
+            "oficial": {
+              "estado": "publicado",
+              "nombre": "Cómputo oficial (TSJE)"
+            }
+          }
+        },
+        {
+          "anio": 2014,
+          "fechas": [
+            "2014-03-16",
+            "2014-08-10"
+          ],
+          "nacional": {
+            "nombre": "Paraguay",
+            "cargos": [
+              "intendencia"
+            ],
+            "fuentes": [
+              "oficial"
+            ],
+            "nivel": "distrito"
+          },
+          "geometria": {
+            "eleccion": "municipales",
+            "anio": 2026,
+            "distritos": {
+              "eleccion": "complementarias",
+              "anio": 2013
+            }
+          },
+          "cargos": [
+            "intendencia"
+          ],
+          "nombres_cargo": {
+            "intendencia": "Intendente municipal"
+          },
+          "etiquetas_cargo": {
+            "intendencia": "Intendencia"
+          },
+          "claves_cargo": {
+            "intendencia": "1"
+          },
+          "tipos_cargo": {
+            "intendencia": "uninominal"
+          },
+          "bancas_cargo": {},
+          "fuentes": {
+            "oficial": {
+              "estado": "publicado",
+              "nombre": "Cómputo oficial (TSJE)"
+            }
+          }
+        },
+        {
+          "anio": 2013,
+          "fechas": [
+            "2013-02-17",
+            "2013-09-09",
+            "2013-11-24",
+            "2013-12-01"
+          ],
+          "nacional": {
+            "nombre": "Paraguay",
+            "cargos": [
+              "intendencia",
+              "junta"
+            ],
+            "fuentes": [
+              "oficial"
+            ],
+            "nivel": "distrito"
+          },
+          "geometria": {
+            "eleccion": "municipales",
+            "anio": 2026,
+            "distritos": {
+              "eleccion": "complementarias",
+              "anio": 2013
+            }
+          },
+          "cargos": [
+            "intendencia",
+            "junta"
+          ],
+          "nombres_cargo": {
+            "intendencia": "Intendente municipal",
+            "junta": "Junta municipal"
+          },
+          "etiquetas_cargo": {
+            "intendencia": "Intendencia",
+            "junta": "Junta"
+          },
+          "claves_cargo": {
+            "intendencia": "1",
+            "junta": "2"
+          },
+          "tipos_cargo": {
+            "intendencia": "uninominal",
+            "junta": "plurinominal"
+          },
+          "bancas_cargo": {
+            "junta": "distrito"
+          },
+          "fuentes": {
+            "oficial": {
+              "estado": "publicado",
+              "nombre": "Cómputo oficial (TSJE)"
+            }
+          }
+        },
+        {
+          "anio": 2012,
+          "fechas": [
+            "2012-01-29",
+            "2012-04-29",
+            "2012-06-17",
+            "2012-07-15",
+            "2012-10-21"
+          ],
+          "nacional": {
+            "nombre": "Paraguay",
+            "cargos": [
+              "intendencia",
+              "junta"
+            ],
+            "fuentes": [
+              "oficial"
+            ],
+            "nivel": "distrito"
+          },
+          "geometria": {
+            "eleccion": "municipales",
+            "anio": 2026,
+            "distritos": {
+              "eleccion": "complementarias",
+              "anio": 2012
+            }
+          },
+          "cargos": [
+            "intendencia",
+            "junta"
+          ],
+          "nombres_cargo": {
+            "intendencia": "Intendente municipal",
+            "junta": "Junta municipal"
+          },
+          "etiquetas_cargo": {
+            "intendencia": "Intendencia",
+            "junta": "Junta"
+          },
+          "claves_cargo": {
+            "intendencia": "1",
+            "junta": "2"
+          },
+          "tipos_cargo": {
+            "intendencia": "uninominal",
+            "junta": "plurinominal"
+          },
+          "bancas_cargo": {
+            "junta": "distrito"
+          },
+          "fuentes": {
+            "oficial": {
+              "estado": "publicado",
+              "nombre": "Cómputo oficial (TSJE)"
+            }
+          }
+        },
+        {
+          "anio": 2009,
+          "fechas": [
+            "2009-01-18",
+            "2009-07-05",
+            "2009-07-19",
+            "2009-08-30"
+          ],
+          "nacional": {
+            "nombre": "Paraguay",
+            "cargos": [
+              "intendencia",
+              "junta"
+            ],
+            "fuentes": [
+              "oficial"
+            ],
+            "nivel": "distrito"
+          },
+          "geometria": {
+            "eleccion": "municipales",
+            "anio": 2026,
+            "distritos": {
+              "eleccion": "complementarias",
+              "anio": 2009
+            }
+          },
+          "cargos": [
+            "intendencia",
+            "junta"
+          ],
+          "nombres_cargo": {
+            "intendencia": "Intendente municipal",
+            "junta": "Junta municipal"
+          },
+          "etiquetas_cargo": {
+            "intendencia": "Intendencia",
+            "junta": "Junta"
+          },
+          "claves_cargo": {
+            "intendencia": "1",
+            "junta": "2"
+          },
+          "tipos_cargo": {
+            "intendencia": "uninominal",
+            "junta": "plurinominal"
+          },
+          "bancas_cargo": {
+            "junta": "distrito"
+          },
+          "fuentes": {
+            "oficial": {
+              "estado": "publicado",
+              "nombre": "Cómputo oficial (TSJE)"
+            }
+          }
+        },
+        {
+          "anio": 2008,
+          "fechas": [
+            "2008-12-14",
+            "2008-12-21"
+          ],
+          "nacional": {
+            "nombre": "Paraguay",
+            "cargos": [
+              "intendencia",
+              "junta"
+            ],
+            "fuentes": [
+              "oficial"
+            ],
+            "nivel": "distrito"
+          },
+          "geometria": {
+            "eleccion": "municipales",
+            "anio": 2026,
+            "distritos": {
+              "eleccion": "generales",
+              "anio": 2008
+            }
+          },
+          "cargos": [
+            "intendencia",
+            "junta"
+          ],
+          "nombres_cargo": {
+            "intendencia": "Intendente municipal",
+            "junta": "Junta municipal"
+          },
+          "etiquetas_cargo": {
+            "intendencia": "Intendencia",
+            "junta": "Junta"
+          },
+          "claves_cargo": {
+            "intendencia": "1",
+            "junta": "2"
+          },
+          "tipos_cargo": {
+            "intendencia": "uninominal",
+            "junta": "plurinominal"
+          },
+          "bancas_cargo": {
+            "junta": "distrito"
+          },
+          "fuentes": {
+            "oficial": {
+              "estado": "publicado",
+              "nombre": "Cómputo oficial (TSJE)"
+            }
+          }
+        },
+        {
+          "anio": 2007,
+          "fechas": [
+            "2007-11-19"
+          ],
+          "nacional": {
+            "nombre": "Paraguay",
+            "cargos": [
+              "intendencia",
+              "junta"
+            ],
+            "fuentes": [
+              "oficial"
+            ],
+            "nivel": "distrito"
+          },
+          "geometria": {
+            "eleccion": "municipales",
+            "anio": 2026,
+            "distritos": {
+              "eleccion": "generales",
+              "anio": 2008
+            }
+          },
+          "cargos": [
+            "intendencia",
+            "junta"
+          ],
+          "nombres_cargo": {
+            "intendencia": "Intendente municipal",
+            "junta": "Junta municipal"
+          },
+          "etiquetas_cargo": {
+            "intendencia": "Intendencia",
+            "junta": "Junta"
+          },
+          "claves_cargo": {
+            "intendencia": "1",
+            "junta": "2"
+          },
+          "tipos_cargo": {
+            "intendencia": "uninominal",
+            "junta": "plurinominal"
+          },
+          "bancas_cargo": {
+            "junta": "distrito"
+          },
+          "fuentes": {
+            "oficial": {
+              "estado": "publicado",
+              "nombre": "Cómputo oficial (TSJE)"
+            }
+          }
+        },
+        {
+          "anio": 2005,
+          "fechas": [
+            "2005-07-10",
+            "2005-07-31"
+          ],
+          "nacional": {
+            "nombre": "Paraguay",
+            "cargos": [
+              "intendencia"
+            ],
+            "fuentes": [
+              "oficial"
+            ],
+            "nivel": "distrito"
+          },
+          "geometria": {
+            "eleccion": "municipales",
+            "anio": 2026,
+            "distritos": {
+              "eleccion": "complementarias",
+              "anio": 2004
+            }
+          },
+          "cargos": [
+            "intendencia"
+          ],
+          "nombres_cargo": {
+            "intendencia": "Intendente municipal"
+          },
+          "etiquetas_cargo": {
+            "intendencia": "Intendencia"
+          },
+          "claves_cargo": {
+            "intendencia": "1"
+          },
+          "tipos_cargo": {
+            "intendencia": "uninominal"
+          },
+          "bancas_cargo": {},
+          "fuentes": {
+            "oficial": {
+              "estado": "publicado",
+              "nombre": "Cómputo oficial (TSJE)"
+            }
+          }
+        },
+        {
+          "anio": 2004,
+          "fechas": [
+            "2004-02-22",
+            "2004-04-04",
+            "2004-12-19"
+          ],
+          "nacional": {
+            "nombre": "Paraguay",
+            "cargos": [
+              "intendencia",
+              "junta"
+            ],
+            "fuentes": [
+              "oficial"
+            ],
+            "nivel": "distrito"
+          },
+          "geometria": {
+            "eleccion": "municipales",
+            "anio": 2026,
+            "distritos": {
+              "eleccion": "complementarias",
+              "anio": 2004
+            }
+          },
+          "cargos": [
+            "intendencia",
+            "junta"
+          ],
+          "nombres_cargo": {
+            "intendencia": "Intendente municipal",
+            "junta": "Junta municipal"
+          },
+          "etiquetas_cargo": {
+            "intendencia": "Intendencia",
+            "junta": "Junta"
+          },
+          "claves_cargo": {
+            "intendencia": "1",
+            "junta": "2"
+          },
+          "tipos_cargo": {
+            "intendencia": "uninominal",
+            "junta": "plurinominal"
+          },
+          "bancas_cargo": {
+            "junta": "distrito"
+          },
+          "fuentes": {
+            "oficial": {
+              "estado": "publicado",
+              "nombre": "Cómputo oficial (TSJE)"
+            }
+          }
+        },
+        {
+          "anio": 2003,
+          "fechas": [
+            "2003-04-27",
+            "2003-11-16"
+          ],
+          "nacional": {
+            "nombre": "Paraguay",
+            "cargos": [
+              "intendencia",
+              "junta"
+            ],
+            "fuentes": [
+              "oficial"
+            ],
+            "nivel": "distrito"
+          },
+          "geometria": {
+            "eleccion": "municipales",
+            "anio": 2026,
+            "distritos": {
+              "eleccion": "complementarias",
+              "anio": 2003
+            }
+          },
+          "cargos": [
+            "intendencia",
+            "junta"
+          ],
+          "nombres_cargo": {
+            "intendencia": "Intendente municipal",
+            "junta": "Junta municipal"
+          },
+          "etiquetas_cargo": {
+            "intendencia": "Intendencia",
+            "junta": "Junta"
+          },
+          "claves_cargo": {
+            "intendencia": "1",
+            "junta": "2"
+          },
+          "tipos_cargo": {
+            "intendencia": "uninominal",
+            "junta": "plurinominal"
+          },
+          "bancas_cargo": {
+            "junta": "distrito"
+          },
+          "fuentes": {
+            "oficial": {
+              "estado": "publicado",
+              "nombre": "Cómputo oficial (TSJE)"
+            }
+          }
+        },
+        {
+          "anio": 2002,
+          "fechas": [
+            "2002-09-29"
+          ],
+          "nacional": {
+            "nombre": "Paraguay",
+            "cargos": [
+              "intendencia",
+              "junta"
+            ],
+            "fuentes": [
+              "oficial"
+            ],
+            "nivel": "distrito"
+          },
+          "geometria": {
+            "eleccion": "municipales",
+            "anio": 2026,
+            "distritos": {
+              "eleccion": "complementarias",
+              "anio": 2002
+            }
+          },
+          "cargos": [
+            "intendencia",
+            "junta"
+          ],
+          "nombres_cargo": {
+            "intendencia": "Intendente municipal",
+            "junta": "Junta municipal"
+          },
+          "etiquetas_cargo": {
+            "intendencia": "Intendencia",
+            "junta": "Junta"
+          },
+          "claves_cargo": {
+            "intendencia": "1",
+            "junta": "2"
+          },
+          "tipos_cargo": {
+            "intendencia": "uninominal",
+            "junta": "plurinominal"
+          },
+          "bancas_cargo": {
+            "junta": "distrito"
+          },
+          "fuentes": {
+            "oficial": {
+              "estado": "publicado",
+              "nombre": "Cómputo oficial (TSJE)"
+            }
+          }
+        },
+        {
+          "anio": 2000,
+          "fechas": [
+            "2000-02-06"
+          ],
+          "nacional": {
+            "nombre": "Paraguay",
+            "cargos": [
+              "intendencia",
+              "junta"
+            ],
+            "fuentes": [
+              "oficial"
+            ],
+            "nivel": "distrito"
+          },
+          "geometria": {
+            "eleccion": "municipales",
+            "anio": 2026,
+            "distritos": {
+              "eleccion": "complementarias",
+              "anio": 2000
+            }
+          },
+          "cargos": [
+            "intendencia",
+            "junta"
+          ],
+          "nombres_cargo": {
+            "intendencia": "Intendente municipal",
+            "junta": "Junta municipal"
+          },
+          "etiquetas_cargo": {
+            "intendencia": "Intendencia",
+            "junta": "Junta"
+          },
+          "claves_cargo": {
+            "intendencia": "1",
+            "junta": "2"
+          },
+          "tipos_cargo": {
+            "intendencia": "uninominal",
+            "junta": "plurinominal"
+          },
+          "bancas_cargo": {
+            "junta": "distrito"
+          },
+          "fuentes": {
+            "oficial": {
+              "estado": "publicado",
+              "nombre": "Cómputo oficial (TSJE)"
+            }
+          }
+        },
+        {
+          "anio": 1997,
+          "fechas": [
+            "1997-10-05"
+          ],
+          "nacional": {
+            "nombre": "Paraguay",
+            "cargos": [
+              "intendencia",
+              "junta"
+            ],
+            "fuentes": [
+              "oficial"
+            ],
+            "nivel": "distrito"
+          },
+          "geometria": {
+            "eleccion": "municipales",
+            "anio": 2026,
+            "distritos": {
+              "eleccion": "complementarias",
+              "anio": 1997
+            }
+          },
+          "cargos": [
+            "intendencia",
+            "junta"
+          ],
+          "nombres_cargo": {
+            "intendencia": "Intendente municipal",
+            "junta": "Junta municipal"
+          },
+          "etiquetas_cargo": {
+            "intendencia": "Intendencia",
+            "junta": "Junta"
+          },
+          "claves_cargo": {
+            "intendencia": "1",
+            "junta": "2"
+          },
+          "tipos_cargo": {
+            "intendencia": "uninominal",
+            "junta": "plurinominal"
+          },
+          "bancas_cargo": {
+            "junta": "distrito"
+          },
+          "fuentes": {
+            "oficial": {
+              "estado": "publicado",
+              "nombre": "Cómputo oficial (TSJE)"
+            }
+          }
+        },
+        {
+          "anio": 1996,
+          "fechas": [
+            "1996-12-15"
+          ],
+          "nacional": {
+            "nombre": "Paraguay",
+            "cargos": [
+              "intendencia",
+              "junta"
+            ],
+            "fuentes": [
+              "oficial"
+            ],
+            "nivel": "distrito"
+          },
+          "geometria": {
+            "eleccion": "municipales",
+            "anio": 2026,
+            "distritos": {
+              "eleccion": "municipales",
+              "anio": 1996
+            }
+          },
+          "cargos": [
+            "intendencia",
+            "junta"
+          ],
+          "nombres_cargo": {
+            "intendencia": "Intendente municipal",
+            "junta": "Junta municipal"
+          },
+          "etiquetas_cargo": {
+            "intendencia": "Intendencia",
+            "junta": "Junta"
+          },
+          "claves_cargo": {
+            "intendencia": "1",
+            "junta": "2"
+          },
+          "tipos_cargo": {
+            "intendencia": "uninominal",
+            "junta": "plurinominal"
+          },
+          "bancas_cargo": {
+            "junta": "distrito"
+          },
+          "fuentes": {
+            "oficial": {
+              "estado": "publicado",
+              "nombre": "Cómputo oficial (TSJE)"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "consejo-magistratura",
+      "nombre": "Consejo de la Magistratura",
+      "anios": [
+        {
+          "anio": 2023,
+          "fecha": "2023-10-28",
+          "ambito": "Asunción",
+          "nacional": {
+            "nombre": "Paraguay",
+            "cargos": [
+              "consejo"
+            ],
+            "fuentes": [
+              "trep",
+              "oficial"
+            ],
+            "nivel": "mesa",
+            "indices": {
+              "trep": "distritos_trep.json"
+            }
+          },
+          "geometria": {
+            "eleccion": "municipales",
+            "anio": 2026
+          },
+          "cargos": [
+            "consejo"
+          ],
+          "nombres_cargo": {
+            "consejo": "Consejo de la Magistratura"
+          },
+          "etiquetas_cargo": {
+            "consejo": "Consejo"
+          },
+          "claves_cargo": {
+            "consejo": "1"
+          },
+          "tipos_cargo": {
+            "consejo": "plurinominal"
+          },
+          "bancas_cargo": {},
+          "fuentes": {
+            "trep": {
+              "estado": "publicado",
+              "nombre": "TREP",
+              "corte": "2023-10-28T18:41:01"
+            },
+            "oficial": {
+              "estado": "publicado",
+              "nombre": "Cómputo oficial (TSJE)"
             }
           }
         }

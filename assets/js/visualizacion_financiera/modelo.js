@@ -1,6 +1,8 @@
 // Visualización financiera · Ejercicio 2025 (ADR-035; tarea M46): el modelo de vista de los 14 gráficos, sin DOM. Lo usan la
 // página, la tabla, las descargas (PNG, SVG, CSV y la ficha municipal) y el cálculo de cobertura en Node, así que una sola
-// regla arma lo que se dibuja y lo que se descarga.
+// regla arma lo que se dibuja y lo que se descarga. Desde M57 (ADR-045) también los años del histórico (2004-2024: los
+// cuatro gráficos del balance y del estado de resultados, con las cuentas leídas de los tomos del MEF) y la evolución
+// histórica de cada municipalidad, de 2004 a 2025.
 // Reglas (prompt, apartados 7 y 8): importes en guaraníes enteros; null es ausencia, nunca cero; padre e hijos no se suman
 // como componentes; si el detalle no coincide con el padre se muestran los dos y la diferencia; un Sankey solo con valores
 // no negativos y una misma escala de los dos lados; negativos, sobre-ejecución o recaudación superior a la prevista pasan
@@ -165,6 +167,84 @@ export function crearMunicipio(resumen, entrada) {
     };
 }
 
+// --- Años del histórico (M57, ADR-045) -------------------------------------------------------------------------------------
+// 2025 tiene los 14 gráficos (paquete del MEF); de 2004 a 2024 hay solo el balance y el estado de resultados de los tomos.
+export const EJERCICIO_COMPLETO = 2025;
+export const graficosDe = (graficos, ejercicio) => (ejercicio === EJERCICIO_COMPLETO ? graficos
+    : graficos.filter((g) => g.historico).map((g) => ({ ...g, ...g.historico })));
+
+// «2.1.1.4» (el código corto de la extracción) → «2.1.1.04.00.00.000», el formato de las cuentas de 2025.
+const ANCHOS = [1, 1, 1, 2, 2, 2, 3];
+export const codigoLargo = (c) => { const p = String(c).split('.'); return ANCHOS.map((w, k) => (p[k] ?? '0').padStart(w, '0')).join('.'); };
+
+// El catálogo de un año del histórico: las municipalidades con balance ese año, con su distrito de hoy como identificador
+// (no es un código del MEF); abarca: las claves de los distritos creados después que ese año eran parte de ella.
+export function crearCatalogoHistorico(datos, anio) {
+    const nombreDep = new Map(datos.departamentos.map((d) => [d.codigo, d.nombre]));
+    const municipios = datos.municipios.filter((m) => m.anios.includes(anio)).map((m) => {
+        const nombre = m.nombres?.[anio] ?? m.nombre;
+        return { id: m.id, sistema: 'clave_distrito', nombre, nombre_fuente: null, departamento: m.departamento,
+                 departamento_nombre: nombreDep.get(m.departamento) ?? '', estado: 'informante', distrito: m.id,
+                 abarca: m.abarca?.[anio] ?? null, busqueda: normalizar(`${nombre} ${m.nombre}`) };
+    });
+    municipios.sort((a, b) => a.departamento - b.departamento || a.nombre.localeCompare(b.nombre, 'es'));
+    return { ejercicio: anio, departamentos: datos.departamentos, municipios, porId: new Map(municipios.map((m) => [m.id, m])), nota: datos.nota };
+}
+
+// La municipalidad de un catálogo para un distrito de hoy: la suya o, si el distrito todavía no existía, la que lo abarcaba.
+export function equivalente(catalogo, distrito) {
+    if (!distrito) return null;
+    const propia = catalogo.municipios.find((m) => m.distrito === distrito);
+    if (propia) return { entrada: propia, abarcaba: false };
+    const madre = catalogo.municipios.find((m) => m.abarca?.includes(distrito));
+    return madre ? { entrada: madre, abarcaba: true } : null;
+}
+
+const ESTADO_CUENTA = { s: 'calculado con los subtotales del propio estado', c: 'calculado: suma del pasivo corriente y el no corriente' };
+const INDICADORES_HISTORICOS = ['razon_corriente', 'prueba_acida', 'cobertura_disponible', 'resultado_contable_gs', 'pasivo_sobre_activo_pct'];
+
+// El modelo de un año del histórico a partir del archivo de su distrito (municipalidad/historico/municipios/<clave>.json):
+// las cuentas hasta el tercer nivel con su rótulo impreso, los indicadores con el motivo de cada vacío y las notas; man:
+// el manifiesto del histórico (fuente del año y textos de las notas).
+export function crearMunicipioHistorico(archivo, anio, entrada, man) {
+    const a = archivo?.anios?.[String(anio)];
+    if (!a) throw new Error(`No hay cuentas de ${anio} de ${entrada.nombre}.`);
+    const filas = a.cuentas.map(([t, codigo, k, valor, est]) => {
+        const tipo = t === 'b' ? 'balance' : 'resultado';
+        const largo = codigoLargo(codigo);
+        const lado = ladoCuenta(largo);
+        return { fila: null, tipo, codigo: largo, descripcion: archivo.rotulos[k] || '(sin rótulo en el tomo)',
+                 pagina: tipo === 'balance' ? a.paginas.balance : a.paginas.resultados,
+                 izquierda: lado === 'izquierda' ? valor : null, derecha: lado === 'derecha' ? valor : null, estadoDato: est ? ESTADO_CUENTA[est] : null };
+    });
+    const anioMan = man?.anios?.find((x) => x.anio === anio) ?? null;
+    const lectura = a.lectura ?? {};
+    const observaciones = (a.notas ?? []).map((n) => ({ detalle: man?.notas?.[n] ?? n, fuente: `Informe Financiero ${anio}` }));
+    if (Object.values(lectura).includes('rotulos')) observaciones.push({ detalle: man?.lecturas?.rotulos ?? 'Solo se leyeron las cuentas principales.', fuente: 'Lectura del tomo' });
+    if (a.omitidas?.length) {
+        observaciones.push({ detalle: `No se muestran ${a.omitidas.join(', ')}: leídas por su rótulo, el tomo las imprime dentro de otra cuenta leída y sumarlas ` +
+                                      'aparte las contaría dos veces.', fuente: 'Lectura del tomo' });
+    }
+    if (a.abarca?.length) observaciones.push({ detalle: `En ${anio} su territorio incluía el de ${a.abarca.join(', ')} (distritos creados después): sus cifras lo abarcan.`, fuente: 'Distritos de cada año (ADR-043)' });
+    return {
+        id: entrada.id, entrada, ejercicio: anio, corte: `${anio}-12-31`, historico: true, nombre_mef: a.nombre_mef, codigo_mef: a.codigo_mef ?? null,
+        paginas: a.paginas, lectura, abarca: a.abarca ?? null, fuente: anioMan, alertas: [], estados: {}, observaciones,
+        indicadores: Object.fromEntries(INDICADORES_HISTORICOS.map((c) => [c, { valor: a.indicadores?.[c]?.[0] ?? null, motivo: a.indicadores?.[c]?.[1] ?? null }])),
+        prioritarios: Object.fromEntries(Object.entries(a.ficha ?? {}).map(([c, v]) => [c, { valor: v, motivo: hay(v) ? null : 'No expuesto en el informe de ese año.' }])),
+        ingresos: null, gastos: null,
+        balance: arbolContable(filas.filter((r) => r.tipo === 'balance')),
+        resultado: arbolContable(filas.filter((r) => r.tipo === 'resultado')),
+        detalleCargado: true,
+    };
+}
+
+// La serie de la evolución histórica: los años de 2004 a 2025 (con y sin datos) del manifiesto del histórico y los puntos
+// del distrito (null si no tiene archivo: ningún año con balance).
+export function historiaDe(man, archivo) {
+    return { anios: man.anios.map((a) => ({ anio: a.anio, estado: a.estado, motivo: a.motivo ?? null, tomo: a.tomo ?? null, escala: a.escala ?? null })),
+             serie: archivo?.serie ?? null, campos: man.serie, estados: man.estados, ipc: man.ipc, anteriores: man.anteriores };
+}
+
 // --- Catálogo de municipalidades -------------------------------------------------------------------------------------------
 export function crearCatalogo(datos) {
     const departamentos = datos.departamentos;
@@ -192,15 +272,22 @@ export function estadoInicial(ejercicio) {
     return { ejercicio, departamento: null, municipio: null, grafico: GRAFICO_INICIAL, apertura: null, metrica: null };
 }
 
-export function leerEstado(hash, { ejercicios, catalogo, graficos }) {
+// ctx: { ejercicios, catalogo, graficos } con un solo ejercicio, o (M57) { ejercicios, catalogos: Map ejercicio → catálogo,
+// graficosDe: ejercicio → vistas, sinDatos: Map año → motivo }: el municipio y el gráfico se validan contra los del ejercicio.
+export function leerEstado(hash, ctx) {
+    const { ejercicios } = ctx;
     const p = new URLSearchParams(hash.replace(/^#/, ''));
     const avisos = [];
     const e = estadoInicial(ejercicios[0]);
     const ej = p.get('ejercicio');
     if (ej !== null) {
         if (ejercicios.includes(Number(ej)) && /^\d{4}$/.test(ej)) e.ejercicio = Number(ej);
+        else if (/^\d{4}$/.test(ej) && ctx.sinDatos?.has(Number(ej))) avisos.push(`${ctx.sinDatos.get(Number(ej))} (${ej}). Se muestra ${e.ejercicio}.`);
         else avisos.push(`El ejercicio «${ej}» no está disponible: se muestra ${e.ejercicio}.`);
     }
+    const catalogo = ctx.catalogos?.get(e.ejercicio) ?? ctx.catalogo;
+    const graficos = ctx.graficosDe?.(e.ejercicio) ?? ctx.graficos;
+    if (!graficos.some((x) => x.id === e.grafico)) e.grafico = graficos[0].id;
     const dep = p.get('departamento');
     if (dep !== null) {
         if (/^\d{1,2}$/.test(dep) && catalogo.departamentos.some((d) => d.codigo === Number(dep))) e.departamento = Number(dep);
@@ -208,18 +295,33 @@ export function leerEstado(hash, { ejercicios, catalogo, graficos }) {
     }
     const mun = p.get('municipio');
     if (mun !== null) {
-        const m = catalogo.porId.get(mun);
+        let m = catalogo.porId.get(mun);
+        if (!m && ctx.catalogos) {
+            // Un identificador de otro año (el código del MEF de 2025 o la clave del distrito): la municipalidad de este año.
+            const otra = [...ctx.catalogos.values()].map((c) => c.porId.get(mun)).find(Boolean);
+            const eq = otra ? equivalente(catalogo, otra.distrito) : null;
+            if (eq) {
+                m = eq.entrada;
+                if (eq.abarcaba) avisos.push(`En ${e.ejercicio} ${otra.nombre} todavía no era municipio: se muestra ${m.nombre}, que abarcaba su territorio.`);
+            } else if (otra) {
+                avisos.push(`${otra.nombre} no tiene balance en el informe de ${e.ejercicio}: elegí otra municipalidad o cambiá el ejercicio.`);
+            }
+        }
         if (m) {
             e.municipio = m.id;
             if (e.departamento !== null && e.departamento !== m.departamento) e.departamento = m.departamento;
-        } else {
+        } else if (!avisos.some((a) => a.includes('no tiene balance'))) {
             avisos.push(`La municipalidad «${mun}» no está en el catálogo de ${e.ejercicio}: elegí una de la lista.`);
         }
     }
     const g = p.get('grafico');
     if (g !== null) {
+        const todos = ctx.graficosDe?.(EJERCICIO_COMPLETO) ?? graficos;
         if (graficos.some((x) => x.id === g)) e.grafico = g;
-        else avisos.push(`El gráfico «${g}» no existe: se muestra «${graficos.find((x) => x.id === GRAFICO_INICIAL).titulo}».`);
+        else if (todos.some((x) => x.id === g)) {
+            avisos.push(`«${todos.find((x) => x.id === g).titulo}» no está en ${e.ejercicio}: de los años anteriores a ${EJERCICIO_COMPLETO} hay solo el ` +
+                        `balance y el estado de resultados. Se muestra «${graficos.find((x) => x.id === e.grafico).titulo}».`);
+        } else avisos.push(`El gráfico «${g}» no existe: se muestra «${graficos.find((x) => x.id === e.grafico).titulo}».`);
     }
     const ap = p.get('apertura');
     if (ap !== null) e.apertura = /^[a-z]+(:\d{3})?$/.test(ap) ? ap : null;
@@ -247,6 +349,15 @@ export function textoEstado(e) {
 const TOMOS = { 'V-A': 'Tomo V-A — Municipalidades: Situación Financiera', 'V-B': 'Tomo V-B — Municipalidades: Situación Presupuestaria' };
 
 export function fuenteDe(cat, M) {
+    if (cat.id === 'evolucion_historica') {
+        return 'Ministerio de Economía y Finanzas de Paraguay (MEF), Informes Financieros de 2004 a 2025, tomos de las municipalidades (balance general ' +
+               'y estado de resultados); IPC: Banco Central del Paraguay. Serie, unión con los distritos y deflactor: Kalaguichi.';
+    }
+    if (M?.historico) {
+        const pags = [M.paginas?.balance && `balance, p. ${M.paginas.balance}`, M.paginas?.resultados && `estado de resultados, p. ${M.paginas.resultados}`].filter(Boolean);
+        return `Ministerio de Economía y Finanzas de Paraguay (MEF), Informe Financiero ${M.ejercicio}: ${M.fuente?.tomo ?? 'tomo de las municipalidades'}` +
+               `${pags.length ? ` (${pags.join('; ')})` : ''}.`;
+    }
     const partes = [];
     if (cat.tomo.includes('V-B')) partes.push(`${TOMOS['V-B']}, p. ${M?.paginas?.presupuesto ?? '—'}`);
     if (cat.tomo.includes('V-A')) partes.push(`${TOMOS['V-A']}, p. ${M?.paginas?.financieras ?? '—'}`);
@@ -298,7 +409,7 @@ function filaPresupuesto(n, extra = {}) {
 
 function filaContable(n, extra = {}) {
     return { nivel: `Nivel ${n.nivel}`, codigo: n.codigo, descripcion: n.descripcion, valor: n.valor, columna: n.lado === 'izquierda' ? 'Izquierda' : 'Derecha',
-             estado: estadoValor(n.valor), pagina: n.pagina, fila: origenContable(n), ...extra };
+             estado: n.estadoDato ?? estadoValor(n.valor), pagina: n.pagina, fila: origenContable(n), ...extra };
 }
 
 const NOMBRE_CAMPO = { inicial: 'presupuesto inicial', modificado: 'modificaciones', vigente: 'presupuesto vigente', devengado: 'devengado', recaudado: 'recaudado',
@@ -570,6 +681,25 @@ function v04(cat, M, op) {
 const cuenta = (arbol, codigo) => arbol.porCuenta.get(codigo) ?? null;
 const RAICES = { activo: '2.0.0.00.00.00.000', egresos: '3.0.0.00.00.00.000', pasivo: '4.0.0.00.00.00.000', ingresos: '5.0.0.00.00.00.000', patrimonio: '8.0.0.00.00.00.000' };
 
+// Los años cuyo tomo no trae los códigos del plan de cuentas (2005 y de 2008 a 2011, M57): se leyeron solo las cuentas
+// principales por su rótulo, así que lo que falta para llegar a un total es detalle impreso que no se leyó, no una cuenta
+// que falte en el tomo; se rotula así y no se comparan los padres con la suma de sus subcuentas.
+export const NO_LEIDAS = 'Detalle del tomo no leído (sin códigos)';
+const porRotulos = (M, estado) => M?.lectura?.[estado] === 'rotulos';
+// Los rubros de una cuenta principal; sin ninguno con importe (un patrimonio sin sus partes leídas), la cuenta misma: así no
+// aparece entera como «diferencia».
+const rubros = (raiz) => (raiz?.hijos.some((h) => hay(h.valor) && h.valor !== 0) ? raiz.hijos : raiz ? [raiz] : []);
+const rotuloCuenta = (h, largo = 3) => (h.nivel <= 1 ? h.descripcion : `${h.codigo.slice(0, largo)} ${h.descripcion}`);
+const textoDif = (M, estado, texto) => (porRotulos(M, estado) ? NO_LEIDAS : texto);
+function avisosCuentas(v, M, arbol, estado) {
+    if (porRotulos(M, estado)) {
+        v.avisos.push(`En ${M.ejercicio} el tomo no trae los códigos del plan de cuentas: se leyeron solo las cuentas principales por su rótulo; lo que ` +
+                      'falte para llegar a un total (rayado) es el resto del detalle impreso, que no se leyó, no una cuenta que falte en el tomo.');
+        return;
+    }
+    for (const d of arbol.diferencias) v.avisos.push(`${d.codigo} ${d.descripcion}: la cuenta (${gs(d.padre)}) y la suma de sus subcuentas (${gs(d.suma)}) difieren en ${gs(d.diferencia)}.`);
+}
+
 // 05 · Formación del resultado contable
 function v05(cat, M, op) {
     const v = base(cat, M);
@@ -582,11 +712,12 @@ function v05(cat, M, op) {
     const fin = { id: 'resultado', tipo: 'total', rotulo: 'Resultado contable', valor: resultado, rol: resultado >= 0 ? 'resultado_pos' : 'resultado_neg' };
     let pasos;
     if (apertura === 'rubros') {
-        const pI = ing.hijos.filter((h) => hay(h.valor) && h.valor !== 0).map((h) => ({ id: h.clave, tipo: 'delta', rotulo: `${h.codigo.slice(0, 3)} ${h.descripcion}`, valor: h.valor, rol: 'ingreso_gestion' }));
-        const pE = egr.hijos.filter((h) => hay(h.valor) && h.valor !== 0).map((h) => ({ id: h.clave, tipo: 'delta', rotulo: `${h.codigo.slice(0, 3)} ${h.descripcion}`, valor: -h.valor, rol: 'egreso_gestion' }));
+        const pI = rubros(ing).filter((h) => hay(h.valor) && h.valor !== 0).map((h) => ({ id: h.clave, tipo: 'delta', rotulo: rotuloCuenta(h), valor: h.valor, rol: 'ingreso_gestion' }));
+        const pE = rubros(egr).filter((h) => hay(h.valor) && h.valor !== 0).map((h) => ({ id: h.clave, tipo: 'delta', rotulo: rotuloCuenta(h), valor: -h.valor, rol: 'egreso_gestion' }));
         const subtotal = { id: 'ingresos', tipo: 'total', rotulo: 'Ingresos de gestión', valor: ing.valor, rol: 'ingreso_gestion' };
-        pasos = [...cascadaCerrada([{ id: 'cero', tipo: 'total', valor: 0, rotulo: '', oculto: true }, ...pI], subtotal, 'Diferencia de ingresos sin rubro publicado').slice(1),
-                 ...cascadaCerrada([subtotal, ...pE], fin, 'Diferencia de egresos sin rubro publicado').slice(1)];
+        pasos = [...cascadaCerrada([{ id: 'cero', tipo: 'total', valor: 0, rotulo: '', oculto: true }, ...pI], subtotal,
+                                   textoDif(M, 'resultados', 'Diferencia de ingresos sin rubro publicado')).slice(1),
+                 ...cascadaCerrada([subtotal, ...pE], fin, textoDif(M, 'resultados', 'Diferencia de egresos sin rubro publicado')).slice(1)];
     } else {
         pasos = cascadaCerrada([{ id: 'ingresos', tipo: 'total', rotulo: 'Ingresos de gestión', valor: ing.valor, rol: 'ingreso_gestion' },
                                 { id: 'egresos', tipo: 'delta', rotulo: 'Egresos de gestión', valor: -egr.valor, rol: 'egreso_gestion' }], fin);
@@ -594,7 +725,7 @@ function v05(cat, M, op) {
     v.grafico = { tipo: 'cascada', pasos };
     const indicador = M.indicadores?.resultado_contable_gs?.valor;
     if (hay(indicador) && indicador !== resultado) v.avisos.push(`El indicador publicado del resultado contable (${gs(indicador)}) difiere de ingresos − egresos (${gs(resultado)}).`);
-    for (const d of M.resultado.diferencias) v.avisos.push(`${d.codigo} ${d.descripcion}: la cuenta (${gs(d.padre)}) y la suma de sus subcuentas (${gs(d.suma)}) difieren en ${gs(d.diferencia)}.`);
+    if (apertura === 'rubros' || !porRotulos(M, 'resultados')) avisosCuentas(v, M, M.resultado, 'resultados');
     v.tabla = {
         columnas: [COL.nivel, COL.codigo, COL.descripcion, importe('valor', 'Importe'), { id: 'columna', titulo: 'Columna de la fuente', tipo: 'texto' }, COL.estado, COL.pagina, COL.fila],
         filas: [ing, ...(apertura === 'rubros' ? ing.hijos : []), egr, ...(apertura === 'rubros' ? egr.hijos : [])].map((n) => filaContable(n))
@@ -704,12 +835,15 @@ function v08(cat, M) {
     const egr = cuenta(M.resultado, RAICES.egresos);
     if (!ing || !egr || !hay(ing.valor) || !hay(egr.valor)) return sinDatos(v, 'El estado de resultados no expone los ingresos o los egresos de gestión.');
     const resultado = ing.valor - egr.valor;
-    const izq = ing.hijos.map((h) => nodo(h.clave, `${h.codigo.slice(0, 3)} ${h.descripcion}`, h.valor, 'ingreso_gestion'));
-    const der = egr.hijos.map((h) => nodo(h.clave, `${h.codigo.slice(0, 3)} ${h.descripcion}`, h.valor, 'egreso_gestion'));
+    const izq = rubros(ing).map((h) => nodo(h.clave, rotuloCuenta(h), h.valor, 'ingreso_gestion'));
+    const der = rubros(egr).map((h) => nodo(h.clave, rotuloCuenta(h), h.valor, 'egreso_gestion'));
     const sumaE = der.reduce((s, n) => s + (n.valor ?? 0), 0);
-    if (sumaE !== egr.valor && sumaE < egr.valor) der.push(nodo('dif-egr', 'Egresos sin rubro publicado (diferencia)', egr.valor - sumaE, 'diferencia', { patron: 'rayado' }));
+    if (sumaE !== egr.valor && sumaE < egr.valor) der.push(nodo('dif-egr', textoDif(M, 'resultados', 'Egresos sin rubro publicado (diferencia)'), egr.valor - sumaE, 'diferencia', { patron: 'rayado' }));
     let s = null;
-    if (resultado >= 0) s = sankey(izq, nodo('centro', 'Ingresos de gestión', ing.valor, 'ingreso_gestion'), [...der, nodo('resultado', 'Resultado contable (positivo)', resultado, 'resultado_pos', { separado: true })]);
+    if (resultado >= 0) {
+        s = sankey(izq, nodo('centro', 'Ingresos de gestión', ing.valor, 'ingreso_gestion'), [...der, nodo('resultado', 'Resultado contable (positivo)', resultado, 'resultado_pos', { separado: true })],
+                   { difIzq: textoDif(M, 'resultados', 'Diferencia sin detalle publicado'), difDer: textoDif(M, 'resultados', 'Diferencia sin detalle publicado') });
+    }
     if (s) {
         v.grafico = s;
     } else {
@@ -725,7 +859,7 @@ function v08(cat, M) {
                 ...[egr, ...egr.hijos].map((n) => ({ lado: 'Egresos', ...filaContable(n), pct: cociente(n.valor, ing.valor) })),
                 { lado: 'Resultado', nivel: 'Calculado', codigo: '5 − 3', descripcion: 'Resultado contable', valor: resultado, pct: cociente(resultado, ing.valor), estado: 'calculado', pagina: '', fila: '' }],
     };
-    for (const d of M.resultado.diferencias) v.avisos.push(`${d.codigo} ${d.descripcion}: la cuenta (${gs(d.padre)}) y la suma de sus subcuentas (${gs(d.suma)}) difieren en ${gs(d.diferencia)}.`);
+    avisosCuentas(v, M, M.resultado, 'resultados');
     v.resumen = `Ingresos de gestión ${gs(ing.valor)}; egresos de gestión ${gs(egr.valor)} (${porciento(cociente(egr.valor, ing.valor))} de los ingresos); resultado ${gs(resultado)}.`;
     return v;
 }
@@ -915,16 +1049,17 @@ function v14(cat, M, op) {
     const egr = cuenta(M.resultado, RAICES.egresos);
     if (!activo || !hay(activo.valor) || !patrimonio) return sinDatos(v, 'El balance no expone el activo total o el patrimonio neto.');
     const resultado = ing && egr && hay(ing.valor) && hay(egr.valor) ? ing.valor - egr.valor : null;
-    const partes = (raiz, rol) => (raiz ? (apertura === 'cuentas' ? raiz.hijos.flatMap((h) => (h.hijos.length ? h.hijos : [h])) : raiz.hijos) : [])
-        .filter((h) => hay(h.valor) && h.valor !== 0).map((h) => ({ id: h.clave, rotulo: `${h.codigo.slice(0, apertura === 'cuentas' ? 5 : 3)} ${h.descripcion}`, valor: h.valor, rol }));
+    const partes = (raiz, rol) => (apertura === 'cuentas' ? rubros(raiz).flatMap((h) => (h.hijos.length ? h.hijos : [h])) : rubros(raiz))
+        .filter((h) => hay(h.valor) && h.valor !== 0).map((h) => ({ id: h.clave, rotulo: rotuloCuenta(h, apertura === 'cuentas' ? 5 : 3), valor: h.valor, rol }));
     const izq = partes(activo, 'activo');
     const der = [...partes(pasivo, 'pasivo'), ...partes(patrimonio, 'patrimonio')];
     if (hay(resultado) && resultado !== 0) der.push({ id: 'resultado', rotulo: 'Resultado del ejercicio (expuesto aparte de la cuenta 8)', valor: resultado, rol: resultado >= 0 ? 'resultado_pos' : 'resultado_neg' });
     const sumaDer = (pasivo?.valor ?? 0) + (patrimonio.valor ?? 0) + (resultado ?? 0);
     const cuadra = sumaDer === activo.valor;
     const sumaPartes = (lista) => lista.reduce((s, x) => s + x.valor, 0);
-    if (sumaPartes(izq) !== activo.valor) izq.push({ id: 'dif-act', rotulo: 'Diferencia sin cuenta publicada', valor: activo.valor - sumaPartes(izq), rol: 'diferencia', patron: 'rayado' });
-    if (sumaPartes(der) !== sumaDer) der.push({ id: 'dif-pas', rotulo: 'Diferencia sin cuenta publicada', valor: sumaDer - sumaPartes(der), rol: 'diferencia', patron: 'rayado' });
+    if (sumaPartes(izq) !== activo.valor) izq.push({ id: 'dif-act', rotulo: textoDif(M, 'balance', 'Diferencia sin cuenta publicada'), valor: activo.valor - sumaPartes(izq), rol: 'diferencia', patron: 'rayado' });
+    if (sumaPartes(der) !== sumaDer) der.push({ id: 'dif-pas', rotulo: textoDif(M, 'balance', 'Diferencia sin cuenta publicada'), valor: sumaDer - sumaPartes(der), rol: 'diferencia', patron: 'rayado' });
+    if (porRotulos(M, 'balance')) avisosCuentas(v, M, M.balance, 'balance');
     v.grafico = { tipo: 'firmadas', composicion: true, columnas: [
         { id: 'activo', rotulo: 'Activo', total: activo.valor, segmentos: izq },
         { id: 'pasivo', rotulo: 'Pasivo, patrimonio y resultado', total: sumaDer, segmentos: der }] };
@@ -952,10 +1087,126 @@ function v14(cat, M, op) {
     return v;
 }
 
-function vHistoria(cat, M) {
+// Evolución histórica (M57): la serie del distrito de 2004 a 2025 en líneas, con los años sin dato como huecos (nunca ceros).
+export const SERIES_EVOLUCION = {
+    balance: { campos: [['activo_total_gs', 'activo'], ['pasivo_total_gs', 'pasivo'], ['patrimonio_neto_cuenta8_gs', 'patrimonio']], unidad: 'gs' },
+    resultados: { campos: [['ingresos_gestion_gs', 'ingreso_gestion'], ['egresos_gestion_gs', 'egreso_gestion'], ['resultado_contable_gs', 'resultado']], unidad: 'gs' },
+    liquidez: { campos: [['razon_corriente', 'razon_corriente'], ['prueba_acida', 'prueba_acida'], ['cobertura_disponible', 'cobertura_disponible']], unidad: 'veces',
+                referencia: { valor: 1, texto: '1 = cubre el pasivo corriente' } },
+    endeudamiento: { campos: [['pasivo_sobre_activo_pct', 'endeudamiento']], unidad: 'pct', referencia: { valor: 100, texto: '100 % = el pasivo iguala al activo' } },
+};
+const PUBLICADOS_SERIE = ['activo_total_gs', 'pasivo_total_gs', 'patrimonio_neto_cuenta8_gs', 'ingresos_gestion_gs', 'egresos_gestion_gs'];
+export const formatoSerie = (x, unidad) => (unidad === 'veces' ? veces(x) : unidad === 'pct' ? porciento(x) : gs(x));
+const listaAnios = (anios) => {
+    const tramos = [];
+    for (const a of anios) {
+        const t = tramos[tramos.length - 1];
+        if (t && a === t[1] + 1) t[1] = a; else tramos.push([a, a]);
+    }
+    const textos = tramos.map(([d, h]) => (d === h ? String(d) : `${d}-${h}`));
+    return textos.length > 1 ? `${textos.slice(0, -1).join(', ')} y ${textos[textos.length - 1]}` : textos[0] ?? '';
+};
+
+// Un punto de la serie: el valor del año (en guaraníes de 2025 si metrica es «constantes»: diciembre para los saldos, el
+// promedio del año para los flujos) o el motivo de su ausencia.
+function puntoSerie(a, h, meta, k, metrica) {
+    const base = { anio: a.anio, valor: null, nominal: null, factor: null, abarca: null, calculado: false };
+    if (a.estado !== 'con_datos') return { ...base, estado: 'sin_datos_anio', texto: `Sin balances municipales publicados: ${a.motivo}` };
+    const p = h.serie?.[String(a.anio)];
+    if (!p || p.e === 'sin_informe') return { ...base, estado: 'sin_informe', texto: 'La municipalidad no figura en el tomo de ese año.' };
+    if (p.e === 'parte_de') return { ...base, estado: 'parte_de', texto: `Todavía no era municipio: su territorio estaba en ${p.nombre}.` };
+    const nominal = p.v[k];
+    const publicado = PUBLICADOS_SERIE.indexOf(meta.campo);
+    const codigo = publicado >= 0 ? p.s?.[publicado] : null;
+    if (!hay(nominal)) {
+        const texto = p.m?.[meta.campo] ?? (codigo ? h.estados[codigo] : null) ?? 'No expuesto en el informe.';
+        return { ...base, estado: 'sin_dato', texto: texto.charAt(0).toUpperCase() + texto.slice(1) };
+    }
+    const deflactar = metrica === 'constantes' && (meta.tipo === 'saldo' || meta.tipo === 'flujo');
+    const factor = deflactar ? h.ipc.anios[String(a.anio)]?.[meta.tipo === 'saldo' ? 'factor_diciembre' : 'factor_promedio'] ?? null : null;
+    const valor = deflactar ? (hay(factor) ? Math.round(nominal * factor) : null) : nominal;
+    const notas = [codigo === 's' ? 'calculado con los subtotales del propio estado' : 'publicado'];
+    if (p.a?.length) notas.push(`incluía el territorio de ${p.a.join(', ')}`);
+    return { ...base, valor, nominal, factor, estado: 'valor', abarca: p.a ?? null, calculado: codigo === 's',
+             texto: notas.join('; ').replace(/^./, (c) => c.toUpperCase()) };
+}
+
+function vEvolucion(cat, M, op, ctx) {
     const v = base(cat, M);
-    return { ...v, estado: 'no_aplicable', causa: 'sin_serie', formato: 'informativo',
-             motivo: 'No hay una serie municipal comparable: los datos preparados son solo del ejercicio 2025. Mirá la composición real de 2025 en los demás gráficos.' };
+    const apertura = cat.aperturas.some((a) => a.id === op.apertura) ? op.apertura : cat.aperturas[0].id;
+    v.apertura = { actual: apertura, opciones: cat.aperturas };
+    const def = SERIES_EVOLUCION[apertura];
+    const montos = def.unidad === 'gs';
+    const metrica = montos ? (cat.metricas.some((m) => m.id === op.metrica) ? op.metrica : cat.metricas[0].id) : null;
+    if (montos) v.metrica = { actual: metrica, opciones: cat.metricas };
+    v.unidad = montos ? (metrica === 'constantes' ? 'Gs. de 2025 (IPC del BCP)' : 'Gs. de cada año (nominales)') : def.unidad === 'veces' ? 'veces' : '% del activo';
+    const h = ctx.historia;
+    const nombre = M?.entrada?.nombre ?? ctx.nombre ?? 'Esta municipalidad';
+    if (!h) return sinDatos(v, 'No se pudo leer la serie histórica de esta municipalidad.');
+    if (!h.serie) return sinDatos(v, `${nombre} no tiene balance en ninguno de los informes de ${h.anios[0].anio} a ${h.anios[h.anios.length - 1].anio}.`);
+    const pos = new Map(h.campos.map((c, k) => [c.campo, k]));
+    const series = def.campos.map(([campo, rol]) => {
+        const meta = h.campos[pos.get(campo)];
+        return { id: campo, rotulo: meta.nombre, rol, puntos: h.anios.map((a) => puntoSerie(a, h, meta, pos.get(campo), metrica)) };
+    });
+    const anios = h.anios.map((a) => a.anio);
+    const conDato = anios.filter((a, k) => series.some((s) => hay(s.puntos[k].valor)));
+    const sinPublicar = h.anios.filter((a) => a.estado !== 'con_datos').map((a) => a.anio);
+    v.avisos.push(`Sin balances municipales publicados por el MEF: ${h.anteriores.desde}-${h.anteriores.hasta}${sinPublicar.length ? ` y ${listaAnios(sinPublicar)}` : ''}; ` +
+                  'esos años y los que la municipalidad no figura en el tomo quedan sin punto.');
+    if (montos && metrica === 'constantes') {
+        v.avisos.push(`${h.ipc.metodo} Factores de cada año en la tabla.`);
+    }
+    const millones = h.anios.filter((a) => a.escala === 'millones de guaraníes' && conDato.includes(a.anio)).map((a) => a.anio);
+    if (montos && millones.length) v.avisos.push(`${listaAnios(millones)}: el tomo publica en millones de guaraníes, así que esos montos están redondeados al millón.`);
+    const abarcando = series[0].puntos.filter((p) => p.abarca?.length);
+    if (abarcando.length) v.avisos.push(`En ${listaAnios(abarcando.map((p) => p.anio))} su territorio incluía el de distritos creados después (${[...new Set(abarcando.flatMap((p) => p.abarca))].join(', ')}): esos puntos los abarcan.`);
+    const tieneFactor = montos && metrica === 'constantes';
+    v.tabla = {
+        columnas: [{ id: 'anio', titulo: 'Año', tipo: 'codigo' },
+                   ...series.map((s) => ({ id: s.id, titulo: s.rotulo, tipo: montos ? 'importe' : def.unidad })),
+                   { id: 'estado', titulo: 'Estado del dato', tipo: 'texto' },
+                   ...(tieneFactor ? [{ id: 'factor_saldos', titulo: 'Factor IPC (saldos, diciembre)', tipo: 'factor' }, { id: 'factor_flujos', titulo: 'Factor IPC (flujos, promedio)', tipo: 'factor' }] : []),
+                   { id: 'fuente', titulo: 'Fuente del año', tipo: 'texto' }],
+        // Un año sin balance (no publicado, sin informe o antes de que el distrito existiera): «—» con el motivo; un campo
+        // que falta en un año con balance: N/D con el suyo.
+        filas: h.anios.map((a, k) => {
+            const puntos = series.map((s) => s.puntos[k]);
+            const fila = { anio: String(a.anio), fuente: a.estado === 'con_datos' ? a.tomo ?? '' : '' };
+            const ausencia = puntos.find((p) => ['sin_datos_anio', 'sin_informe', 'parte_de'].includes(p.estado));
+            if (tieneFactor && !ausencia) {
+                const f = h.ipc.anios[String(a.anio)];
+                fila.factor_saldos = f?.factor_diciembre ?? null;
+                fila.factor_flujos = f?.factor_promedio ?? null;
+            }
+            if (ausencia) {
+                fila.estado = ausencia.texto;
+                fila.na = [...series.map((s) => s.id), ...(tieneFactor ? ['factor_saldos', 'factor_flujos'] : [])];
+                return fila;
+            }
+            series.forEach((s, j) => { fila[s.id] = puntos[j].valor; });
+            const conValor = puntos.find((p) => p.estado === 'valor');
+            const faltan = series.filter((s, j) => puntos[j].estado === 'sin_dato').map((s) => `${s.rotulo}: ${s.puntos[k].texto}`);
+            fila.estado = [conValor?.texto, ...faltan].filter(Boolean).join('. ');
+            return fila;
+        }),
+    };
+    if (!conDato.length) {
+        const r = sinDatos(v, `Ningún año de la serie tiene ${apertura === 'liquidez' ? 'razones de liquidez calculables' : 'dato para esta vista'}: los motivos, en la tabla.`);
+        return { ...r, tabla: v.tabla, avisos: v.avisos };
+    }
+    if (conDato.length === 1) {
+        v.estado = 'parcial';
+        v.motivo = `Solo ${conDato[0]} tiene dato: no hay evolución que dibujar, solo ese punto.`;
+    }
+    v.grafico = { tipo: 'lineas', anios, unidad: def.unidad, series, referencia: def.referencia ?? null };
+    const primero = conDato[0];
+    const ultimo = conDato[conDato.length - 1];
+    const k0 = anios.indexOf(primero);
+    const k1 = anios.indexOf(ultimo);
+    v.resumen = `${nombre}, ${conDato.length} de ${anios.length} años con dato (${primero} a ${ultimo}, ${v.unidad}). ` +
+        series.map((s) => `${s.rotulo}: ${formatoSerie(s.puntos[k0].valor, def.unidad)} en ${primero} y ${formatoSerie(s.puntos[k1].valor, def.unidad)} en ${ultimo}`).join('; ') + '.';
+    return v;
 }
 
 function vacio(g) {
@@ -963,6 +1214,7 @@ function vacio(g) {
     if (g.tipo === 'apilada') return !g.segmentos.length;
     if (g.tipo === 'cascada') return g.pasos.every((p) => !hay(p.valor) || p.valor === 0);
     if (g.tipo === 'vinetas') return g.filas.every((f) => f.pctObligado === null && f.pctPagado === null && !f.vigente && !f.obligado && !f.pagado);
+    if (g.tipo === 'lineas') return g.series.every((s) => s.puntos.every((p) => !hay(p.valor)));
     return false;
 }
 
@@ -970,11 +1222,19 @@ const CONSTRUCTORES = {
     '01_origen_asignacion': v01, '02_ejecucion_partidas': v02, '03_jerarquia_gasto': v03, '04_formacion_presupuesto': v04, '05_resultado_contable': v05,
     '06_composicion_ingresos': v06, '07_liquidez': v07, '08_ingresos_egresos': v08, '09_presupuesto_ejecucion': v09,
     '10_inversion_fisica': (c, M) => vGrupo(c, M, '500'), '11_servicios_personales': (c, M) => vGrupo(c, M, '100'), '12_transferencias': v12,
-    '13_recursos_obligaciones': v13, '14_balance': v14, evolucion_historica: vHistoria,
+    '13_recursos_obligaciones': v13, '14_balance': v14, evolucion_historica: vEvolucion,
 };
 
 // La vista de un gráfico para una municipalidad (M null: sin informe). Un error del armado no deja cifras: estado «error».
+// La evolución histórica de una municipalidad sin informe en 2025 se arma igual con los años anteriores (contexto.historia).
 export function construirVista(cat, M, entrada, opciones = {}, contexto = {}) {
+    if (cat.id === 'evolucion_historica' && entrada && !M && contexto.historia) {
+        try {
+            return vEvolucion(cat, null, opciones, { ...contexto, nombre: entrada.nombre });
+        } catch (error) {
+            return { ...base(cat, null), estado: 'error', causa: 'tecnico', formato: 'error', motivo: `No se pudo armar el gráfico: ${error.message}`, grafico: null, tabla: null };
+        }
+    }
     if (!entrada || entrada.estado === 'sin_informe') {
         const v = base(cat, null);
         return { ...sinDatos(v, `${entrada?.nombre ?? 'Esta municipalidad'} no presentó informe en el corte del 31/12/2025 (MEF, V-A y V-B p.11): no hay ` +
@@ -1005,8 +1265,16 @@ export const PRIORITARIOS = [
       alcance: 'Renglones de 150 y 220 con emisor gubernamental sobre el presupuesto vigente de ingresos; N/D si la clasificación está incompleta.', unidad: '%' },
 ];
 
+// En los años del histórico no hay presupuesto: la ficha lleva las cuentas principales del balance y el resultado (M57).
+export const PRIORITARIOS_HISTORICO = [
+    { campo: 'activo_total_gs', texto: 'Activo total', alcance: 'Cuenta 2 del balance, al 31 de diciembre.' },
+    { campo: 'pasivo_total_gs', texto: 'Pasivo total', alcance: 'Cuenta 4 del balance, al 31 de diciembre.' },
+    { campo: 'patrimonio_neto_cuenta8_gs', texto: 'Patrimonio neto (cuenta 8)', alcance: 'Sin el resultado del ejercicio, que el balance expone aparte.' },
+    { campo: 'resultado_contable_gs', texto: 'Resultado contable del ejercicio', alcance: 'Ingresos de gestión (cuenta 5) menos egresos de gestión (cuenta 3).' },
+];
+
 export function ficha(M) {
-    return PRIORITARIOS.map((p) => {
+    return (M.historico ? PRIORITARIOS_HISTORICO : PRIORITARIOS).map((p) => {
         const x = M.prioritarios?.[p.campo] ?? { valor: null, motivo: 'No disponible en los datos publicados.' };
         return { ...p, valor: x.valor, motivo: hay(x.valor) ? null : (x.motivo ?? 'No disponible.'),
                  texto_valor: hay(x.valor) ? (p.unidad === '%' ? porciento(x.valor) : gs(x.valor)) : ND };
@@ -1029,8 +1297,9 @@ function celdaCsv(valor, tipo) {
 
 export function csvDeVista(v, entrada, meta) {
     if (!v.tabla) return null;
-    const fijas = [['ejercicio', meta.ejercicio], ['corte', meta.corte], ['municipio', entrada.nombre], ['nombre_en_la_fuente', entrada.nombre_fuente],
-                   [entrada.sistema === 'codigo_mef' ? 'codigo_mef' : 'clave_interna', entrada.id], ['departamento', entrada.departamento_nombre],
+    const identificador = { codigo_mef: 'codigo_mef', clave_distrito: 'clave_distrito' }[entrada.sistema] ?? 'clave_interna';
+    const fijas = [['ejercicio', meta.ejercicio], ['corte', meta.corte], ['municipio', entrada.nombre], ['nombre_en_la_fuente', entrada.nombre_fuente ?? ''],
+                   [identificador, entrada.id], ['departamento', entrada.departamento_nombre],
                    ['grafico', v.id], ['formato', v.formato], ['apertura', v.apertura?.actual ?? ''], ['metrica', v.metrica?.actual ?? ''],
                    ['unidad', v.unidad], ['etapas', v.etapas]];
     const finales = [['estado_de_la_vista', v.estado], ['fuente', v.fuente], ['version_datos', meta.version], ['metodo', METODO]];

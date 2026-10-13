@@ -12,8 +12,9 @@ Electoral; este sitio los ordena, los cruza con otras fuentes públicas y los an
 
 1. **Leé el catálogo.** Cada conjunto (`dcat:Dataset`) dice qué tiene, de cuándo y de dónde es, y cada archivo
    (`dcat:Distribution`) trae su URL absoluta, su tipo, su tamaño, su SHA-256 y sus campos (`kg:campos`).
-2. **Bajá solo el archivo que necesitás**, por su `dcat:downloadURL`. Si el conjunto está partido por distrito o por
-   municipalidad, armá la URL con su plantilla (`kg:plantillaURL`) y la clave que está en su índice (`kg:indice`).
+2. **Bajá solo el archivo que necesitás**, por su `dcat:downloadURL`. Si el conjunto está partido (por distrito, por
+   municipalidad o, en el histórico, por elección, año y distrito), armá la URL con su plantilla (`kg:plantillaURL`) y las
+   claves que están en su índice (`kg:indice`).
 
 Con `curl` y `jq`, los conjuntos y sus títulos:
 
@@ -69,12 +70,20 @@ y tecnología; cada conjunto lleva además los temas de la [lista de la UE](http
 
 ### Plantillas
 
-Los conjuntos grandes están partidos en un archivo por distrito, por municipalidad o por foto. Su distribución no es un
-archivo sino una **plantilla**: `kg:plantillaURL` (una plantilla de URL de la RFC 6570, como
-`https://kalaguichi.com/datos/municipales/2026/nacional/distritos/{clave}/trep/mesas.json`), `kg:clave` (qué va entre
-llaves), `kg:indice` (la distribución donde están todas las claves), `kg:partes` (cuántos archivos hay), `kg:bytesTotales`
-(cuánto pesan juntos) y `kg:campos` (los de cada parte). Sus `dcat:accessURL` apuntan a esta sección; el tamaño y el SHA-256
-de cada parte están en `huellas.json`.
+Los conjuntos grandes están partidos en un archivo por distrito, por municipalidad o por foto y, en el histórico, por
+elección, año y distrito. Su distribución no es un archivo sino una **plantilla**: `kg:plantillaURL` (una plantilla de URL
+de la RFC 6570, como `https://kalaguichi.com/datos/municipales/2026/nacional/distritos/{clave}/trep/mesas.json`), `kg:clave`
+(qué va entre llaves), `kg:indice` (la distribución donde están todas las claves), `kg:partes` (cuántos archivos hay),
+`kg:bytesTotales` (cuánto pesan juntos) y `kg:campos` (los de cada parte). Sus `dcat:accessURL` apuntan a esta sección; el
+tamaño y el SHA-256 de cada parte están en `huellas.json`.
+
+Las plantillas del histórico electoral (resultados oficiales del TSJE desde 1996) llevan varias variables, y su índice es
+el manifiesto, `elecciones.json`: `{eleccion}` y `{anio}` son el `id` de una elección y uno de sus `anios` que declara
+`geometria` (`municipales`, `generales`, `complementarias` o `consejo-magistratura`); `{clave}`, la de un distrito en
+`nacional/lista.json` de ese año (Asunción, `0-0`, está en la raíz del año), y `{fuente}`, una de las `fuentes` del año
+(`oficial`; el Consejo de la Magistratura 2023 tiene también `trep`). Solo los años con `"nivel": "mesa"` en `nacional`
+(2003-2023) tienen archivos por distrito. Por ejemplo, los votos por mesa de Luque en las generales de 2023:
+`https://kalaguichi.com/datos/generales/2023/nacional/distritos/11-17/oficial/mesas.json`.
 
 ### Vocabulario propio (`kg:`)
 
@@ -97,13 +106,17 @@ propiedades con el espacio de nombres `kg:` (`https://kalaguichi.com/datos/READM
 | `trep-2026-asuncion`: TREP 2026 · Asunción: votos por mesa de la Intendencia y la Junta Municipal | electoral | 33 | 2026-10-04T23:48:02 |
 | `trep-2026-pais`: TREP 2026 · Paraguay: resultados de la Intendencia y la Junta por distrito | electoral | 4 | 2026-10-04T23:48:02 |
 | `trep-2026-distritos`: TREP 2026 · cada distrito, mesa por mesa | electoral | 1310 | 2026-10-04T23:48:02 |
+| `historico-pais`: Histórico electoral 1996-2025 · resultados oficiales por distrito | electoral | 223 | TSJE 1996-2025 |
+| `historico-distritos`: Histórico electoral 2003-2023 · cada distrito, mesa por mesa | electoral | 8886 | TSJE 1996-2025 |
 | `padron-2026-demografia`: Padrón 2026: electores por sexo y edad (conteos) | electoral | 3 | padron-2026 |
 | `ipm-2022`: Pobreza multidimensional (IPM) 2022 por distrito y por barrio de Asunción (INE) | social | 2 | CNPV 2022 |
 | `limites-2022`: Límites de los departamentos y los distritos de Paraguay (INE, CNPV 2022) | geoespacial | 264 | CNPV 2022 |
 | `cartografia-asuncion`: Cartografía de Asunción: distrito, barrios, zonas municipales, río, manzanas y cauces | geoespacial | 9 | 2026-10-07 |
 | `mapa-base`: Mapa base de OpenStreetMap para Paraguay y Asunción (PMTiles) | geoespacial | 3 | OpenStreetMap 2026-10-08 (país) y 2026-10-06 (Asunción) |
 | `finanzas-municipales-2025`: Finanzas municipales 2025 (MEF): presupuesto, ejecución, balance e indicadores | financiero | 10 | ejercicio 2025, corte 2025-12-31 |
-| `visualizacion-financiera-2025`: Visualización financiera 2025: los datos de los 14 gráficos de cada municipalidad | financiero | 499 | dffced972296 |
+| `finanzas-municipales-historico`: Finanzas municipales 2004-2025 (MEF): balance general y estado de resultados por año | financiero | 21 | ejercicios 2004-2025 |
+| `visualizacion-financiera-2025`: Visualización financiera 2025: los datos de los 14 gráficos de cada municipalidad | financiero | 499 | 4f80bbf162d1 |
+| `visualizacion-financiera-historico`: Visualización financiera 2004-2024: cuentas del balance y de resultados y la evolución de cada municipalidad | financiero | 266 | 8636f1aaa20c |
 | `maquina-votacion`: Máquina de votación: software declarado, CPE y vulnerabilidades conocidas (CVE) | tecnologia | 4 | consulta 2026-10-07 |
 <!-- /generado:conjuntos -->
 
@@ -252,7 +265,7 @@ finanzas municipales y los límites en GeoJSON), con un archivo cada uno y la pl
   "vcard:hasURL": "https://github.com/luchobenitez/kalaguichi/issues"
  },
  "dct:license": "https://creativecommons.org/licenses/by-sa/4.0/",
- "dcat:version": "e372a8153249",
+ "dcat:version": "1a649e1d41f4",
  "dcat:dataset": [
   {
    "@id": "#trep-2026-asuncion",
@@ -531,10 +544,133 @@ Las carpetas publicadas hoy:
 <!-- generado:carpetas (tools/catalogo_datos.py) -->
 | Carpeta | Archivos | Peso |
 |---|---:|---:|
-| `(raíz de datos/)` | 2 | 12 KB |
+| `(raíz de datos/)` | 2 | 79 KB |
+| `complementarias/1996/nacional/` | 5 | 9 KB |
+| `complementarias/1997/nacional/` | 5 | 8 KB |
+| `complementarias/1997/nacional/geo/` | 1 | 396 KB |
+| `complementarias/2000/nacional/` | 5 | 8 KB |
+| `complementarias/2000/nacional/geo/` | 1 | 414 KB |
+| `complementarias/2002/nacional/` | 5 | 9 KB |
+| `complementarias/2002/nacional/geo/` | 1 | 398 KB |
+| `complementarias/2003/nacional/` | 5 | 14 KB |
+| `complementarias/2003/nacional/geo/` | 1 | 400 KB |
+| `complementarias/2004/nacional/` | 5 | 15 KB |
+| `complementarias/2004/nacional/geo/` | 1 | 401 KB |
+| `complementarias/2005/nacional/` | 5 | 8 KB |
+| `complementarias/2007/nacional/` | 5 | 9 KB |
+| `complementarias/2008/nacional/` | 5 | 11 KB |
+| `complementarias/2009/nacional/` | 5 | 21 KB |
+| `complementarias/2009/nacional/geo/` | 1 | 416 KB |
+| `complementarias/2012/nacional/` | 5 | 30 KB |
+| `complementarias/2012/nacional/geo/` | 1 | 423 KB |
+| `complementarias/2013/nacional/` | 5 | 28 KB |
+| `complementarias/2013/nacional/geo/` | 1 | 430 KB |
+| `complementarias/2014/nacional/` | 5 | 7 KB |
+| `complementarias/2016/nacional/` | 5 | 8 KB |
+| `complementarias/2017/nacional/` | 5 | 20 KB |
+| `complementarias/2018/nacional/` | 5 | 11 KB |
+| `complementarias/2019/nacional/` | 5 | 11 KB |
+| `complementarias/2019/nacional/geo/` | 1 | 435 KB |
+| `complementarias/2022/nacional/` | 5 | 11 KB |
+| `complementarias/2023/nacional/` | 5 | 18 KB |
+| `complementarias/2025/nacional/` | 5 | 7 KB |
+| `consejo-magistratura/2023/comun/` | 2 | 1 KB |
+| `consejo-magistratura/2023/nacional/` | 5 | 34 KB |
+| `consejo-magistratura/2023/nacional/distritos/` | 84 | 49 KB |
+| `consejo-magistratura/2023/oficial/` | 2 | 3 KB |
+| `consejo-magistratura/2023/trep/` | 2 | 3 KB |
 | `finanzas/municipalidad/2025/` | 10 | 834 KB |
+| `finanzas/municipalidad/historico/` | 1 | 25 KB |
+| `finanzas/municipalidad/historico/anios/` | 20 | 1,6 MB |
+| `generales/1998/nacional/` | 5 | 1,1 MB |
+| `generales/1998/nacional/geo/` | 1 | 413 KB |
+| `generales/2003/comun/` | 2 | 41 KB |
+| `generales/2003/nacional/` | 5 | 1,7 MB |
+| `generales/2003/nacional/distritos/` | 896 | 3,6 MB |
+| `generales/2003/nacional/geo/` | 1 | 399 KB |
+| `generales/2003/oficial/` | 2 | 150 KB |
+| `generales/2008/comun/` | 2 | 45 KB |
+| `generales/2008/nacional/` | 5 | 2,8 MB |
+| `generales/2008/nacional/distritos/` | 924 | 6,9 MB |
+| `generales/2008/nacional/geo/` | 1 | 408 KB |
+| `generales/2008/oficial/` | 2 | 372 KB |
+| `generales/2013/comun/` | 2 | 47 KB |
+| `generales/2013/nacional/` | 5 | 3,2 MB |
+| `generales/2013/nacional/distritos/` | 980 | 8,2 MB |
+| `generales/2013/nacional/geo/` | 1 | 425 KB |
+| `generales/2013/oficial/` | 2 | 429 KB |
+| `generales/2018/comun/` | 2 | 50 KB |
+| `generales/2018/nacional/` | 5 | 4,1 MB |
+| `generales/2018/nacional/distritos/` | 1012 | 11,1 MB |
+| `generales/2018/nacional/geo/` | 1 | 434 KB |
+| `generales/2018/oficial/` | 2 | 543 KB |
+| `generales/2023/comun/` | 2 | 44 KB |
+| `generales/2023/nacional/` | 5 | 2,5 MB |
+| `generales/2023/nacional/distritos/` | 1048 | 5,6 MB |
+| `generales/2023/oficial/` | 2 | 179 KB |
+| `historico/` | 2 | 219 KB |
+| `historico/limites/1-0-0d353435/geo/` | 1 | 70 KB |
+| `historico/limites/1-0-114b1c54/geo/` | 1 | 24 KB |
+| `historico/limites/1-0-a35d2fea/geo/` | 1 | 51 KB |
+| `historico/limites/1-0-c6308dd7/geo/` | 1 | 59 KB |
+| `historico/limites/1-3-772df6b9/geo/` | 1 | 31 KB |
+| `historico/limites/1-3-d0e22e87/geo/` | 1 | 31 KB |
+| `historico/limites/1-8-965829c5/geo/` | 1 | 35 KB |
+| `historico/limites/10-21-c0432b90/geo/` | 1 | 26 KB |
+| `historico/limites/10-33-63939216/geo/` | 1 | 26 KB |
+| `historico/limites/10-5-f60f87ae/geo/` | 1 | 19 KB |
+| `historico/limites/13-0-4ff96cbe/geo/` | 1 | 61 KB |
+| `historico/limites/13-0-7afe3803/geo/` | 1 | 52 KB |
+| `historico/limites/13-3-fdc90b4d/geo/` | 1 | 52 KB |
+| `historico/limites/14-0-d67e5afc/geo/` | 1 | 20 KB |
+| `historico/limites/14-1-6f7080b4/geo/` | 1 | 28 KB |
+| `historico/limites/14-11-04c6cfa9/geo/` | 1 | 29 KB |
+| `historico/limites/14-13-3a6d357c/geo/` | 1 | 64 KB |
+| `historico/limites/14-13-fb633363/geo/` | 1 | 64 KB |
+| `historico/limites/14-15-80064d71/geo/` | 1 | 51 KB |
+| `historico/limites/15-0-3cf3d870/geo/` | 1 | 167 KB |
+| `historico/limites/15-0-73163f0f/geo/` | 1 | 161 KB |
+| `historico/limites/15-0-b4e9cf5d/geo/` | 1 | 174 KB |
+| `historico/limites/15-0-c2ba85f0/geo/` | 1 | 160 KB |
+| `historico/limites/15-9-de843723/geo/` | 1 | 10 KB |
+| `historico/limites/16-0-8400202f/geo/` | 1 | 22 KB |
+| `historico/limites/16-1-0738945b/geo/` | 1 | 17 KB |
+| `historico/limites/17-3-bf836f65/geo/` | 1 | 33 KB |
+| `historico/limites/17-3-fef7d152/geo/` | 1 | 33 KB |
+| `historico/limites/2-11-f56470f9/geo/` | 1 | 33 KB |
+| `historico/limites/2-29-a71c4cd7/geo/` | 1 | 28 KB |
+| `historico/limites/2-7-336764ab/geo/` | 1 | 23 KB |
+| `historico/limites/4-5-47ea643c/geo/` | 1 | 9 KB |
+| `historico/limites/5-23-95066839/geo/` | 1 | 21 KB |
+| `historico/limites/5-23-e1731279/geo/` | 1 | 22 KB |
+| `historico/limites/6-17-59760d46/geo/` | 1 | 72 KB |
+| `historico/limites/9-13-823cad0f/geo/` | 1 | 37 KB |
 | `mapa_base/` | 4 | 28,5 MB |
 | `maquina_votacion/` | 5 | 4,3 MB |
+| `municipales/1996/nacional/` | 5 | 644 KB |
+| `municipales/1996/nacional/geo/` | 1 | 396 KB |
+| `municipales/2001/nacional/` | 5 | 622 KB |
+| `municipales/2001/nacional/geo/` | 1 | 398 KB |
+| `municipales/2006/comun/` | 2 | 39 KB |
+| `municipales/2006/nacional/` | 5 | 796 KB |
+| `municipales/2006/nacional/distritos/` | 916 | 1,6 MB |
+| `municipales/2006/nacional/geo/` | 1 | 406 KB |
+| `municipales/2006/oficial/` | 2 | 110 KB |
+| `municipales/2010/comun/` | 2 | 40 KB |
+| `municipales/2010/nacional/` | 5 | 892 KB |
+| `municipales/2010/nacional/distritos/` | 948 | 2,1 MB |
+| `municipales/2010/nacional/geo/` | 1 | 417 KB |
+| `municipales/2010/oficial/` | 2 | 149 KB |
+| `municipales/2015/comun/` | 2 | 40 KB |
+| `municipales/2015/nacional/` | 5 | 881 KB |
+| `municipales/2015/nacional/distritos/` | 996 | 2,0 MB |
+| `municipales/2015/nacional/geo/` | 1 | 431 KB |
+| `municipales/2015/oficial/` | 2 | 119 KB |
+| `municipales/2021/comun/` | 2 | 42 KB |
+| `municipales/2021/nacional/` | 5 | 945 KB |
+| `municipales/2021/nacional/distritos/` | 1040 | 2,0 MB |
+| `municipales/2021/nacional/geo/` | 1 | 445 KB |
+| `municipales/2021/oficial/` | 2 | 120 KB |
 | `municipales/2026/comun/` | 4 | 110 KB |
 | `municipales/2026/comun/assets/` | 28 | 110 KB |
 | `municipales/2026/comun/geo/` | 8 | 2,8 MB |
@@ -543,10 +679,12 @@ Las carpetas publicadas hoy:
 | `municipales/2026/nacional/geo/` | 2 | 533 KB |
 | `municipales/2026/trep/` | 3 | 279 KB |
 | `padron_analisis/municipales-2026/padron-2026/` | 3 | 128 KB |
-| `visualizacion_financiera/municipalidad/2025/` | 5 | 146 KB |
+| `visualizacion_financiera/municipalidad/2025/` | 5 | 148 KB |
 | `visualizacion_financiera/municipalidad/2025/detalle/` | 247 | 3,4 MB |
 | `visualizacion_financiera/municipalidad/2025/municipios/` | 247 | 4,1 MB |
-| **Total** (sin `catalog.json`, `huellas.json` ni `README.md`) | 2145 | 51,7 MB |
+| `visualizacion_financiera/municipalidad/historico/` | 3 | 98 KB |
+| `visualizacion_financiera/municipalidad/historico/municipios/` | 263 | 5,5 MB |
+| **Total** (sin `catalog.json`, `huellas.json` ni `README.md`) | 11541 | 135,0 MB |
 <!-- /generado:carpetas -->
 
 ### Nombres
@@ -606,7 +744,7 @@ Tu fuente es el catálogo https://kalaguichi.com/datos/catalog.json (W3C DCAT 3 
 
 Trabajá siempre en dos pasos.
 
-Paso 1. Descubrir. Antes de cualquier análisis, leé el catálogo. En "dcat:dataset", buscá el conjunto que tenga lo que pide la pregunta: mirá "dct:title", "dct:description", "dcat:keyword", "dct:temporal", "dct:spatial" y, en cada "dcat:distribution", "kg:campos" (los campos del archivo). Elegí la distribución más chica que alcance ("dcat:byteSize"). Si la distribución es una plantilla ("kg:plantillaURL"), buscá la clave en su índice ("kg:indice"; por ejemplo, la clave 11-17 de Luque está en lista.json) y armá la URL reemplazando {clave} o {id}.
+Paso 1. Descubrir. Antes de cualquier análisis, leé el catálogo. En "dcat:dataset", buscá el conjunto que tenga lo que pide la pregunta: mirá "dct:title", "dct:description", "dcat:keyword", "dct:temporal", "dct:spatial" y, en cada "dcat:distribution", "kg:campos" (los campos del archivo). Elegí la distribución más chica que alcance ("dcat:byteSize"). Si la distribución es una plantilla ("kg:plantillaURL"), buscá la clave en su índice ("kg:indice"; por ejemplo, la clave 11-17 de Luque está en lista.json) y armá la URL reemplazando {clave} o {id}; en el histórico, también {eleccion} y {anio} (de elecciones.json) y {fuente}.
 
 Paso 2. Bajar solo eso. Descargá únicamente ese archivo, por su "dcat:downloadURL" o por la URL que armaste, y hacé con él el análisis o el gráfico. No bajes carpetas enteras ni archivos que no hacen falta, y no vuelvas a leer el catálogo si ya lo tenés. Si podés ejecutar código con acceso a internet, bajalo con código y comprobá su SHA-256 ("spdx:checksum"); si solo podés navegar, abrí la URL; si no podés abrirla o el contenido llega cortado, pedime que lo descargue y lo suba, y decime la URL exacta.
 

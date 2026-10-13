@@ -61,6 +61,12 @@
     --kvf-ej4: #1e3a8a;
     --kvf-ej5: #c2410c;
     --kvf-ejnd: #e5e7eb;
+    /* Las series de la evolución histórica (M57): el resultado y tres razones distinguibles entre sí. */
+    --kvf-resultado: #15803d;
+    --kvf-razon_corriente: #2563eb;
+    --kvf-prueba_acida: #c2410c;
+    --kvf-cobertura_disponible: #0d9488;
+    --kvf-endeudamiento: #b45309;
     position: relative;
     z-index: 1;
     display: grid;
@@ -109,6 +115,11 @@ html[data-theme="dark"] .kvf {
     --kvf-ej3: #3b6fd4;
     --kvf-ej4: #1e3a8a;
     --kvf-ejnd: #334155;
+    --kvf-resultado: #22c55e;
+    --kvf-razon_corriente: #60a5fa;
+    --kvf-prueba_acida: #fb923c;
+    --kvf-cobertura_disponible: #2dd4bf;
+    --kvf-endeudamiento: #f59e0b;
 }
 
 .kvf > * {
@@ -762,6 +773,23 @@ g:hover > .kvf-banda {
 .kvf-linea-llave { stroke: var(--kvf-llave); stroke-width: 1.2; }
 .kvf-linea-total { stroke: var(--kvf-total); stroke-width: 2; }
 .kvf-punteada { stroke-dasharray: 4 3; }
+/* Las líneas de la evolución histórica (M57): el color de su serie. */
+.kvf-linea--serie { stroke-width: 2.4; stroke-linecap: round; }
+.kvf-linea-activo { stroke: var(--kvf-activo); }
+.kvf-linea-pasivo { stroke: var(--kvf-pasivo); }
+.kvf-linea-patrimonio { stroke: var(--kvf-patrimonio); }
+.kvf-linea-ingreso_gestion { stroke: var(--kvf-ingreso_gestion); }
+.kvf-linea-egreso_gestion { stroke: var(--kvf-egreso_gestion); }
+.kvf-linea-resultado { stroke: var(--kvf-resultado); }
+.kvf-linea-razon_corriente { stroke: var(--kvf-razon_corriente); }
+.kvf-linea-prueba_acida { stroke: var(--kvf-prueba_acida); }
+.kvf-linea-cobertura_disponible { stroke: var(--kvf-cobertura_disponible); }
+.kvf-linea-endeudamiento { stroke: var(--kvf-endeudamiento); }
+.kvf-rol-resultado { fill: var(--kvf-resultado); }
+.kvf-rol-razon_corriente { fill: var(--kvf-razon_corriente); }
+.kvf-rol-prueba_acida { fill: var(--kvf-prueba_acida); }
+.kvf-rol-cobertura_disponible { fill: var(--kvf-cobertura_disponible); }
+.kvf-rol-endeudamiento { fill: var(--kvf-endeudamiento); }
 
 .kvf-rol-presupuesto { fill: var(--kvf-presupuesto); }
 .kvf-rol-inicial { fill: var(--kvf-inicial); }
@@ -910,6 +938,17 @@ g:hover > .kvf-banda {
 .kvf__muestra--ej4 { background-color: var(--kvf-ej4); }
 .kvf__muestra--ej5 { background-color: var(--kvf-ej5); }
 .kvf__muestra--ejnd { background-color: var(--kvf-ejnd); }
+.kvf__muestra--resultado { background-color: var(--kvf-resultado); }
+.kvf__muestra--razon_corriente { background-color: var(--kvf-razon_corriente); }
+.kvf__muestra--prueba_acida { background-color: var(--kvf-prueba_acida); }
+.kvf__muestra--cobertura_disponible { background-color: var(--kvf-cobertura_disponible); }
+.kvf__muestra--endeudamiento { background-color: var(--kvf-endeudamiento); }
+/* En la leyenda de la evolución, una línea con su punto en lugar del cuadrado. */
+.kvf__muestra--linea {
+    width: 1.25rem;
+    height: .25rem;
+    border-radius: .125rem;
+}
 
 /* Lectura y tabla */
 .kvf__lectura {

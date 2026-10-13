@@ -16,6 +16,7 @@ import { crearMapaGL } from './mapa_gl.js';
 import { renderTotales, renderBancas } from './panel.js';
 import { crearPanel, crearBandeja } from './hoja.js';
 import { crearDialogos } from './dialogos.js';
+import { cargosDe, cargoConBancas, datoDe } from '../cargos.js';
 
 const CAPAS = ['lista', 'listas', 'participacion', 'margen', 'ipm', 'zona', 'zona_municipal'];
 // Sin la cartografía de Asunción (ADR-022): sin IPM ni zonas municipales, y las capas por local.
@@ -30,7 +31,10 @@ const UNIDADES = ['mesa', 'local', 'barrio', 'zona', 'zona_municipal'];
 const PANELES = ['resultados', 'dhondt', 'filtros', 'capas', 'metodo'];
 const BANDEJAS = ['tabla', 'ranking'];
 const IPM = ['H', 'A', 'IPM'];
-const CARGO_HASH = { 1: 'intendencia', 2: 'junta' };
+// Cargos del año (ADR-042): la clave del hash de cada uno (por la de sus datos) y el que reparte bancas en el distrito (la Junta,
+// con D'Hondt en el tablero; null si la elección no tiene: en las generales las bancas son del departamento o del país).
+let CARGO_HASH = { 1: 'intendencia', 2: 'junta' };
+let CARGO_DHONDT = '2';
 // Equivalencias con la vista informe: sus pestañas (vista) y las capas del tablero.
 const VISTA_A_CAPA = { mapa: 'lista', barrios: 'lista', listas: 'listas', participacion: 'participacion', ipm: 'ipm', margen: 'margen', tablas: 'lista' };
 const CAPA_A_VISTA = { lista: 'mapa', listas: 'listas', participacion: 'participacion', margen: 'margen', ipm: 'ipm' };
@@ -49,7 +53,7 @@ const GRIS = '#9ca3af';
 const EN_LA_FUENTE = { trep: 'el TREP', oficial: 'el cómputo oficial' };
 
 const estado = { cargo: '1', capa: 'lista', zona: null, zonaMunicipal: null, barrio: null, local: null, mesa: null,
-                 lista: { 1: null, 2: null }, medida: 'pct', ipm: 'H', tabla: 'local', orden: null, filtro: '',
+                 lista: {}, medida: 'pct', ipm: 'H', tabla: 'local', orden: null, filtro: '',
                  panel: 'resultados', bandeja: null, ranking: 'local', ordenRanking: 'desc',
                  base: 'calles', opacidad: OPACIDAD_POR_OMISION, ver: { limites: true, nombres: true, puntos: true, manzanas: false } };
 let datos, mapa, panel, bandeja, dialogos;
@@ -203,7 +207,8 @@ function renderCapas() {
     $('detalleIpm').hidden = estado.capa !== 'ipm';
     const selector = $('capaLista');
     if (selector.dataset.cargo !== estado.cargo) {
-        selector.replaceChildren(...datos.listas[estado.cargo].map((item, j) => new Option(estado.cargo === '1' ? `${item.sigla} · ${item.nombre}` : `${item.sigla} · lista ${item.num}`, String(j))));
+        // Uninominales con candidatura (Intendencia, Presidencia, Gobernación): la sigla y el nombre; las demás, la sigla y el número.
+        selector.replaceChildren(...datos.listas[estado.cargo].map((item, j) => new Option(item.nombre ? `${item.sigla} · ${item.nombre}` : `${item.sigla} · lista ${item.num}`, String(j))));
         selector.dataset.cargo = estado.cargo;
     }
     selector.value = String(listaElegida());
@@ -235,6 +240,9 @@ function crearMapa() {
         etiqueta: datos.conBarrios ? `Mapa de ${lugar()} con los barrios, las zonas municipales y los locales y mesas de votación`
             : `Mapa de ${lugar()} con su límite y sus locales y mesas de votación`,
         atribucion: $('atribucionMapa'), margen: margenMapa, controles: { ampliarEnGrupo: true }, puntosPorLocal: true,
+        // La fuente de los resultados y de los locales (ADR-042: en el histórico, la ubicación del mismo local en 2026).
+        resultados: fuente === 'trep' ? 'TREP (Justicia Electoral)' : 'cómputo oficial (TSJE)',
+        locales: datos.contexto.anio.geometria ? 'la del mismo local en 2026' : undefined,
         alTocarLocal: (clave) => tocarLocal(clave),
         alTocarBarrio: (nombre) => { if (agregados.has(nombre)) tocarBarrio(nombre); },
         alTocarZona: (numero) => elegirZona(`m${numero}`),
@@ -550,6 +558,15 @@ function pintarMargenPuntos(leyenda) {
 
 const PINTORES_PUNTOS = { listas: pintarListasPuntos, participacion: pintarParticipacionPuntos, margen: pintarMargenPuntos };
 
+// Los locales con acta del cargo (una mesa puede tener acta solo del otro; ADR-024) que no tienen ubicación: en 2026, la del
+// padrón; en el histórico (ADR-042), la del mismo local en 2026 cuando se lo reconoce.
+function notaSinUbicacion(leyenda) {
+    const sinUbicacion = [...datos.porLocal].filter(([k, filas]) => filas.some((f) => datos.conActa(f.i, estado.cargo)) && !Number.isFinite(infoDe(k)?.lat)).length;
+    if (!sinUbicacion) return;
+    const motivo = datos.contexto.anio.geometria ? 'sin ubicación conocida (no se reconoció el mismo local en 2026)' : 'sin ubicación en el padrón';
+    leyenda.append(el('li', 'leyenda__nota', `${cantidad(sinUbicacion, 'local', 'locales')} ${motivo}: en la tabla, no en el mapa.`));
+}
+
 function renderMapaPuntos() {
     const clave = `${estado.zona}`;
     if (clave !== encuadreMostrado) {
@@ -570,11 +587,13 @@ function renderMapaPuntos() {
     }
     if (estado.capa !== 'zona') mapa.pintarHalos(null);
     mapa.mostrar({ 'k-halos': estado.capa === 'zona' });
-    // Los locales con acta del cargo (una mesa puede tener acta solo del otro; ADR-024) que no tienen ubicación.
-    const sinUbicacion = [...datos.porLocal].filter(([k, filas]) => filas.some((f) => datos.conActa(f.i, estado.cargo)) && !Number.isFinite(infoDe(k)?.lat)).length;
-    if (sinUbicacion) leyenda.append(el('li', 'leyenda__nota', `${cantidad(sinUbicacion, 'local', 'locales')} sin ubicación en el padrón: en la tabla, no en el mapa.`));
+    notaSinUbicacion(leyenda);
     leyenda.append(el('li', 'leyenda__nota', estado.base === 'calles' ? 'Mapa base: rutas, ríos, arroyos y lugares de OpenStreetMap.' : 'Sin mapa base.'));
-    leyenda.append(itemLeyenda(null, 'Contorno: límite del distrito (INE)', 'leyenda__muestra--limite'));
+    // Un distrito que abarcaba varios de hoy (ADR-043): su límite de entonces, con los distritos de hoy que lo forman.
+    const abarca = datos.resumen.abarca;
+    leyenda.append(itemLeyenda(null, abarca ? `Contorno: el distrito en ${datos.contexto.anio.anio}, que abarcaba lo que hoy son ` +
+        `${abarca.map((x) => x.nombre).join(', ').replace(/, ([^,]*)$/, ' y $1')} (límites del INE 2022 unidos)` : 'Contorno: límite del distrito (INE)',
+        'leyenda__muestra--limite'));
     mapa.marcar(estado.local);
 }
 
@@ -606,6 +625,7 @@ function renderMapa() {
     mapa.mostrar({ 'k-halos': estado.capa === 'zona' });
     leyenda.append(el('li', 'leyenda__nota', `Relleno al ${fmt.format(estado.opacidad)} %${estado.base === 'calles' ? ', con las calles debajo' : ''}.`));
     pintarPuntos(leyenda);
+    notaSinUbicacion(leyenda);
     leyenda.append(itemLeyenda(null, 'Contorno: zonas municipales oficiales', 'leyenda__muestra--zona'));
     mapa.marcar(estado.local);
 }
@@ -834,7 +854,7 @@ function renderBandeja() {
 // Pestañas que dependen del cargo y de la selección: D'Hondt solo con la Junta (atenuada con Intendencia) y «Limpiar
 // filtros» con algo elegido.
 function renderPestanas() {
-    const junta = estado.cargo === '2';
+    const junta = CARGO_DHONDT !== null && estado.cargo === CARGO_DHONDT;
     const dhondt = $('pestana-dhondt');
     dhondt.classList.toggle('es-atenuada', !junta);
     if (junta) {
@@ -854,7 +874,7 @@ function renderPestanas() {
 function renderTodo() {
     agregados = agregadosBarrio(datos, estado.cargo);
     renderTotales(datos, estado.cargo, seleccion(), { hayFiltro: haySeleccion() });
-    renderBancas(datos, estado.cargo, { fuente, nombreFuente: datos.contexto.anio.fuentes?.[fuente]?.nombre });
+    renderBancas(datos, estado.cargo, { fuente, nombreFuente: datos.contexto.anio.fuentes?.[fuente]?.nombre, cargoBancas: CARGO_DHONDT });
     renderFiltros();
     renderCapas();
     renderMapa();
@@ -1018,8 +1038,8 @@ function elegirSugerencia(clave) {
 
 // D'Hondt con Intendencia: tocarla cambia el cargo a la Junta y la muestra.
 function elegirPestana(nombre, { toque = false, foco = false } = {}) {
-    if (nombre === 'dhondt' && estado.cargo !== '2' && toque) {
-        compartido.cambiar({ cargo: 'junta' }, { origen: 'barra', forzar: true });
+    if (nombre === 'dhondt' && CARGO_DHONDT && estado.cargo !== CARGO_DHONDT && toque) {
+        compartido.cambiar({ cargo: CARGO_HASH[CARGO_DHONDT] }, { origen: 'barra', forzar: true });
     }
     panel.elegir(nombre, { foco });
     estado.panel = panel.panel();
@@ -1038,7 +1058,7 @@ function abrirBusqueda() {
 function mostrarAvisoDhondt(visible) {
     const aviso = $('avisoDhondt');
     const pestana = $('pestana-dhondt');
-    aviso.hidden = !visible || estado.cargo === '2';
+    aviso.hidden = !visible || (CARGO_DHONDT !== null && estado.cargo === CARGO_DHONDT);
     if (aviso.hidden) return;
     const caja = pestana.getBoundingClientRect(), raiz = $('hoja').getBoundingClientRect();
     aviso.style.left = `${Math.max(8, Math.min(caja.left - raiz.left, raiz.width - aviso.offsetWidth - 8))}px`;
@@ -1095,9 +1115,9 @@ function actualizarEnlace() {
 function leerEnlace() {
     const p = new URLSearchParams(location.hash.slice(1));
     const de = (objeto, clave) => (clave !== null && /^\d+$/.test(clave) && Object.hasOwn(objeto, clave) ? Number(clave) : null);
-    const cargo = p.get('cargo');
-    // Fuera de Asunción, solo la Junta (ADR-022).
-    estado.cargo = cargo === 'junta' || cargo === '2' || !datos.listas['1'] ? '2' : '1';
+    // El cargo del hash si el distrito lo tiene (por su nombre o, en los enlaces de antes, por su número); si no, el primero.
+    const cargo = datoDe(datos.contexto.anio, p.get('cargo'));
+    estado.cargo = datos.cargos.includes(cargo) ? cargo : datos.cargos[0];
     const capa = p.get('capa') ?? VISTA_A_CAPA[p.get('vista')];
     estado.capa = capasDisponibles().includes(capa) ? capa : 'lista';
     estado.zonaMunicipal = de(datos.resumen.zonas_municipales, p.get('zona_municipal'));
@@ -1136,7 +1156,8 @@ function leerEnlace() {
 function eventos() {
     compartido.suscribir(({ cambiadas, origen }) => {
         if (origen !== 'barra' || !cambiadas.has('cargo')) return;
-        estado.cargo = compartido.obtener('cargo') === 'junta' || !datos.listas['1'] ? '2' : '1';
+        const cargo = datoDe(datos.contexto.anio, compartido.obtener('cargo'));
+        estado.cargo = datos.cargos.includes(cargo) ? cargo : datos.cargos[0];
         estado.orden = null;
         actualizarTodo();
     });
@@ -1153,7 +1174,7 @@ function eventos() {
     });
     $('limpiarSeleccion').addEventListener('click', () => subirA('asuncion'));
     $('limpiarFiltros').addEventListener('click', () => subirA('asuncion'));
-    $('verJunta').addEventListener('click', () => compartido.cambiar({ cargo: 'junta' }, { origen: 'barra', forzar: true }));
+    $('verJunta').addEventListener('click', () => { if (CARGO_DHONDT) compartido.cambiar({ cargo: CARGO_HASH[CARGO_DHONDT] }, { origen: 'barra', forzar: true }); });
     $('botonBuscar').addEventListener('click', abrirBusqueda);
     $('botonTabla').addEventListener('click', () => bandeja.abrir(!bandeja.abierta(), { foco: true }));
     $('botonPanel').addEventListener('click', () => panel.abrir(!panel.abierto(), { foco: true }));
@@ -1309,6 +1330,21 @@ function aplicarPaneles({ altura = null } = {}) {
     bandeja.abrir(Boolean(estado.bandeja));
 }
 
+// Sin bancas en el distrito (ADR-042): en las generales, el Senado y el Parlasur las reparten en el país y Diputados y la
+// Junta departamental en cada departamento; el Consejo de la Magistratura no publica su reparto. La pestaña D'Hondt queda
+// atenuada y su panel lo explica.
+function sinBancasEnElDistrito() {
+    const caja = $('dhondtNoDisponible');
+    const generales = datos.contexto.eleccion.id === 'generales';
+    caja.querySelector('h2').textContent = 'En esta elección las bancas no se reparten en el distrito';
+    caja.querySelector('p').textContent = generales
+        ? 'El Senado y el Parlasur reparten sus bancas en todo el país; Diputados y la Junta departamental, en cada departamento. El reparto oficial, ' +
+          'con las personas electas, está en el mapa del país (pestaña Bancas).'
+        : 'La fuente no publica un reparto de bancas por lista para esta elección.';
+    $('verJunta').hidden = true;
+    $('avisoDhondt').textContent = 'Sin reparto de bancas en el distrito';
+}
+
 // La llama inicio.js con la fuente de la sección (trep u oficial).
 export async function iniciar({ fuente: deLaSeccion = 'trep' } = {}) {
     const visor = $('visor');
@@ -1320,6 +1356,10 @@ export async function iniciar({ fuente: deLaSeccion = 'trep' } = {}) {
         const { eleccion, datos: modelo } = await cargarModelo(pedido, fuente);
         if (!modelo) throw new Error(`La fuente ${fuente} no está publicada (${eleccion.estado}).`);
         datos = modelo;
+        // Los cargos del año (ADR-042): la clave del hash de cada uno y el que reparte bancas en el distrito.
+        CARGO_HASH = Object.fromEntries(Object.values(cargosDe(datos.contexto.anio)).map((c) => [c.dato, c.clave]));
+        CARGO_DHONDT = cargoConBancas(datos.contexto.anio);
+        if (!CARGO_DHONDT) sinBancasEnElDistrito();
         // El distrito abierto (ADR-022): Asunción, o el de la clave del hash con su nombre de lista.json.
         const clave = datos.contexto.distrito ?? ASUNCION;
         datos.lugar = { clave, nombre: datos.contexto.anio.ambito ?? 'Asunción', departamento: 'Capital' };
@@ -1339,7 +1379,7 @@ export async function iniciar({ fuente: deLaSeccion = 'trep' } = {}) {
         renderFijos();
         dialogos = crearDialogos({ datos, fuente, cargo: () => estado.cargo, seleccion, ruta: () => pasosRuta().map((x) => x.texto), sinActa });
         crearMapa();
-        panel = crearPanel({ alElegir: elegirPestana, atenuada: (nombre) => nombre === 'dhondt' && estado.cargo !== '2' });
+        panel = crearPanel({ alElegir: elegirPestana, atenuada: (nombre) => nombre === 'dhondt' && estado.cargo !== CARGO_DHONDT });
         bandeja = crearBandeja({
             alElegir: (nombre) => { estado.bandeja = nombre; renderBandeja(); actualizarEnlace(); },
             alCambiar: (abierta) => { estado.bandeja = abierta ? bandeja.panel() : null; renderBandeja(); actualizarEnlace(); },

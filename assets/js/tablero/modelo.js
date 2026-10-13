@@ -21,12 +21,15 @@ export const formaDe = (item) => item?.forma ?? FORMAS[item?.sigla] ?? 'cuadrado
 const ARCHIVOS = { comun: ['locales.json', 'geo.json', 'candidaturas.json', 'indicadores_barrios.json'], fuente: ['resumen.json', 'mesas.json'] };
 const ARCHIVOS_DISTRITO = { comun: ['locales.json', 'candidaturas.json'], fuente: ['resumen.json', 'mesas.json'] };
 
-// permitidos: los cargos que se muestran (fuera de Asunción, la Intendencia solo si el manifiesto la declara; ADR-024).
-export function construirModelo(resumen, mesas, locales, geo, cand, ipm, { permitidos = ['1', '2'] } = {}) {
+// permitidos: los cargos que se muestran (fuera de Asunción, los que el manifiesto declara para el país; ADR-024). Por
+// omisión, todos los que trae el distrito (ADR-042: las generales tienen hasta seis). cargoMargen: el cargo del margen
+// cuando no está el par fijo de Asunción (la Junta en las municipales; si no, el primero con dos listas o más).
+export function construirModelo(resumen, mesas, locales, geo, cand, ipm, { permitidos = null, cargoMargen = '2' } = {}) {
     const claveLocal = (z, l) => `${z}-${l}`;
     const listas = {};
-    // Cargos con actas en este distrito.
-    const cargos = ['1', '2'].filter((c) => permitidos.includes(c) && mesas.cargos[c] && cand[c]);
+    // Cargos con actas en este distrito, en el orden del TSJE.
+    const cargos = Object.keys(mesas.cargos).filter((c) => (!permitidos || permitidos.includes(c)) && mesas.cargos[c] && cand[c])
+        .sort((a, b) => Number(a) - Number(b));
     for (const cargo of cargos) {
         const porNum = Object.fromEntries(cand[cargo].map((x) => [x.numLista, x]));
         listas[cargo] = mesas.cargos[cargo].listas.map((num) => ({ num, ...porNum[num] }));
@@ -41,14 +44,17 @@ export function construirModelo(resumen, mesas, locales, geo, cand, ipm, { permi
         if (!porLocal.has(f.clave)) porLocal.set(f.clave, []);
         porLocal.get(f.clave).push(f);
     }
-    // El par fijo de Asunción (ANR − AJA de Intendencia) solo donde están esas dos listas; si no, las dos más votadas de la Junta.
+    // El par fijo de Asunción (ANR − AJA de Intendencia) solo donde están esas dos listas; si no, las dos más votadas del
+    // cargo del margen (la Junta en las municipales; ADR-042: en las demás elecciones, el primero con dos listas o más).
     let margen = listas[MARGEN.cargo]?.some((x) => x.sigla === MARGEN.positivo) && listas[MARGEN.cargo].some((x) => x.sigla === MARGEN.negativo)
         ? MARGEN : null;
-    if (!margen && listas['2']?.length >= 2) {
-        const c = mesas.cargos['2'];
+    // Con el cargo del margen en el distrito, solo él (una sola lista: sin margen); sin él (las generales), el primero con dos o más.
+    const delMargen = listas[cargoMargen] ? (listas[cargoMargen].length >= 2 ? cargoMargen : null) : cargos.find((c) => listas[c].length >= 2);
+    if (!margen && delMargen) {
+        const c = mesas.cargos[delMargen];
         const votos = c.listas.map((_, j) => c.votos.reduce((s, v) => s + (v ? v[j] : 0), 0));
         const [a, b] = votos.map((v, j) => j).sort((x, y) => votos[y] - votos[x] || x - y);
-        margen = { cargo: '2', positivo: listas['2'][a].sigla, negativo: listas['2'][b].sigla };
+        margen = { cargo: delMargen, positivo: listas[delMargen][a].sigla, negativo: listas[delMargen][b].sigla };
     }
     const indiceMargen = {
         positivo: margen ? listas[margen.cargo].findIndex((x) => x.sigla === margen.positivo) : -1,
@@ -104,10 +110,13 @@ export async function cargarModelo(pedido, fuente) {
     const eleccion = await cargarEleccion(pedido, fuente, deDistrito ? ARCHIVOS_DISTRITO : ARCHIVOS);
     if (!eleccion.datos) return { eleccion, datos: null };
     const d = eleccion.datos;
-    // Fuera de Asunción, los cargos que el manifiesto declara para el país (ADR-024).
-    const permitidos = deDistrito ? (eleccion.anio.nacional?.cargos ?? ['junta']).map((c) => eleccion.anio.claves_cargo?.[c] ?? c) : ['1', '2'];
+    // Fuera de Asunción, los cargos que el manifiesto declara para el país (ADR-024); en Asunción, todos los del año.
+    const anio = eleccion.anio;
+    const permitidos = (deDistrito ? anio.nacional?.cargos ?? ['junta'] : anio.cargos).map((c) => String(anio.claves_cargo?.[c] ?? c));
+    // El margen (ADR-042): el cargo que reparte bancas en el distrito (la Junta) o, sin él, el primero con dos listas o más.
+    const cargoMargen = String(anio.claves_cargo?.[Object.keys(anio.bancas_cargo ?? {}).find((c) => anio.bancas_cargo[c] === 'distrito')] ?? '2');
     const datos = construirModelo(d['resumen.json'], d['mesas.json'], d['locales.json'], d['geo.json'] ?? null, d['candidaturas.json'],
-                                  d['indicadores_barrios.json'] ?? null, { permitidos });
+                                  d['indicadores_barrios.json'] ?? null, { permitidos, cargoMargen });
     datos.contexto = eleccion;
     return { eleccion, datos };
 }
@@ -190,8 +199,10 @@ export function margenDe(datos, total, cargo) {
     return (100 * (total.votos[datos.indiceMargen.positivo] - total.votos[datos.indiceMargen.negativo])) / total.listas;
 }
 
-export function nombreDe(item, cargo) {
-    return cargo === '1' ? item.nombre : `${item.sigla} · ${item.lista}`;
+// El nombre de una lista: en los cargos uninominales, el de su candidatura cuando la fuente lo trae (Intendencia,
+// Presidencia y Gobernación, ADR-042); si no, su sigla y su nombre.
+export function nombreDe(item) {
+    return item.nombre || `${item.sigla} · ${item.lista}`;
 }
 
 // Agregados por barrio (lugar de los locales) para un cargo.

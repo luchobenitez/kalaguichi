@@ -968,6 +968,25 @@ function dibujarMetodo() {
     $('metodoFinanzas').replaceChildren(atribucion, financiera, electoral, cartografia, metodo, bloqueDescargas);
 }
 
+// --- Año (ADR-044) -------------------------------------------------------------------------------------------------------
+// El selector de año: 2025 es esta página y los demás años llevan al histórico de balances y resultados. Solo los años con
+// datos, rotulados con el año (M57); los años sin balances municipales no se ofrecen (su motivo está en el método del
+// histórico). Si no se puede leer el histórico, queda solo 2025.
+async function armarAnios() {
+    const sAnio = $('filtroAnio');
+    try {
+        const man = await leer('../historico/manifiesto.json');
+        const opciones = [...man.anios].reverse().filter((a) => a.estado === 'con_datos').map((a) => new Option(String(a.anio), String(a.anio)));
+        sAnio.replaceChildren(...opciones);
+        sAnio.value = '2025';
+    } catch (error) {
+        console.warn(error);
+    }
+    sAnio.addEventListener('change', () => {
+        if (sAnio.value !== '2025') location.assign(new URL(`../historico/#anio=${sAnio.value}`, location.href).href);
+    });
+}
+
 // --- Inicio ---------------------------------------------------------------------------------------------------------------
 async function iniciar() {
     const main = $('contenido');
@@ -1011,6 +1030,7 @@ async function iniciar() {
     }
     dibujarCabecera();
     dibujarMetodo();
+    armarAnios();
     armarControles();
     armarRango();
     armarTabla();

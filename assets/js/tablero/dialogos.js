@@ -3,7 +3,7 @@
 // la estadística descriptiva por mesa. Se arman al abrirse con los datos ya cargados; procedencia.json se lee solo al
 // abrir «Fuente». Sin HTML desde datos: el texto va con textContent.
 import { crearDialogo } from '../dialogo.js';
-import { cargarEleccion, carpeta, carpetaNacional } from '../datos.js';
+import { cargarEleccion, carpeta, carpetaNacional, archivoNacional } from '../datos.js';
 import { el, fmt, pct, cantidad, porcentaje } from './util.js';
 import { UMBRAL_PRINCIPAL, estadisticas } from './modelo.js';
 import { tarjetasNoDisponible } from './panel.js';
@@ -71,7 +71,10 @@ function tabla(titulo, columnas, filas, clase = '') {
     return caja;
 }
 
-const nombreLista = (item, cargo) => (cargo === '1' ? `${item.nombre} (${item.sigla})` : `${item.sigla} (lista ${item.num})`);
+// Uninominales con candidatura: su nombre y su sigla; las demás listas, la sigla y el número.
+const nombreLista = (item) => (item.nombre ? `${item.nombre} (${item.sigla})` : `${item.sigla} (lista ${item.num})`);
+// Un año del histórico del TSJE (ADR-042): con la geometría de otro año y sin TREP.
+const historico = (datos) => Boolean(datos.contexto.anio.geometria);
 const textoSinActa = (f) => `mesa ${f.mesa} de ${f.info ? f.info.nombre : `local ${f.local}`} (zona ${f.zona}), ${f.estado.replaceAll('-', ' ')}`;
 // Nombre del cargo como en la barra de contexto (manifiesto); si falta, el de las actas.
 function nombreCargo(datos, cargo) {
@@ -102,12 +105,16 @@ async function contenidoFuenteDistrito(datos, fuente) {
     const fuentes = lista([
         ['Resultados por mesa', `${r.eleccion.fuente}. Etapa: ${r.eleccion.etapa}. Territorio: ${r.eleccion.territorio}. ` +
             `${datos.cargos.length > 1 ? 'Cargos' : 'Cargo'}: ${datos.cargos.map((c) => nombreCargo(datos, c)).join(' y ')}.`],
-        // Los nombres de las candidaturas a Intendencia (ADR-024; ADR 0020 del módulo).
-        ...(datos.listas['1'] ? [['Candidaturas', 'Una por lista de Intendencia. Sus nombres salen del padrón electoral (nombres y apellidos), ' +
+        // Los nombres de las candidaturas a Intendencia (ADR-024; ADR 0020 del módulo); en el histórico, del TSJE (ADR-042).
+        ...(historico(datos) ? (Object.values(datos.listas).flat().some((x) => x.nombre)
+            ? [['Candidaturas', 'Quien encabeza cada lista de los cargos uninominales, según el archivo de candidaturas 1998-2023 del TSJE (datos abiertos); ' +
+                'de sexo y edad, solo totales.']] : [])
+            : datos.listas['1'] ? [['Candidaturas', 'Una por lista de Intendencia. Sus nombres salen del padrón electoral (nombres y apellidos), ' +
             'buscados por la cédula que trae la planilla del TREP; la cédula no se guarda ni se publica. La sigla y el nombre de cada lista, de la ' +
             'planilla del TSJE con los resultados de Intendencia por distrito.']] : []),
-        ['Corte del TREP', `Corte del ${fechaLarga(momento)} (hora de Paraguay).${r.eleccion.corte_base ? ` ${r.eleccion.corte_base}` : ''}` +
-            `${r.eleccion.aviso ? ` ${r.eleccion.aviso}` : ''}`],
+        fuente === 'trep' ? ['Corte del TREP', `Corte del ${fechaLarga(momento)} (hora de Paraguay).${r.eleccion.corte_base ? ` ${r.eleccion.corte_base}` : ''}` +
+            `${r.eleccion.aviso ? ` ${r.eleccion.aviso}` : ''}`]
+            : ['Elección', `${anio.fecha ? `Elección del ${fechaLarga(anio.fecha)}.` : ''}${r.eleccion.aviso ? ` ${r.eleccion.aviso}` : ''}`],
         // Por cargo: una mesa puede tener acta de un cargo y no del otro (ADR-024).
         ['Cobertura', `${datos.cargos.map((c) => {
             const faltan = datos.faltantesDe(c);
@@ -115,19 +122,30 @@ async function contenidoFuenteDistrito(datos, fuente) {
                 `${fmt.format(cob.mesas_esperadas)} mesas con acta${faltan.length ? `. Sin acta: ${faltan.map(textoSinActa).join('; ')}` : ''}`;
         }).join('. ')}.`],
         ['Electores', `${r.electores.fuente}.`],
-        ['Locales de votación', 'Nombre, dirección y ubicación de cada local según el catálogo del TREP y el padrón (solo las columnas del local); ' +
-            'sin datos de personas.' +
+        ['Locales de votación', (historico(datos)
+            ? 'Nombre de cada local según el TSJE; la ubicación es la del mismo local en 2026 cuando se lo reconoce por su nombre (o por su código ' +
+              'con un nombre parecido); sin datos de personas.'
+            : 'Nombre, dirección y ubicación de cada local según el catálogo del TREP y el padrón (solo las columnas del local); sin datos de personas.') +
             (sinUbicacion ? ` ${cantidad(sinUbicacion, 'local no tiene', 'locales no tienen')} ubicación en el padrón: están en la tabla, no en el mapa.` : '')],
         ['Límite del distrito', 'INE, Cartografía digital del CNPV 2022 (límites referenciales), simplificado; Licencia de Uso de Información ' +
             'Pública. Mapa base: rutas, ríos, arroyos y lugares de OpenStreetMap (ODbL), del build de Protomaps. Los códigos del TSJE y del INE no coinciden: el distrito se unió a su par del INE ' +
-            'por el nombre.'],
+            'por el nombre.' + (historico(datos) ? (datos.resumen.abarca
+                ? ` En ${datos.contexto.anio.anio} el distrito abarcaba lo que hoy son ${datos.resumen.abarca.map((x) => x.nombre).join(', ')}: ` +
+                  'su límite es la unión de esos límites del INE (la creación de cada distrito, en datos/historico/distritos_creacion.json).'
+                : ' Es el distrito de esa elección con su límite de hoy (no se separó ningún distrito después).') : '')],
         ['Listas y bancas', `${datos.cand.fuente?.listas ?? 'Planillas del TREP'}. ${datos.cand.bancas.nota ?? ''}`],
     ]);
     const raiz = el('div', 'dialogo__contenido');
     raiz.append(lineaFuente(datos, fuente), seccion('Fuentes y licencias', fuentes));
-    const url = new URL(`distritos/${datos.lugar.clave}/${fuente}/procedencia.json`, carpetaNacional(eleccion.id, anio.anio));
-    const procedencia = await cargarEleccion({ eleccion: eleccion.id, anio: anio.anio, distrito: datos.lugar.clave }, fuente, { fuente: ['procedencia.json'] })
-        .then((x) => x.datos?.['procedencia.json'] ?? null).catch(() => null);
+    // El histórico (ADR-042): la procedencia es la de la elección (nacional/procedencia.json, con la lista de archivos del TSJE).
+    const url = historico(datos) ? new URL('procedencia.json', carpetaNacional(eleccion.id, anio.anio))
+        : new URL(`distritos/${datos.lugar.clave}/${fuente}/procedencia.json`, carpetaNacional(eleccion.id, anio.anio));
+    const procedencia = historico(datos)
+        ? await archivoNacional(eleccion.id, anio.anio, 'procedencia.json').then((p) => ({ ...p, fuentes: {
+            sha256: Object.fromEntries((p.fuentes ?? []).map((f) => [f.archivo, f.sha256])), geometria: p.geometria, locales: p.participacion } }))
+            .catch(() => null)
+        : await cargarEleccion({ eleccion: eleccion.id, anio: anio.anio, distrito: datos.lugar.clave }, fuente, { fuente: ['procedencia.json'] })
+            .then((x) => x.datos?.['procedencia.json'] ?? null).catch(() => null);
     const enlace = el('a', null, 'Descargar procedencia.json');
     enlace.href = url.href;
     enlace.setAttribute('download', '');
@@ -152,7 +170,7 @@ async function contenidoFuenteDistrito(datos, fuente) {
 }
 
 async function contenidoFuente(datos, fuente) {
-    if (!datos.geo) return contenidoFuenteDistrito(datos, fuente);
+    if (!datos.geo || historico(datos)) return contenidoFuenteDistrito(datos, fuente);
     const r = datos.resumen;
     const { eleccion, anio } = datos.contexto;
     const info = anio.fuentes?.[fuente] ?? {};
@@ -163,7 +181,7 @@ async function contenidoFuente(datos, fuente) {
         : momento ? `Cómputo del ${fechaLarga(momento)}.` : 'Sin fecha de cómputo publicada.';
     const ref = datos.cand.fuente?.nombres_y_fotos;
     const derechos = datos.cand.derechos_fotos ?? {};
-    const fotos = datos.listas['1'].filter((x) => x.foto).length + (datos.cand.bancas.electos ?? []).filter((x) => x.foto).length;
+    const fotos = (datos.listas['1'] ?? []).filter((x) => x.foto).length + (datos.cand.bancas.electos ?? []).filter((x) => x.foto).length;
     const fuentes = lista([
         ['Resultados por mesa', `${r.eleccion.fuente}. Etapa: ${r.eleccion.etapa}. Territorio: ${r.eleccion.territorio}.`],
         [fuente === 'trep' ? 'Corte del TREP' : 'Fecha del cómputo', `${corte}${r.eleccion.aviso ? ` ${r.eleccion.aviso}` : ''}`],
@@ -225,7 +243,7 @@ function contenidoMetodoDistrito(datos) {
     const b = datos.cand.bancas;
     const raiz = el('div', 'dialogo__contenido');
     raiz.append(lista([
-        ['Participación', `${r.electores.nota} Electores: recuento agregado del padrón por mesa, sin datos de personas.`],
+        ['Participación', `${r.electores.nota} Electores: ${historico(datos) ? 'padrón por mesa del TSJE' : 'recuento agregado del padrón por mesa'}, sin datos de personas.`],
         ['Votos y porcentajes', 'Emitidos = votos a listas + blancos + nulos + no computados («a computar» en las planillas del TSJE), verificado ' +
             'en cada mesa. El porcentaje de cada lista se calcula sobre los votos a listas; el de blancos y nulos, sobre los votos emitidos.'],
         ['Ventaja del primero', 'Diferencia entre las dos listas más votadas de la selección, en votos y en puntos porcentuales sobre los votos a ' +
@@ -234,13 +252,14 @@ function contenidoMetodoDistrito(datos) {
             'sus electores) y uno por mesa al acercar, con la forma de la lista más votada. Votos por lista y participación: 5 tramos iguales entre ' +
             'el mínimo y el máximo de los locales; margen: menos de 10, de 10 a 25 y 25 puntos o más.'],
         ['Zonas electorales', 'Las del TSJE, de las actas; sus límites no se publican: cada local lleva un halo del color de su zona.'],
-        ["Bancas de la Junta (D'Hondt)", `Las ${b.total} bancas son la integración oficial del TREP. El sistema D'Hondt (los votos de cada lista ` +
-            `divididos por 1, 2, 3…, y las bancas a los ${b.total} cocientes más altos) se calcula aquí sobre los votos por lista y se compara con ` +
-            `ese reparto. La mayoría es de ${b.mayoria} bancas.`],
+        ...(b.total ? [["Bancas de la Junta (D'Hondt)", `Las ${b.total} bancas son la integración oficial ${historico(datos) ? 'del TSJE' : 'del TREP'}. ` +
+            `El sistema D'Hondt (los votos de cada lista divididos por 1, 2, 3…, y las bancas a los ${b.total} cocientes más altos) se calcula ` +
+            `aquí sobre los votos por lista y se compara con ese reparto. La mayoría es de ${b.mayoria} bancas.`]]
+            : [['Bancas', b.nota ?? 'Esta elección no reparte bancas en el distrito.']]),
         ['Colores', 'Los partidos con su color; las alianzas, los movimientos locales y las listas solo de Intendencia en verde, con tonos ' +
             'distintos si hay más de uno; la forma acompaña al color (círculo la ANR, rombo las alianzas y los movimientos, cuadrado los demás).'],
-        ['Mesas de un solo cargo', 'Una mesa puede tener acta de Intendencia y no de Junta (o al revés): para el cargo que le falta cuenta como ' +
-            'sin acta y ninguna suma de ese cargo la incluye.'],
+        ['Mesas de un solo cargo', 'Una mesa puede tener acta de un cargo y no de otro (por ejemplo, de Intendencia y no de Junta): para el cargo ' +
+            'que le falta cuenta como sin acta y ninguna suma de ese cargo la incluye.'],
         ['Cobertura', 'Actas computadas = mesas con acta / mesas esperadas de la selección. Las mesas sin acta no se estiman ni se reparten: se ' +
             'informan aparte y ninguna suma las incluye.'],
         ['Estadística por mesa', 'Media, mediana, desvío estándar poblacional (sobre todas las mesas con acta de la selección), mínimo y máximo ' +
@@ -260,8 +279,7 @@ function contenidoMetodo(datos, fuente) {
     raiz.append(lista([
         ['Participación', `${r.electores.nota} Electores: recuento agregado del padrón por mesa, sin datos de personas.`],
         ['Votos y porcentajes', 'Emitidos = votos a listas + blancos + nulos + no computados, verificado en cada acta. El porcentaje de cada lista ' +
-            'se calcula sobre los votos a listas; el de blancos y nulos, sobre los votos emitidos. Los cargos (Intendencia y Junta Municipal) no se ' +
-            'suman entre sí.'],
+            'se calcula sobre los votos a listas; el de blancos y nulos, sobre los votos emitidos. Los cargos no se suman entre sí.'],
         ['Ventaja del primero', 'Diferencia entre las dos listas más votadas de la selección, en votos y en puntos porcentuales sobre los votos a ' +
             'listas. El orden se calcula en cada selección: la lista que va primera puede cambiar entre zonas, barrios, locales o mesas.'],
         ['Margen entre el primero y el segundo (capa del mapa)', '100 × (votos del primero − votos del segundo) / votos a listas, en ' +
@@ -274,10 +292,11 @@ function contenidoMetodo(datos, fuente) {
         ['Capas del mapa', 'Una capa temática a la vez, semitransparente sobre el mapa base (opacidad elegible, 45 % por omisión) para que ' +
             'las calles y sus nombres se vean debajo. Los puntos llevan el color y la forma (círculo o rombo) de la lista más votada: un ' +
             'punto por local al alejar y uno por mesa al acercar.'],
-        ["Bancas de la Junta (D'Hondt)", `Las ${b.total} bancas se reparten con el sistema D'Hondt: los votos de cada lista se dividen por 1, 2, 3… ` +
+        ...(!b.total ? [['Bancas', b.nota ?? 'Esta elección no reparte bancas en el distrito.']] : []),
+        ...(!b.total ? [] : [["Bancas de la Junta (D'Hondt)", `Las ${b.total} bancas se reparten con el sistema D'Hondt: los votos de cada lista se dividen por 1, 2, 3… ` +
             `y las bancas van a los ${b.total} cocientes más altos; un empate en el cociente lo gana la lista con más votos. La mayoría es de ` +
             `${b.mayoria} bancas. ` + (fuente === 'trep' ? b.nota : 'Se calcula en este sitio sobre los votos oficiales por lista de las mesas con ' +
-            'acta; las personas electas solo se muestran si la fuente oficial las publica.')],
+            'acta; las personas electas solo se muestran si la fuente oficial las publica.')]]),
         ['Pobreza multidimensional (IPM)', `${ipm}. En el mapa, los barrios se agrupan en quintiles (cinco grupos con la misma cantidad de ` +
             'barrios). Es una comparación entre agregados: no muestra cómo votaron las personas en situación de pobreza ni ningún otro grupo.'],
         ['Cobertura', 'Actas computadas = mesas con acta / mesas esperadas de la selección. Las mesas sin acta no se estiman ni se reparten: se ' +
@@ -311,9 +330,9 @@ function contenidoEstadisticas(datos, fuente, { cargo, seleccion, ruta, sinActa 
     const p = t.electores ? (100 * t.emitidos) / t.electores : null;
     const v = e.ventaja;
     const ventaja = !v ? ['—', 'Sin votos a listas en la selección']
-        : v.empate ? ['Empate', `entre ${nombreLista(listas[v.primero], c)} y ${nombreLista(listas[v.segundo], c)}`]
+        : v.empate ? ['Empate', `entre ${nombreLista(listas[v.primero])} y ${nombreLista(listas[v.segundo])}`]
             : [`${fmt.format(v.votos)} votos · ${pct.format(v.puntos)} puntos`,
-                `${nombreLista(listas[v.primero], c)} sobre ${nombreLista(listas[v.segundo], c)}, sobre ${fmt.format(t.listas)} votos a listas`];
+                `${nombreLista(listas[v.primero])} sobre ${nombreLista(listas[v.segundo])}, sobre ${fmt.format(t.listas)} votos a listas`];
     const bn = t.blancos + t.nulos;
     const a = e.actas;
     raiz.append(tabla('Resumen de la selección', ['Indicador', 'Valor', 'Detalle'], [
@@ -338,7 +357,7 @@ function contenidoEstadisticas(datos, fuente, { cargo, seleccion, ruta, sinActa 
     raiz.append(tabla(`Estadística por mesa · ${cantidad(d.n, 'mesa con acta', 'mesas con acta')}`,
         ['Medida', 'Media', 'Mediana', 'Desvío', 'Mín.', 'Máx.'], [
             fila('Participación (%)', d.participacion),
-            ...d.listas.map((x) => fila(conNombre(`% ${listas[x.j].sigla}`, nombreLista(listas[x.j], c)), x)),
+            ...d.listas.map((x) => fila(conNombre(`% ${listas[x.j].sigla}`, nombreLista(listas[x.j])), x)),
             fila('% blancos', d.blancos),
             fila('% nulos', d.nulos),
             fila('% blancos y nulos', d.blancosNulos),

@@ -61,7 +61,7 @@ export function crear(ctx) {
         estado.lista[cargo] = ganador(datos.sumar(datos.filas.map((f) => f.i), cargo).votos) ?? 0;
         return estado.lista[cargo];
     }
-    const nombreLista = (item) => (ctx.cargo() === '1' ? `${item.sigla} · ${item.nombre}` : `${item.sigla} · lista ${item.num}`);
+    const nombreLista = (item) => (item.nombre ? `${item.sigla} · ${item.nombre}` : `${item.sigla} · lista ${item.num}`);
 
     function calcular() {
         const j = elegida();

@@ -314,20 +314,18 @@ function pasosDeAmbito(barra, lista, ambito, { modoPais }) {
             rellenarDistritos(dep);
         } else if (conPais) {
             ir(hashDeAmbito({ departamento: dep }, { eleccion: contextoActual.eleccion.id, anio: contextoActual.anio.anio, cargo: contextoActual.cargo,
-                                                     conservar: enAnalisis ? ['analisis'] : [], pais: enAnalisis }));
+                                                     conservar: enAnalisis ? ['analisis'] : [], pais: enAnalisis, ...opcionesDeCargo() }));
         } else {
             rellenarDistritos(dep);
             sDis.focus();
         }
     });
     sDis.addEventListener('change', () => {
-        // En Análisis, el análisis sigue al cambiar de distrito o al pasar al país.
+        // En Análisis, el análisis sigue al cambiar de distrito o al pasar al país. El cargo sigue si el año lo declara para el
+        // país (ADR-024); el distrito que no lo tenga (Asunción no elige Gobernador) lo muestra atenuado.
         const contexto = { eleccion: contextoActual.eleccion.id, anio: contextoActual.anio.anio, cargo: contextoActual.cargo,
-                           conservar: modoPais === 'mapa' ? [] : ['analisis'] };
-        // El cargo sigue si el distrito lo tiene: Asunción, los dos; los demás, los que el manifiesto declara para el país (ADR-024).
-        const delPais = contextoActual.anio.nacional?.cargos ?? ['junta'];
-        if (sDis.value) ir(hashDeAmbito({ distrito: sDis.value }, { cargoDisponible: (c) => c === 'junta' || delPais.includes(c) || sDis.value === ASUNCION_AMBITO,
-                                                                    ...contexto }));
+                           conservar: modoPais === 'mapa' ? [] : ['analisis'], ...opcionesDeCargo() };
+        if (sDis.value) ir(hashDeAmbito({ distrito: sDis.value }, contexto));
         else if (conPais) ir(hashDeAmbito({ departamento: sDep.value === '' ? null : Number(sDep.value) }, { ...contexto, pais: enAnalisis }));
     });
     // El mapa del país (o el filtro de Análisis en el país) cambia el departamento: la barra lo sigue.
@@ -348,6 +346,19 @@ function pasosDeAmbito(barra, lista, ambito, { modoPais }) {
 let hashDeAmbito = null;
 let ASUNCION_AMBITO = '0-0';
 
+// Cargos para los enlaces a otro ámbito (ADR-042): los del país del año; si el pedido no está, la Junta en las municipales
+// y el primer cargo del año en las demás elecciones.
+function opcionesDeCargo() {
+    const delPais = contextoActual.anio.nacional?.cargos ?? contextoActual.anio.cargos;
+    return { cargoDisponible: (c) => delPais.includes(c), cargoPorOmision: delPais.includes('junta') ? 'junta' : delPais[0] };
+}
+
+// «10/10/2021» desde «2021-10-10».
+const fechaCompleta = (iso) => {
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso ?? '');
+    return m ? `${m[3]}/${m[2]}/${m[1]}` : iso;
+};
+
 function selectorFijo(contenedor, etiqueta, opciones, actual, alElegir) {
     contenedor.replaceChildren();
     if (opciones.length === 1) {
@@ -363,15 +374,20 @@ function selectorFijo(contenedor, etiqueta, opciones, actual, alElegir) {
 }
 
 async function barraDeContexto(barra) {
-    const { manifiesto, elegir, cargarEleccion, listaDistritos, indiceNacional } = await import('./datos.js');
+    const { manifiesto, elegir, eleccionesCon, cargarEleccion, listaDistritos, indiceNacional } = await import('./datos.js');
     const { ambitoDe, ambitoDeAnalisis, hashDe, ASUNCION } = await import('./ambito.js');
+    const { cargosDe, datoDe } = await import('./cargos.js');
     hashDeAmbito = hashDe;
     ASUNCION_AMBITO = ASUNCION;
     const m = await manifiesto();
-    const { eleccion, anio } = elegir(m, { eleccion: estado.obtener('eleccion'), anio: estado.obtener('anio') });
-    // «elegible» (Análisis): la fuente del hash (fuente=oficial) si está publicada; si no, el TREP.
+    // La fuente de la página (ADR-042): el TREP ofrece solo los años con TREP y Resultados oficiales, los años con cómputo
+    // oficial; Análisis («elegible») ofrece todos.
+    const fuentePagina = barra.dataset.fuente === 'elegible' ? null : barra.dataset.fuente || 'trep';
+    const { eleccion, anio } = elegir(m, { eleccion: estado.obtener('eleccion'), anio: estado.obtener('anio') }, fuentePagina);
+    // «elegible» (Análisis): la fuente del hash (fuente=oficial) si está publicada; si no, el TREP, y en los años sin TREP
+    // (el histórico del TSJE), el cómputo oficial.
     const fuente = barra.dataset.fuente === 'elegible'
-        ? (estado.obtener('fuente') === 'oficial' && anio.fuentes?.oficial?.estado === 'publicado' ? 'oficial' : 'trep')
+        ? (estado.obtener('fuente') === 'oficial' && anio.fuentes?.oficial?.estado === 'publicado') || !anio.fuentes?.trep ? 'oficial' : 'trep'
         : barra.dataset.fuente || 'trep';
     // Ámbito (ADR-022): con datos nacionales de la fuente y los pasos en la barra, el país o un distrito. Una clave de
     // distrito que no existe abre el país.
@@ -394,14 +410,25 @@ async function barraDeContexto(barra) {
             ambito = { distrito: clave, departamento: Number(clave.split('-')[0]) };
         }
     }
-    const soloJunta = Boolean(ambito) && ambito.distrito !== ASUNCION;
-    contextoActual = { eleccion, anio, fuente, cargo: null, manifiesto: m, ambito, lista,
-                       cargos: soloJunta ? anio.cargos.filter((c) => anio.nacional.cargos.includes(c)) : anio.cargos };
+    // Los cargos del ámbito: fuera de Asunción, los que el año declara para el país (ADR-024); en un distrito con la fuente
+    // publicada, además, los que trae su resumen (ADR-042: Asunción no elige Gobernador ni Junta departamental).
+    const publicada = anio.fuentes?.[fuente]?.estado === 'publicado';
+    const enDistrito = Boolean(ambito) && ambito.distrito !== null;
+    // Los años del histórico con resultados solo por distrito (ADR-042) no tienen datos por mesa ni resumen por distrito.
+    const porMesa = (anio.nacional?.nivel ?? 'mesa') === 'mesa';
+    const resumenDistrito = publicada && porMesa && (enDistrito || !ambito)
+        ? await cargarEleccion({ eleccion: eleccion.id, anio: anio.anio, distrito: ambito?.distrito ?? null }, fuente, { fuente: ['resumen.json'] })
+            .then((x) => x.datos?.['resumen.json'] ?? null).catch((error) => { console.warn(error); return null; })
+        : null;
+    let cargos = Boolean(ambito) && ambito.distrito !== ASUNCION && anio.nacional ? anio.cargos.filter((c) => anio.nacional.cargos.includes(c)) : anio.cargos;
+    if (resumenDistrito) cargos = cargos.filter((c) => resumenDistrito.cargos?.[datoDe(anio, c)]);
+    contextoActual = { eleccion, anio, fuente, cargo: null, manifiesto: m, ambito, lista, cargos };
+    const elecciones = eleccionesCon(m, fuentePagina);
     selectorFijo(barra.querySelector('[data-contexto="eleccion"]'), 'Elección',
-        m.elecciones.map((e) => ({ valor: e.id, texto: e.nombre })), eleccion.id,
+        elecciones.map((e) => ({ valor: e.id, texto: e.nombre })), eleccion.id,
         (valor) => { estado.cambiar({ eleccion: valor, anio: null }, { origen: 'barra' }); location.reload(); });
     selectorFijo(barra.querySelector('[data-contexto="anio"]'), 'Año',
-        eleccion.anios.map((a) => ({ valor: String(a.anio), texto: String(a.anio) })), String(anio.anio),
+        (elecciones.find((e) => e.id === eleccion.id)?.anios ?? eleccion.anios).map((a) => ({ valor: String(a.anio), texto: String(a.anio) })), String(anio.anio),
         (valor) => { estado.cambiar({ anio: valor }, { origen: 'barra' }); location.reload(); });
     if (lista) pasosDeAmbito(barra, lista, ambito, { modoPais });
     const selector = $('selectorCargo');
@@ -415,10 +442,10 @@ async function barraDeContexto(barra) {
         boton.setAttribute('aria-controls', document.querySelector('main')?.id || 'contenido');
         boton.textContent = anio.etiquetas_cargo?.[cargo] ?? anio.nombres_cargo?.[cargo] ?? cargo;
         boton.title = anio.nombres_cargo?.[cargo] ?? boton.textContent;
-        // Sin datos en este ámbito (Intendencia fuera de Asunción): a la vista, atenuado y con el motivo.
+        // Sin datos en este ámbito (por ejemplo, la Gobernación en Asunción): a la vista, atenuado y con el motivo.
         if (!disponibles.includes(cargo)) {
             boton.setAttribute('aria-disabled', 'true');
-            boton.title = `${boton.title}: hay datos por mesa solo de Asunción`;
+            boton.title = `${boton.title}: sin datos en este distrito`;
         }
         return boton;
     }));
@@ -427,8 +454,9 @@ async function barraDeContexto(barra) {
         const boton = evento.target.closest('[data-cargo]');
         if (!boton) return;
         if (boton.getAttribute('aria-disabled') === 'true') {
-            aviso(`${anio.nombres_cargo?.[boton.dataset.cargo] ?? boton.dataset.cargo}: los datos por mesa del TREP son solo de Asunción ` +
-                  '(los del país son de la Junta Municipal). Elegí Asunción en Distrito para verlos.');
+            const porque = ambito?.distrito === ASUNCION ? ' (Asunción, la capital, no elige Gobernador ni Junta departamental)' : '';
+            aviso(`${anio.nombres_cargo?.[boton.dataset.cargo] ?? boton.dataset.cargo}: no hay resultados de este cargo en este distrito${porque}. ` +
+                  'Elegí otro cargo o el país.');
             return;
         }
         estado.cambiar({ cargo: boton.dataset.cargo }, { origen: 'barra', forzar: true });
@@ -457,33 +485,39 @@ async function barraDeContexto(barra) {
         linea.append(' · aún no publicado');
     } else {
         // El país: las mesas de todos los distritos (índice nacional); Asunción y los demás distritos, su resumen. Las actas
-        // son las del cargo de la barra (ADR-024: una mesa puede tener acta de un cargo y no del otro).
-        let resumen, cobertura;
-        const claveCargo = () => anio.claves_cargo?.[contextoActual?.cargo] ?? '2';
-        if (ambito && ambito.distrito === null) {
-            const indice = await indiceNacional(eleccion.id, anio.anio);
+        // son las del cargo de la barra (ADR-024: una mesa puede tener acta de un cargo y no del otro). Los años del
+        // histórico con resultados solo por distrito (ADR-042) no tienen actas: la línea dice la fecha de la elección.
+        let resumen, cobertura = null;
+        const claveCargo = () => datoDe(anio, contextoActual?.cargo) ?? Object.keys(cargosDe(anio))[0];
+        if (!porMesa || (ambito && ambito.distrito === null)) {
+            const indice = await indiceNacional(eleccion.id, anio.anio, fuente);
             const suma = (fn) => indice.distritos.reduce((s, d) => s + fn(d), 0);
             resumen = { eleccion: indice.eleccion };
-            cobertura = () => ({ mesas_con_acta: suma((d) => (claveCargo() === '1' && d.intendencia ? d.intendencia.mesas.con_acta : d.mesas.con_acta)),
-                                 mesas_esperadas: suma((d) => d.mesas.esperadas) });
+            if (porMesa) cobertura = () => ({ mesas_con_acta: suma((d) => d.cargos?.[claveCargo()]?.mesas ?? 0), mesas_esperadas: suma((d) => d.mesas?.esperadas ?? 0) });
         } else {
-            const cargado = await cargarEleccion({ eleccion: eleccion.id, anio: anio.anio, distrito: ambito?.distrito ?? null }, fuente, { fuente: ['resumen.json'] });
-            resumen = cargado.datos['resumen.json'];
+            resumen = resumenDistrito ?? (await cargarEleccion({ eleccion: eleccion.id, anio: anio.anio, distrito: ambito?.distrito ?? null }, fuente,
+                                                                { fuente: ['resumen.json'] })).datos['resumen.json'];
             cobertura = () => ({ mesas_con_acta: resumen.cobertura.por_cargo?.[claveCargo()]?.mesas_con_acta ?? resumen.cobertura.mesas_con_acta,
                                  mesas_esperadas: resumen.cobertura.mesas_esperadas });
         }
         // Las actas no entran en el celular (shell.css): allí las muestra el panel de resultados.
-        const actas = document.createElement('span');
-        actas.className = 'barra-contexto__actas';
-        const pintarActas = () => {
-            const cob = cobertura();
-            actas.textContent = ` · ${fmt.format(cob.mesas_con_acta)}/${fmt.format(cob.mesas_esperadas)} actas`;
-        };
-        pintarActas();
-        estado.suscribir(({ cambiadas }) => { if (cambiadas.has('cargo')) pintarActas(); });
-        linea.append(actas);
+        if (cobertura) {
+            const actas = document.createElement('span');
+            actas.className = 'barra-contexto__actas';
+            const pintarActas = () => {
+                const cob = cobertura();
+                actas.textContent = ` · ${fmt.format(cob.mesas_con_acta)}/${fmt.format(cob.mesas_esperadas)} actas`;
+            };
+            pintarActas();
+            estado.suscribir(({ cambiadas }) => { if (cambiadas.has('cargo')) pintarActas(); });
+            linea.append(actas);
+        } else {
+            linea.append(' · resultados por distrito');
+        }
         const momento = info.corte ?? info.fecha;
         if (momento) linea.append(` · ${fuente === 'trep' ? 'corte' : 'cómputo'} ${fecha(momento)}`);
+        else if (anio.fecha) linea.append(` · elección del ${fechaCompleta(anio.fecha)}`);
+        else if (anio.fechas?.length) linea.append(` · ${anio.fechas.length === 1 ? 'elección del' : 'elecciones del'} ${anio.fechas.map(fechaCompleta).join(', ')}`);
         if (resumen.eleccion.aviso) {
             const aviso = document.createElement('span');
             aviso.className = 'barra-contexto__aviso';

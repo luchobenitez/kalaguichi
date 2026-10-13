@@ -5,7 +5,7 @@ import { el } from './util.js';
 
 const SECCION_DE = { trep: 'trep', oficial: 'oficiales' };
 
-export async function mostrarPendiente({ fuente, eleccion, anio }) {
+export async function mostrarPendiente({ fuente, eleccion, anio, manifiesto = null }) {
     const visor = document.getElementById('visor');
     const otra = fuente === 'trep' ? 'oficial' : 'trep';
     document.documentElement.classList.remove('es-tablero');
@@ -24,6 +24,14 @@ export async function mostrarPendiente({ fuente, eleccion, anio }) {
         : (otraPublicada ? 'Podés ver los resultados oficiales con el mismo contexto.' : '');
     seccion.append(el('p', 'panel__eyebrow', `${nombre} · ${eleccion.nombre} ${anio.anio}${anio.ambito ? ` · ${anio.ambito}` : ''}`), titulo);
     if (texto) seccion.append(el('p', null, texto));
+    // El histórico (ADR-042): otras elecciones o años con esta fuente publicada se eligen en la barra de contexto.
+    const otras = (manifiesto?.elecciones ?? []).flatMap((e) => e.anios.filter((a) => a.fuentes?.[fuente]?.estado === 'publicado' && !(e.id === eleccion.id && a.anio === anio.anio)));
+    if (otras.length) {
+        const historico = el('p', null, `${fuente === 'oficial' ? 'Los resultados oficiales' : 'El TREP'} de ${otras.length === 1 ? 'otra elección' : `otras ${otras.length} elecciones`} ` +
+            'ya están: elegí la elección y el año en la barra de arriba.');
+        historico.id = 'otrasElecciones';
+        seccion.append(historico);
+    }
     if (otraPublicada) {
         const enlace = el('a', 'boton-secundario', fuente === 'oficial' ? 'Ver el TREP' : 'Ver los resultados oficiales');
         enlace.id = 'verOtraFuente';

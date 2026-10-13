@@ -75,7 +75,8 @@ function agregar(padre, elementos, ctx) {
                 nodo = g;
             }
         } else if (e.t === 'linea') {
-            nodo = nodoSvg('line', { x1: r2(e.x1), y1: r2(e.y1), x2: r2(e.x2), y2: r2(e.y2), class: `kvf-linea kvf-linea-${e.rol}${e.punteado ? ' kvf-punteada' : ''}` });
+            nodo = nodoSvg('line', { x1: r2(e.x1), y1: r2(e.y1), x2: r2(e.x2), y2: r2(e.y2),
+                                     class: `kvf-linea kvf-linea-${e.rol}${e.serie ? ' kvf-linea--serie' : ''}${e.punteado ? ' kvf-punteada' : ''}` });
         } else if (e.t === 'texto') {
             nodo = nodoSvg('text', { x: r2(e.x), y: r2(e.y), 'text-anchor': e.ancla, 'dominant-baseline': e.base === 'middle' ? 'central' : e.base,
                                      'font-size': e.tam, 'font-weight': e.peso, class: `kvf-texto kvf-texto-${e.rol}`, 'aria-hidden': 'true' });
@@ -114,7 +115,9 @@ const r2 = (x) => Math.round(x * 100) / 100;
 export const ROLES = ['presupuesto', 'inicial', 'aumento', 'reduccion', 'obligado', 'pagado', 'pendiente', 'saldo', 'diferencia', 'nd', 'vigente_fondo',
                       'ingreso_gestion', 'egreso_gestion', 'resultado_pos', 'resultado_neg', 'activo', 'pasivo', 'patrimonio', 'propio', 'transferencia', 'otro_ingreso',
                       'recaudado', 'liquidez', 'ing100', 'ing200', 'ing300', 'gas100', 'gas200', 'gas300', 'gas400', 'gas500', 'gas600', 'gas700', 'gas800', 'gas900',
-                      'ej0', 'ej1', 'ej2', 'ej3', 'ej4', 'ej5', 'ejnd'];
+                      'ej0', 'ej1', 'ej2', 'ej3', 'ej4', 'ej5', 'ejnd',
+                      // Las series de la evolución histórica (M57).
+                      'resultado', 'razon_corriente', 'prueba_acida', 'cobertura_disponible', 'endeudamiento'];
 const OTROS = ['fondo', 'texto', 'suave', 'claro', 'aviso', 'guia', 'cero', 'eje', 'referencia', 'conector', 'llave', 'total', 'borde', 'patron', 'banda'];
 
 export function paletaDe(raiz) {
@@ -145,7 +148,8 @@ export function svgTexto(escena, paleta, { titulo = '', descripcion = '', prefij
                 if (e.patron) partes.push(`<${tag} ${forma} fill="url(#${prefijo}-${e.patron})"/>`);
             } else if (e.t === 'linea') {
                 const color = paleta[e.rol] ?? paleta.guia;
-                partes.push(`<line x1="${r2(e.x1)}" y1="${r2(e.y1)}" x2="${r2(e.x2)}" y2="${r2(e.y2)}" stroke="${color}" stroke-width="${grosor(e.rol)}"${e.punteado ? ' stroke-dasharray="4 3"' : ''}/>`);
+                partes.push(`<line x1="${r2(e.x1)}" y1="${r2(e.y1)}" x2="${r2(e.x2)}" y2="${r2(e.y2)}" stroke="${color}" stroke-width="${e.serie ? GROSOR_SERIE : grosor(e.rol)}"` +
+                            `${e.serie ? ' stroke-linecap="round"' : ''}${e.punteado ? ' stroke-dasharray="4 3"' : ''}/>`);
             } else if (e.t === 'texto') {
                 const color = paleta[e.rol] ?? paleta.texto;
                 partes.push(`<text x="${r2(e.x)}" y="${r2(e.y)}" text-anchor="${e.ancla}" dominant-baseline="${e.base === 'middle' ? 'central' : e.base}" font-size="${e.tam}" ` +
@@ -166,6 +170,7 @@ export function svgTexto(escena, paleta, { titulo = '', descripcion = '', prefij
 }
 
 const grosor = (rol) => ({ cero: 1.4, referencia: 1.4, total: 2, llave: 1.2, marcador: 3 }[rol] ?? 1);
+const GROSOR_SERIE = 2.4; // las líneas de la evolución histórica (en la página, .kvf-linea--serie)
 
 // Pinta la escena en un lienzo de ancho anchoPx (3000 por omisión), con la altura que haga falta.
 export function lienzo(escena, paleta, { anchoPx = 3000, crear = (w, h) => Object.assign(document.createElement('canvas'), { width: w, height: h }) } = {}) {
@@ -221,13 +226,15 @@ export function lienzo(escena, paleta, { anchoPx = 3000, crear = (w, h) => Objec
                 }
             } else if (e.t === 'linea') {
                 ctx.strokeStyle = paleta[e.rol] ?? paleta.guia;
-                ctx.lineWidth = grosor(e.rol);
+                ctx.lineWidth = e.serie ? GROSOR_SERIE : grosor(e.rol);
+                ctx.lineCap = e.serie ? 'round' : 'butt';
                 ctx.setLineDash(e.punteado ? [4, 3] : []);
                 ctx.beginPath();
                 ctx.moveTo(e.x1, e.y1);
                 ctx.lineTo(e.x2, e.y2);
                 ctx.stroke();
                 ctx.setLineDash([]);
+                ctx.lineCap = 'butt';
             } else if (e.t === 'texto') {
                 ctx.fillStyle = paleta[e.rol] ?? paleta.texto;
                 ctx.font = `${e.peso} ${e.tam}px ${FUENTE}`;

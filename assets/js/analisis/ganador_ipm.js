@@ -111,7 +111,7 @@ export function crear(ctx) {
     const valorDe = (b) => (!b || b[estado.indicador] === null || b[estado.indicador] === undefined || (estado.indicador === 'A' && b.H === 0)
         ? null : b[estado.indicador]);
     const listas = () => datos.listas[ctx.cargo()];
-    const nombreLista = (item) => (ctx.cargo() === '1' ? `${item.sigla} · ${item.nombre}` : `${item.sigla} · lista ${item.num}`);
+    const nombreLista = (item) => (item.nombre ? `${item.sigla} · ${item.nombre}` : `${item.sigla} · lista ${item.num}`);
     const siglaDe = (g) => (g === EMPATE ? 'Empate' : listas()[g].sigla);
 
     function calcular() {

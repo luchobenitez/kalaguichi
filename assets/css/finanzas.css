@@ -176,6 +176,13 @@ html[data-theme="dark"] .finanzas__eyebrow {
     max-width: min(30rem, 100%);
 }
 
+/* El municipio con un ancho propio: sus opciones cambian con los filtros (el rango, las listas) y, si el selector se ajustara a
+   la más larga, la fila de filtros cambiaría de renglones y el deslizador saltaría al arrastrarlo (M57: con el selector de año
+   más angosto, saltaba 55 px). En el celular ocupa todo el ancho, como los demás. */
+.finanzas__filtros #filtroMunicipio {
+    width: 16.5rem; /* sin porcentaje: con uno, el rótulo que lo contiene volvería a medirse por las opciones */
+}
+
 /* Listas: un desplegable con búsqueda y casillas (varias listas se unen). */
 .finanzas__listas {
     position: relative;
@@ -1091,6 +1098,68 @@ html[data-theme="dark"] .tabla td.tabla__texto.finanzas__sin-informe {
     font-weight: 500;
 }
 
+/* Histórico (ADR-044): el año en el título, el formato del año, la evolución de un municipio con su gráfico y su tabla. */
+.finanzas__evolucion {
+    display: grid;
+    gap: .875rem;
+    min-width: 0;
+    padding: 1.25rem;
+    border: 1px solid var(--border);
+    border-radius: 1.25rem;
+    background: var(--surface);
+}
+
+.finanzas__evolucion > * {
+    min-width: 0;
+    max-width: 100%;
+}
+
+.finanzas__evolucion h2 {
+    margin: 0;
+    color: var(--text);
+    font-size: 1.25rem;
+    font-weight: 800;
+}
+
+.finanzas__evolucion-grafico {
+    position: relative;
+    height: clamp(16rem, 40vh, 22rem);
+}
+
+.finanzas__evolucion-tabla th[scope="row"] {
+    font-variant-numeric: tabular-nums;
+}
+
+.finanzas__serie {
+    justify-self: start;
+}
+
+.finanzas__serie[hidden] {
+    display: none;
+}
+
+.finanzas__formato,
+.finanzas__aviso-2025 {
+    max-width: 52rem;
+    margin: .5rem 0 0;
+    color: var(--text-soft);
+    font-size: .9375rem;
+    line-height: 1.55;
+}
+
+.finanzas__aviso-2025[hidden] {
+    display: none;
+}
+
+.finanzas__aviso-2025 a {
+    color: var(--orange-700);
+    font-weight: 700;
+}
+
+html[data-theme="dark"] .finanzas__aviso-2025 a {
+    color: var(--orange-400);
+}
+
 /* Celular: los filtros en columna y las fichas en una columna. */
 @media (max-width: 640px) {
     .finanzas {
@@ -1103,7 +1172,8 @@ html[data-theme="dark"] .tabla td.tabla__texto.finanzas__sin-informe {
     .finanzas__mapa-caja,
     .finanzas__cobertura,
     .finanzas__tabla-caja,
-    .finanzas__metodo {
+    .finanzas__metodo,
+    .finanzas__evolucion {
         padding: 1rem;
     }
 
@@ -1117,6 +1187,7 @@ html[data-theme="dark"] .tabla td.tabla__texto.finanzas__sin-informe {
     }
 
     .finanzas__filtros .campo-select select,
+    .finanzas__filtros #filtroMunicipio,
     .finanzas__campo-indicador select,
     .finanzas__listas summary {
         width: 100%;

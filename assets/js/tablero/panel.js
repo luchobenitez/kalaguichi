@@ -21,7 +21,7 @@ export function renderTotales(datos, cargo, sel, { hayFiltro }) {
         fila.dataset.lista = item.num;
         const figura = el('span', 'resultado__foto');
         figura.style.borderColor = item.color;
-        if (cargo === '1' && item.foto) {
+        if (item.foto) {
             const img = el('img');
             img.src = urlFoto(item.foto, datos.contexto.comun);
             img.alt = '';
@@ -44,7 +44,8 @@ export function renderTotales(datos, cargo, sel, { hayFiltro }) {
         relleno.style.background = item.color;
         barra.append(relleno);
         const pie = el('div', 'resultado__pie');
-        pie.append(el('span', null, cargo === '1' ? `${item.sigla} · ${item.lista}` : `Lista ${item.num}`),
+        // Con el nombre de la candidatura (uninominales), la sigla y la lista al pie; si no, el número de la lista.
+        pie.append(el('span', null, item.nombre ? `${item.sigla} · ${item.lista}` : `Lista ${item.num}`),
             el('span', 'resultado__pct', `${porcentaje(total.votos[j], total.listas)} %`));
         cuerpo.append(encabezado, barra, pie);
         fila.append(figura, cuerpo);
@@ -105,20 +106,26 @@ function posicionesHemiciclo(total) {
 // distritos (ADR-022), la integración oficial por lista, sin personas, contrastada con el D'Hondt propio. Con el cómputo
 // oficial: el reparto D'Hondt sobre los votos oficiales por lista, calculado aquí; las personas electas solo si la
 // fuente las trae (resumen.bancas.electos), porque las actas por mesa no tienen el voto preferencial.
-export function renderBancas(datos, cargo, { fuente = 'trep', nombreFuente = 'TREP preliminar' } = {}) {
+export function renderBancas(datos, cargo, { fuente = 'trep', nombreFuente = 'TREP preliminar', cargoBancas = '2' } = {}) {
     const panel = $('panelBancas');
-    panel.hidden = cargo !== '2';
+    // El cargo que reparte bancas en el distrito (la Junta Municipal; ADR-042: en las generales no hay).
+    panel.hidden = !cargoBancas || cargo !== cargoBancas || !datos.listas[cargoBancas];
     if (panel.hidden || panel.dataset.listo) return;
     const b = datos.cand.bancas;
-    const listas = datos.listas['2'];
+    const listas = datos.listas[cargoBancas];
     const ordenar = (electos) => [...electos].sort((x, y) => x.banca - y.banca);
     let porLista, corte, metodo, conPersonas;
     let coincide = null;  // Integración oficial frente al D'Hondt propio (distritos sin personas electas).
-    if (fuente === 'trep' && !b.electos) {
-        const propio = dhondt(datos.sumar(datos.filas.map((f) => f.i), '2').votos, b.total);
-        porLista = listas.map((item, j) => ({ item, n: b.reparto?.[item.num] ?? 0, electos: [] }));
+    // Integración oficial por lista sin personas: la del TREP (municipales 2026) o la del TSJE en el histórico (ADR-042), que trae
+    // además las personas electas en el resumen. Solo los años del histórico (con «geometria») traen la del TSJE: el cómputo
+    // oficial de 2026 se reparte aquí, con el D'Hondt sobre sus votos.
+    const integracion = fuente === 'oficial' && Boolean(datos.contexto?.anio?.geometria) && Object.keys(b.reparto ?? {}).length > 0;
+    if ((fuente === 'trep' && !b.electos) || integracion) {
+        const propio = dhondt(datos.sumar(datos.filas.map((f) => f.i), cargoBancas).votos, b.total);
+        const electos = integracion ? datos.resumen.bancas?.electos ?? [] : [];
+        porLista = listas.map((item) => ({ item, n: b.reparto?.[item.num] ?? 0, electos: ordenar(electos.filter((e) => e.numLista === item.num)) }));
         coincide = listas.every((item, j) => (b.reparto?.[item.num] ?? 0) === propio.reparto[j]);
-        [corte, metodo, conPersonas] = [b.cociente_de_corte ?? propio.corte, b.metodo, false];
+        [corte, metodo, conPersonas] = [b.cociente_de_corte ?? propio.corte, b.metodo, electos.length > 0];
     } else if (fuente === 'trep') {
         porLista = listas.map((item) => {
             const electos = ordenar(b.electos.filter((e) => e.numLista === item.num));
@@ -126,7 +133,7 @@ export function renderBancas(datos, cargo, { fuente = 'trep', nombreFuente = 'TR
         });
         [corte, metodo, conPersonas] = [b.cociente_de_corte, b.metodo, true];
     } else {
-        const votos = datos.sumar(datos.filas.map((f) => f.i), '2').votos;
+        const votos = datos.sumar(datos.filas.map((f) => f.i), cargoBancas).votos;
         const reparto = dhondt(votos, b.total);
         const electos = datos.resumen.bancas?.electos ?? [];
         porLista = listas.map((item, j) => ({ item, n: reparto.reparto[j], electos: ordenar(electos.filter((e) => e.numLista === item.num)) }));
@@ -191,7 +198,12 @@ export function renderBancas(datos, cargo, { fuente = 'trep', nombreFuente = 'TR
             personas.append(grupo);
         }
     }
-    $('notaBancas').textContent = coincide !== null
+    $('notaBancas').textContent = integracion
+        ? `Integración oficial de la Junta según el TSJE (archivo de electos D'Hondt); el D'Hondt de esta página corta en ${fmt.format(Math.round(corte))} votos por banca. ` +
+          (coincide ? 'Comprobado en esta página: da el mismo reparto, banca por banca. '
+              : 'El D\'Hondt calculado en esta página sobre los votos por lista no da el mismo reparto: se muestra la integración oficial. ') +
+          (conPersonas ? 'Las personas electas titulares, con sus votos preferenciales desde 2021, son las del TSJE.' : '')
+        : coincide !== null
         ? `Integración oficial de la Junta según el TREP, con corte en ${fmt.format(Math.round(corte))} votos por banca. ` +
           (coincide ? "Comprobado en esta página: el D'Hondt sobre los votos por lista da el mismo reparto, banca por banca. "
               : "El D'Hondt calculado en esta página sobre los votos por lista no da el mismo reparto: se muestra la integración oficial. ") +

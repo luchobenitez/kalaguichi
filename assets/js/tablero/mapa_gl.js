@@ -164,7 +164,8 @@ export function crearMapaGL(datos, contenedor, opciones = {}) {
     let pidiendoManzanas = null;
     let baseAplicada = null;  // Las capas del mapa base se recorren solo cuando cambia la opción (o el estilo).
     const mesas = posicionesMesas(datos);
-    const geoBase = new URL('geo/', datos.contexto.comun);
+    // La geometría del año (ADR-042: el histórico usa la de municipales 2026, que el manifiesto declara en «geometria»).
+    const geoBase = new URL('geo/', datos.contexto.comunGeo ?? datos.contexto.comun);
     // Asunción tiene su mapa base de calles y su cartografía; los demás distritos (ADR-022 y ADR-026), su límite y el mapa
     // base del país.
     const conCartografia = Boolean(datos.conBarrios);
@@ -180,9 +181,10 @@ export function crearMapaGL(datos, contenedor, opciones = {}) {
         atribucion.title = 'Mapa base: © colaboradores de OpenStreetMap (ODbL), con el esquema y el estilo de Protomaps. Barrios y límite: ' +
             'INE (CNPV 2022). Zonas municipales, río, manzanas y cauces: Municipalidad de Asunción.';
     } else {
-        atribucion.replaceChildren(enlaceOsm(), ' (ODbL) · Protomaps · Límite: INE (CNPV 2022) · Locales: padrón · Resultados: TREP (Justicia Electoral)');
+        const resultados = opciones.resultados ?? 'TREP (Justicia Electoral)';
+        atribucion.replaceChildren(enlaceOsm(), ` (ODbL) · Protomaps · Límite: INE (CNPV 2022) · Locales: ${opciones.locales ?? 'padrón'} · Resultados: ${resultados}`);
         atribucion.title = 'Mapa base: rutas, ríos, arroyos y lugares de OpenStreetMap (ODbL), del build de Protomaps. Límite referencial del ' +
-            'distrito: INE, Cartografía digital del CNPV 2022. Ubicación de los locales: catálogo de locales del padrón.';
+            `distrito: INE, Cartografía digital del CNPV 2022. Ubicación de los locales: ${opciones.locales ?? 'catálogo de locales del padrón'}.`;
     }
 
     // Globo de ayuda al pasar el puntero (texto plano).

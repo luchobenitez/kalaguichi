@@ -78,8 +78,9 @@ export function crear(ctx) {
             cargoDeLasOpciones = ctx.cargo();
             const partidos = [...ctx.delCargo().partidos.values()].sort((a, b) => b.distritos - a.distritos || a.sigla.localeCompare(b.sigla, 'es'));
             const conLocales = distritos().filter((d) => votosDeLista(d, LOCALES) !== null).length;
+            // Las alianzas y los movimientos locales juntos, solo donde se agrupan (municipales; ADR-042: en las generales van con su sigla).
             const opciones = [...partidos.map((p) => [p.sigla, `${p.sigla} · ${p.nombre} (${cantidad(p.distritos, 'distrito', 'distritos')})`]),
-                              [LOCALES, `${NOMBRE_LOCALES}, juntos (${cantidad(conLocales, 'distrito', 'distritos')})`]];
+                              ...(ctx.datos.agruparLocales === false ? [] : [[LOCALES, `${NOMBRE_LOCALES}, juntos (${cantidad(conLocales, 'distrito', 'distritos')})`]])];
             select.replaceChildren(...opciones.map(([id, texto]) => new Option(texto, id)));
         }
         if (![...select.options].some((o) => o.value === estado.partido)) estado.partido = select.options[0].value;
@@ -110,7 +111,7 @@ export function crear(ctx) {
         const votos = votosDeLista(d, estado.partido);
         const debajo = superaMinimo(d, estado.minimo) || !estado.minimo ? '' : ` (no supera ${fmt.format(estado.minimo)})`;
         if (votos === null) return `${base}: sin lista propia de ${etiqueta()} · ${electores}${debajo}`;
-        const candidato = ctx.cargo() === '1' && !esLocales() ? d.listas[estado.partido]?.candidato : null;
+        const candidato = ctx.uninominal() && !esLocales() ? d.listas[estado.partido]?.candidato : null;
         return `${base}: ${etiqueta()}${candidato ? ` (${candidato})` : ''} ${pct.format(pctDeLista(d, estado.partido))} % · ${fmt.format(votos)} votos · ` +
             `${electores}${debajo}`;
     };
@@ -175,7 +176,7 @@ export function crear(ctx) {
     // La columna de la lista: en Intendencia, la candidatura (con las locales, cada sigla con la suya); en la Junta, las
     // siglas de las locales (la de un partido es la misma lista en todos los distritos).
     function columnaLista() {
-        if (ctx.cargo() === '1') return { id: 'lista', titulo: 'Candidatura', texto: true, v: (f) => f.lista };
+        if (ctx.uninominal()) return { id: 'lista', titulo: 'Candidatura', texto: true, v: (f) => f.lista };
         return esLocales() ? { id: 'lista', titulo: 'Listas', texto: true, v: (f) => f.lista } : null;
     }
     const tabla = el('table', 'tabla');
@@ -189,7 +190,7 @@ export function crear(ctx) {
         if (!esLocales()) return d.listas[estado.partido]?.candidato ?? null;
         const locales = Object.entries(d.listas).filter(([, x]) => x.tipo !== 'partido');
         if (!locales.length) return null;
-        return ctx.cargo() === '1' ? locales.map(([s, x]) => (x.candidato ? `${s} · ${x.candidato}` : s)).join('; ') : locales.map(([s]) => s).join(', ');
+        return ctx.uninominal() ? locales.map(([s, x]) => (x.candidato ? `${s} · ${x.candidato}` : s)).join('; ') : locales.map(([s]) => s).join(', ');
     }
 
     function renderTabla() {

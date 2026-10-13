@@ -15,6 +15,7 @@ import { $, el, cantidad, fmt, pct, pct2 } from './util.js';
 import { PARTICIPACION_COLOR, IPM_COLOR, mezclar, escala, cuantiles, opacidadPaso, paleta, itemLeyenda } from './mapa.js';
 import { crearMapaPais } from './mapa_pais.js';
 import { crearPanel, crearBandeja } from './hoja.js';
+import { cargosDe, datoDe } from '../cargos.js';
 
 const CAPAS = ['ganadora', 'participacion', 'ventaja', 'partido', 'ipm'];
 // Pobreza multidimensional por distrito (INE, Censo 2022; ADR-023): el componente y el área.
@@ -33,10 +34,22 @@ const LOCALES = '~locales';
 const NOMBRE_LOCALES = 'Alianzas y movimientos locales';
 // Porcentaje de los votos a listas desde el que un partido tiene fila propia en los resultados del país.
 const MINIMO_FILA = 1;
-// Los dos cargos (ADR-024): '1' Intendencia y '2' Junta Municipal, con la clave del hash y cómo se nombran en una frase.
-const CARGOS = { '1': { clave: 'intendencia', nombre: 'Intendencia', de: 'de la Intendencia', planilla: 'las planillas uninominales del TREP' },
-                 '2': { clave: 'junta', nombre: 'Junta Municipal', de: 'de la Junta', planilla: 'las planillas del TREP de la Junta' } };
-const cargoDe = (clave) => (clave === 'junta' || clave === '2' ? '2' : '1');
+// Los cargos del año (ADR-024 y ADR-042): los declara el manifiesto (cargos.js), con la clave del hash, cómo se nombran en
+// el panel y en una frase, y de dónde salen sus cifras. Municipales 2026: '1' Intendencia y '2' Junta Municipal del TREP.
+let CARGOS = {};
+const EN_EL_PANEL = { junta: 'Junta Municipal', 'junta-departamental': 'Junta departamental', consejo: 'Consejo de la Magistratura' };
+const PLANILLAS_TREP_2026 = { intendencia: 'las planillas uninominales del TREP', junta: 'las planillas del TREP de la Junta' };
+function armarCargos(anio, fuente) {
+    CARGOS = Object.fromEntries(Object.values(cargosDe(anio)).map((c) => [c.dato, {
+        ...c, nombre: EN_EL_PANEL[c.clave] ?? c.etiqueta,
+        planilla: fuente === 'trep' ? PLANILLAS_TREP_2026[c.clave] ?? 'el TREP' : 'el cómputo oficial del TSJE' }]));
+}
+// La clave de los datos de un cargo pedido (por el hash o por los datos); si el año no lo tiene, su primer cargo.
+const cargoDe = (clave) => datoDe(contexto.anio, clave) ?? Object.keys(CARGOS)[0];
+const conBancasDeDistrito = (cargo) => CARGOS[cargo]?.bancas === 'distrito';
+// Con resultados por mesa (los años sin ellos, ADR-042, no tienen actas ni tablero de distrito).
+const porMesa = () => (contexto.anio.nacional?.nivel ?? 'mesa') === 'mesa';
+let fuente = 'trep';
 const TITULOS_CAPA = { participacion: 'Participación por distrito', ventaja: 'Ventaja del primero sobre el segundo',
                        partido: 'Votos de un partido, por distrito', ipm: 'Pobreza multidimensional por distrito' };
 // En la leyenda, el grupo verde (en los dos cargos).
@@ -73,13 +86,18 @@ let ipm = null;
 let ipmPor = new Map();
 let ipmEnCurso = null;
 let ipmFallo = false;
-const estado = { cargo: '1', departamento: null, elegido: null, capa: 'ganadora', partido: 'ANR', ipm: 'H', area: 'total', opacidad: OPACIDAD_POR_OMISION,
+const estado = { cargo: null, departamento: null, elegido: null, capa: 'ganadora', partido: 'ANR', ipm: 'H', area: 'total', opacidad: OPACIDAD_POR_OMISION,
                  ver: { departamentos: true, distritos: true, nombres: true, base: true }, panel: 'resultados', bandeja: null, orden: null,
                  ordenRanking: 'desc', filtro: '' };
 
 // --- Modelo -------------------------------------------------------------------------------------------------------
 
-const grupoDe = (lista, sigla) => (lista.tipo === 'partido' ? sigla : LOCALES);
+// Las alianzas y los movimientos van juntos («locales») en las municipales y las complementarias, donde cada uno es de un
+// distrito; en las demás elecciones (generales, ADR-042) son nacionales o departamentales: cada uno con su sigla.
+const agruparLocales = () => ['municipales', 'complementarias'].includes(contexto.eleccion.id);
+const grupoDe = (lista, sigla) => (lista.tipo === 'empate' ? EMPATE : lista.tipo === 'partido' || !agruparLocales() ? sigla : LOCALES);
+// La sigla de la ganadora para mostrar (un empate no tiene sigla).
+const siglaGanadora = (d) => (d.ganadora === EMPATE ? 'empate' : d.ganadora);
 const enFiltro = (d) => estado.departamento === null || d.departamento === estado.departamento;
 const visibles = () => distritos.filter(enFiltro);
 const nombreDep = (codigo) => porDep.get(codigo)?.nombre ?? '';
@@ -88,6 +106,7 @@ const pctDe = (d, sigla) => (d.votos_listas && d.listas[sigla] ? (100 * d.votos[
 const tramo = (v) => (v < TRAMOS_VENTAJA[0] ? 0 : v < TRAMOS_VENTAJA[1] ? 1 : 2);
 // Valor del componente en el área: sin dato (Asunción, un área sin población) o intensidad sin personas pobres (H = 0), null.
 const ipmDe = (d, k = estado.ipm, area = estado.area) => {
+    if (d.abarca) return null;   // ADR-043: el IPM es de los distritos de hoy y este abarcaba varios
     const x = ipmPor.get(d.clave);
     const v = x?.[k]?.[area];
     return v === null || v === undefined || (k === 'A' && x.H[area] === 0) ? null : v;
@@ -96,7 +115,13 @@ const formatoIpm = (k = estado.ipm) => (k === 'A' ? pct : pct2);
 const indicadorIpm = (k = estado.ipm) => ipm.indicadores.find((x) => x.id === k);
 // Por qué un distrito no tiene el valor en la capa del IPM.
 const sinIpm = (d) => (d.clave === ASUNCION ? 'su IPM es por barrio (en su tablero)'
+    : d.abarca ? `abarcaba ${cantidad(d.abarca.length, 'distrito', 'distritos')} de hoy (el IPM es por distrito de hoy)`
     : ipmPor.get(d.clave)?.H?.[estado.area] === null ? `sin población ${estado.area}` : 'sin dato');
+// Los distritos de hoy que abarcaba un distrito de entonces (ADR-043), sin el suyo.
+const otrosDeHoy = (d) => {
+    const otros = (d.abarca ?? []).slice(1).map((x) => x.nombre);
+    return otros.length > 1 ? `${otros.slice(0, -1).join(', ')} y ${otros.at(-1)}` : otros[0] ?? '';
+};
 
 function cargarIpm() {
     ipmEnCurso ??= archivoNacional(contexto.eleccion.id, contexto.anio.anio, 'indicadores_distritos.json').then((datos) => {
@@ -111,31 +136,42 @@ function cargarIpm() {
     return ipmEnCurso;
 }
 const opacidad = () => estado.opacidad / 100;
-const tableroDisponible = (clave) => clave === ASUNCION || TABLERO_DE_DISTRITO;
+// El tablero mesa por mesa existe con resultados por mesa y la carpeta del distrito (ADR-042: en el histórico por distrito,
+// no).
+const tableroDisponible = (clave) => porMesa() && (clave === ASUNCION || TABLERO_DE_DISTRITO) && porClave.get(clave)?.carpeta != null;
 const enlaceTablero = (clave) => hashDe({ distrito: clave }, { cargoDisponible: (c) => cargosDelPais().includes(c) || clave === ASUNCION,
+                                                              cargoPorOmision: cargosDelPais().includes('junta') ? 'junta' : cargosDelPais()[0],
                                                               eleccion: contexto.eleccion.id, anio: contexto.anio.anio, cargo: CARGOS[estado.cargo].clave });
 // Los cargos que el manifiesto declara para el país (ADR-024).
-const cargosDelPais = () => contexto.anio.nacional?.cargos ?? ['junta'];
+const cargosDelPais = () => contexto.anio.nacional?.cargos ?? contexto.anio.cargos;
+
+// La lista que gana un distrito; sin ganadora (un empate en el primer lugar), una lista ficticia en el gris de «otro».
+const EMPATE = '~empate';
+const ganaDe = (x) => x.listas[x.ganadora] ?? { nombre: 'Empate en el primer lugar', color: colores?.otro ?? '#94A3B8', tipo: 'empate' };
 
 function preparar(datos) {
     indice = datos;
     porDep = new Map(datos.departamentos.map((d) => [d.codigo, d]));
-    // La Junta: los campos de cada registro; la Intendencia: su bloque, con los mismos nombres (las bancas son de la Junta).
-    const junta = datos.distritos.map((d) => ({ ...d, gana: d.listas[d.ganadora] }));
-    const intendencia = datos.distritos.filter((d) => d.intendencia).map((d) => {
-        const i = d.intendencia;
-        return { ...d, votos: i.votos, votos_listas: i.votos_listas, blancos: i.blancos, nulos: i.nulos, nocomputados: i.nocomputados, emitidos: i.emitidos,
-                 participacion: i.participacion, ganadora: i.ganadora, segunda: i.segunda, pct_ganadora: i.pct_ganadora, ventaja: i.ventaja, listas: i.listas,
-                 mesas: { esperadas: d.mesas.esperadas, con_acta: i.mesas.con_acta },
-                 electores: { padron: d.electores.padron, en_mesas_con_acta: i.electores_en_mesas_con_acta }, gana: i.listas[i.ganadora] };
-    });
+    // Cada cargo (índice versión 2, ADR-042; datos.js convierte el de municipales 2026): un registro por distrito con los
+    // campos de su bloque. Los electores: los de las mesas con acta (TREP 2026) o, en el histórico, el padrón del TSJE; la
+    // participación, votos emitidos sobre esos electores.
     porCargo = {};
-    for (const [cargo, lista] of [['2', junta], ['1', intendencia]]) {
+    for (const cargo of Object.keys(CARGOS)) {
+        const lista = datos.distritos.filter((d) => d.cargos?.[cargo]).map((d) => {
+            const x = d.cargos[cargo];
+            const padron = d.electores?.padron ?? 0;
+            const enMesas = x.electores_en_mesas_con_acta ?? d.electores?.en_mesas_con_acta ?? padron;
+            return { ...d, ...x, nocomputados: x.nocomputados ?? 0, locales: d.locales ?? 0,
+                     mesas: { esperadas: d.mesas?.esperadas ?? 0, con_acta: x.mesas ?? d.mesas?.con_acta ?? 0 },
+                     electores: { padron, en_mesas_con_acta: enMesas ?? 0 },
+                     participacion: x.participacion ?? (enMesas ? x.emitidos / enMesas : null),
+                     bancas: x.bancas ?? { total: 0, reparto: {} }, ganadora: x.ganadora ?? EMPATE, gana: ganaDe(x) };
+        });
         if (!lista.length) continue;
         const delCargo = new Map();
         for (const d of lista) {
             for (const [sigla, x] of Object.entries(d.listas)) {
-                if (x.tipo !== 'partido') continue;
+                if (x.tipo !== 'partido' && agruparLocales()) continue;
                 const p = delCargo.get(sigla) ?? { sigla, nombre: x.nombre, color: colores?.partidos?.[sigla] ?? x.color, distritos: 0 };
                 p.distritos += 1;
                 delCargo.set(sigla, p);
@@ -146,17 +182,17 @@ function preparar(datos) {
     usarCargo(estado.cargo);
 }
 
-// Cambia los distritos que se muestran a los del cargo (el que haya, si falta).
+// Cambia los distritos que se muestran a los del cargo (el primero del año, si falta).
 function usarCargo(cargo) {
-    estado.cargo = porCargo[cargo] ? cargo : porCargo['1'] ? '1' : '2';
+    estado.cargo = porCargo[cargo] ? cargo : Object.keys(porCargo)[0];
     ({ distritos, porClave, partidos } = porCargo[estado.cargo]);
     claves = distritos.map((d) => d.clave);
 }
 
 // Suma de un grupo de distritos (el país o un departamento): totales y votos, bancas y distritos ganados por partido, con
-// las alianzas y los movimientos locales juntos.
+// las alianzas y los movimientos locales juntos. Las bancas, solo del cargo que las reparte en el distrito (la Junta).
 function agregar(lista, cargo = estado.cargo) {
-    const conBancas = cargo === '2';
+    const conBancas = conBancasDeDistrito(cargo);
     const colorPartido = (sigla) => porCargo[cargo].partidos.get(sigla)?.color;
     const t = { distritos: lista.length, mesas: 0, esperadas: 0, locales: 0, electores: 0, padron: 0, emitidos: 0, listas: 0, blancos: 0,
                 nulos: 0, nocomputados: 0, bancas: 0 };
@@ -279,10 +315,11 @@ function renderResultados() {
     }
     const t = agregar(visibles());
     const pais = estado.departamento === null;
-    const junta = estado.cargo === '2';
+    const junta = conBancasDeDistrito(estado.cargo);
     $('eyebrowTotales').textContent = `${pais ? 'Todo el país' : 'Departamento'} · ${CARGOS[estado.cargo].nombre}`;
     $('tituloTotales').textContent = pais ? contexto.anio.nacional?.nombre ?? 'Paraguay' : nombreDep(estado.departamento);
-    $('metaTotales').textContent = `${cantidad(t.distritos, 'distrito', 'distritos')} · ${fmt.format(t.mesas)} de ${fmt.format(t.esperadas)} mesas con acta` +
+    $('metaTotales').textContent = `${cantidad(t.distritos, 'distrito', 'distritos')} · ` +
+        (porMesa() ? `${fmt.format(t.mesas)} de ${fmt.format(t.esperadas)} mesas con acta` : 'resultados por distrito') +
         (junta ? ` · ${fmt.format(t.bancas)} bancas` : '');
     $('abrirDistrito').hidden = true;
     $('limpiarSeleccion').hidden = pais;
@@ -314,18 +351,41 @@ function renderResultados() {
     $('diferencia').replaceChildren();
     renderOtros(t);
     const plra = t.grupos.find((g) => g.sigla === 'PLRA');
+    const soloIntendencia = CARGOS[estado.cargo].clave === 'intendencia' ? ' y las listas solo de Intendencia' : '';
     $('notaResultados').textContent = `Votos ${CARGOS[estado.cargo].de} sumados por partido en ${pais ? 'los distritos del país' : `los distritos de ${nombreDep(estado.departamento)}`}. ` +
-        `Las alianzas y los movimientos locales (cada uno de un solo distrito)${junta ? '' : ' y las listas solo de Intendencia'} van juntos, en verde. ` +
+        `Las alianzas y los movimientos locales${contexto.eleccion.id === 'municipales' ? ' (cada uno de un solo distrito)' : ''}${soloIntendencia} van juntos, en verde. ` +
         (plra ? `Un partido puede ir dentro de una alianza donde no presenta lista propia: el PLRA la presenta en ${fmt.format(plra.distritos)} de ${fmt.format(t.distritos)} distritos. ` : '') +
-        'Porcentajes sobre los votos a listas.';
+        'Porcentajes sobre los votos a listas.' + textoFueraDelMapa();
+}
+
+// Los votos que no están en el mapa (ADR-042): los del exterior (generales 2013-2023) y los de las unidades electorales de
+// 1996-1998 que no son un distrito actual; se dicen en la nota del país, no se suman a ningún distrito. Las gobernaciones
+// de las complementarias (2012 y 2023), que el TSJE da solo por departamento, se dicen en el país y en su departamento.
+function textoFueraDelMapa() {
+    const fuera = indice.fuera_del_mapa ?? {};
+    const departamentales = (fuera.departamentales ?? []).filter((x) => estado.departamento === null || x.dep === estado.departamento)
+        .flatMap((x) => Object.values(x.cargos).map((c) => {
+            const primeras = Object.entries(c.votos).sort((a, b) => b[1] - a[1]).slice(0, 2);
+            return ` Además, la elección de ${c.nombre} de ${x.departamento_nombre} del ${fechaLarga(x.fecha)}, con resultados solo por ` +
+                `departamento: ${primeras.map(([s, v]) => `${s} ${fmt.format(v)} votos (${pct.format((100 * v) / c.votos_listas)} %)`).join(', ')}.`;
+        })).join('');
+    if (estado.departamento !== null) return departamentales;
+    const votos = (lista) => lista.reduce((s, x) => s + (x.cargos?.[estado.cargo]?.votos_listas ?? 0), 0);
+    const exterior = votos(fuera.exterior ?? []);
+    const sinDistrito = votos(fuera.sin_distrito ?? []);
+    return (exterior ? ` Fuera del mapa: ${fmt.format(exterior)} votos a listas del exterior (${(fuera.exterior ?? []).map((x) => x.pais).join(', ')}).` : '') +
+        (sinDistrito ? ` Fuera del mapa: ${fmt.format(sinDistrito)} votos a listas de ${cantidad((fuera.sin_distrito ?? []).length, 'unidad electoral', 'unidades electorales')} ` +
+                       'de entonces que no son un distrito actual (Fuente).' : '') + departamentales;
 }
 
 function renderDistrito(d) {
-    const junta = estado.cargo === '2';
+    const junta = conBancasDeDistrito(estado.cargo);
+    const uninominal = CARGOS[estado.cargo].tipo === 'uninominal';
     $('eyebrowTotales').textContent = `Distrito · ${d.departamento_nombre} · ${CARGOS[estado.cargo].nombre}`;
     $('tituloTotales').textContent = d.nombre;
-    $('metaTotales').textContent = `${fmt.format(d.mesas.con_acta)} de ${fmt.format(d.mesas.esperadas)} mesas con acta · ${cantidad(d.locales, 'local', 'locales')}` +
-        (junta ? ` · ${cantidad(d.bancas.total, 'banca', 'bancas')}` : ` · ${cantidad(Object.keys(d.votos).length, 'candidatura', 'candidaturas')}`);
+    $('metaTotales').textContent = (porMesa() ? `${fmt.format(d.mesas.con_acta)} de ${fmt.format(d.mesas.esperadas)} mesas con acta · ${cantidad(d.locales, 'local', 'locales')}`
+        : `${d.fecha ? `Elección del ${fechaLarga(d.fecha)}` : 'Resultados por distrito'}`) +
+        (junta ? ` · ${cantidad(d.bancas.total, 'banca', 'bancas')}` : ` · ${cantidad(Object.keys(d.votos).length, uninominal ? 'candidatura' : 'lista', uninominal ? 'candidaturas' : 'listas')}`);
     const abrir = $('abrirDistrito');
     abrir.hidden = !tableroDisponible(d.clave);
     abrir.href = enlaceTablero(d.clave);
@@ -334,17 +394,22 @@ function renderDistrito(d) {
     $('limpiarSeleccion').textContent = estado.departamento === null ? 'Ver todo el país' : `Ver ${nombreDep(estado.departamento)}`;
     $('ganados').hidden = true;
     const orden = Object.keys(d.votos).sort((a, b) => d.votos[b] - d.votos[a]);
+    const deLista = (x) => (x.numLista ? `Lista ${x.numLista}` : x.nombre);
     $('listaResultados').replaceChildren(...orden.map((s) => {
         const x = d.listas[s];
-        // Intendencia: el nombre de la candidatura y, al pie, su lista; Junta: la lista y sus bancas.
-        return filaResultado({ sigla: s.slice(0, 5), color: x.color, nombre: junta ? x.nombre : x.candidato ?? x.nombre, valor: `${fmt.format(d.votos[s])} votos`,
+        // Los cargos uninominales (Intendencia, Presidencia, Gobernación): el nombre de la candidatura y, al pie, su lista; la
+        // Junta: la lista y sus bancas; los demás plurinominales: la lista.
+        return filaResultado({ sigla: s.slice(0, 5), color: x.color, nombre: uninominal ? x.candidato ?? x.nombre : x.nombre, valor: `${fmt.format(d.votos[s])} votos`,
             parte: d.votos[s], total: d.votos_listas,
-            pie: junta ? `Lista ${x.numLista} · ${cantidad(d.bancas.reparto[s] ?? 0, 'banca', 'bancas')}` : `${x.nombre} · lista ${x.numLista}` });
+            pie: junta ? `${deLista(x)} · ${cantidad(d.bancas.reparto[s] ?? 0, 'banca', 'bancas')}`
+                : uninominal ? `${x.nombre}${x.numLista ? ` · lista ${x.numLista}` : ''}` : x.numLista ? `Lista ${x.numLista}` : '' });
     }));
     renderParticipacion(d.emitidos, d.electores.en_mesas_con_acta);
     const dif = $('diferencia');
     dif.replaceChildren();
-    if (d.segunda) {
+    if (d.ganadora === EMPATE) {
+        dif.append(el('span', 'diferencia__titulo', 'Diferencia entre las dos más votadas'), el('strong', 'diferencia__valor', 'Empate en el primer lugar'));
+    } else if (d.segunda) {
         const votos = d.votos[d.ganadora] - d.votos[d.segunda];
         dif.append(el('span', 'diferencia__titulo', 'Diferencia entre las dos más votadas'),
             el('strong', 'diferencia__valor', `${fmt.format(votos)} votos · ${pct.format(d.ventaja)} puntos`),
@@ -352,16 +417,21 @@ function renderDistrito(d) {
     }
     renderOtros({ listas: d.votos_listas, blancos: d.blancos, nulos: d.nulos, nocomputados: d.nocomputados, emitidos: d.emitidos,
                   electores: d.electores.en_mesas_con_acta });
-    const faltan = d.mesas.esperadas - d.mesas.con_acta;
-    $('notaResultados').textContent = (faltan ? `Falta el acta de ${cantidad(faltan, 'mesa', 'mesas')}. ` : '') +
-        (d.clave === ASUNCION ? 'Asunción tiene además los resultados por mesa, local, barrio y zona en su tablero.'
-            : `Resultados ${CARGOS[estado.cargo].de} del distrito según ${CARGOS[estado.cargo].planilla}; mesa por mesa, en su tablero.`) +
+    const faltan = porMesa() ? d.mesas.esperadas - d.mesas.con_acta : 0;
+    $('notaResultados').textContent = (faltan > 0 ? `Falta el acta de ${cantidad(faltan, 'mesa', 'mesas')}. ` : '') +
+        (!porMesa() ? `Resultados ${CARGOS[estado.cargo].de} del distrito según ${CARGOS[estado.cargo].planilla} (el TSJE no publica las mesas de esta elección).`
+            : d.clave === ASUNCION ? 'Asunción tiene además los resultados por mesa, local, barrio y zona en su tablero.'
+                : `Resultados ${CARGOS[estado.cargo].de} del distrito según ${CARGOS[estado.cargo].planilla}; mesa por mesa, en su tablero.`) +
+        (d.nombre_tsje && contexto.anio.geometria && normalizar(d.nombre_tsje).replace(/[^a-z0-9]/g, '') !== normalizar(d.nombre).replace(/[^a-z0-9]/g, '')
+            ? ` En esta elección, el TSJE lo llama ${d.nombre_tsje}.` : '') +
+        (d.abarca ? ` En ${contexto.anio.anio}, ${d.nombre} abarcaba también lo que hoy son ${otrosDeHoy(d)}: el mapa muestra el distrito de entonces.` : '') +
         (estado.capa === 'ipm' && ipm ? ` ${textoIpmDistrito(d)}` : '');
 }
 
 // El IPM del distrito (total del distrito), en la nota de sus resultados.
 function textoIpmDistrito(d) {
     if (d.clave === ASUNCION) return 'Pobreza multidimensional: el INE la publica por barrio para Asunción (capa del IPM en su tablero).';
+    if (d.abarca) return 'Pobreza multidimensional: el IPM del INE (Censo 2022) es de los distritos de hoy, y este abarcaba varios.';
     const valor = (k) => {
         const v = ipmDe(d, k, 'total');
         return v === null ? 'sin dato' : `${formatoIpm(k).format(v)} %`;
@@ -371,12 +441,79 @@ function textoIpmDistrito(d) {
 
 // --- Panel: bancas --------------------------------------------------------------------------------------------------
 
+// El cargo de las bancas (ADR-042): la Junta Municipal en las municipales (sea cual sea el cargo de la barra); en las
+// generales, el cargo de la barra si reparte bancas (Senado y Parlasur en el país, Diputados y Junta departamental en cada
+// departamento) o, con un cargo uninominal, el primero que las reparte. null: la elección no tiene bancas que mostrar.
+function cargoDeBancas() {
+    const delDistrito = Object.keys(CARGOS).find((c) => conBancasDeDistrito(c) && porCargo[c]);
+    if (delDistrito) return delDistrito;
+    if (CARGOS[estado.cargo]?.bancas && porCargo[estado.cargo]) return estado.cargo;
+    return Object.keys(CARGOS).find((c) => CARGOS[c].bancas && porCargo[c]) ?? null;
+}
+
+// Las personas electas (electos.json, ADR-042): se leen la primera vez que se muestran; solo nombres (el sexo y la edad
+// van sumados en el archivo).
+let electos = null;
+let electosEnCurso = null;
+function cargarElectos() {
+    electosEnCurso ??= archivoNacional(contexto.eleccion.id, contexto.anio.anio, 'electos.json').then((datos) => {
+        const i = Object.fromEntries(datos.campos.map((c, k) => [c, k]));
+        electos = { ...datos, filas: datos.filas.map((f) => Object.fromEntries(Object.entries(i).map(([c, k]) => [c, f[k]]))) };
+        renderBancas();
+        return true;
+    }, (error) => { console.warn(error); return false; });
+    return electosEnCurso;
+}
+const conElectos = () => Boolean(contexto.anio.geometria);
+// Los nombres de las personas electas titulares de un cargo en un ámbito, por sigla, en su orden.
+function electosDe(cargo, ambito, clave) {
+    const porSigla = new Map();
+    for (const e of electos?.filas ?? []) {
+        if (e.cargo !== cargo || !e.titular || e.ambito !== ambito || (e.clave ?? null) !== (clave ?? null)) continue;
+        if (!porSigla.has(e.sigla)) porSigla.set(e.sigla, []);
+        porSigla.get(e.sigla).push(e);
+    }
+    for (const lista of porSigla.values()) lista.sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0));
+    return porSigla;
+}
+// Bajo la lista de bancas: las personas electas de cada lista (como en el tablero de un distrito).
+function listarElectos(porSigla, orden, color) {
+    const nodos = [];
+    for (const sigla of orden) {
+        const personas = porSigla.get(sigla) ?? [];
+        if (!personas.length) continue;
+        const grupo = el('div', 'bancas__lista');
+        const encabezado = el('h3', null, `${sigla} · ${cantidad(personas.length, 'banca', 'bancas')}`);
+        encabezado.style.borderColor = color(sigla);
+        const ol = el('ol');
+        for (const e of personas) ol.append(el('li', null, e.votos_preferentes ? `${e.persona} (${fmt.format(e.votos_preferentes)} preferenciales)` : e.persona ?? 'Sin nombre en la fuente'));
+        grupo.append(encabezado, ol);
+        nodos.push(grupo);
+    }
+    return nodos;
+}
+
 function renderBancas() {
-    // Las bancas son de la Junta, sea cual sea el cargo de la barra.
-    const J = porCargo['2'];
+    const c = cargoDeBancas();
+    if (c === null) {
+        $('eyebrowBancas').textContent = 'Bancas';
+        $('tituloBancas').textContent = 'Esta elección no reparte bancas por lista';
+        $('metaBancas').textContent = '';
+        $('barraBancas').replaceChildren();
+        $('listaBancas').replaceChildren();
+        $('notaBancas').textContent = 'Las cifras de esta elección van por lista en la pestaña Resultados.';
+        return;
+    }
+    if (!conBancasDeDistrito(c)) {
+        renderBancasFueraDelDistrito(c);
+        return;
+    }
+    if (conElectos() && !electos) cargarElectos();
+    const J = porCargo[c];
     const d = estado.elegido ? J.porClave.get(estado.elegido) : null;
-    const nota = 'Integración oficial de cada Junta Municipal según el TREP; el D\'Hondt sobre los votos por lista da el mismo reparto en los ' +
-        `${fmt.format(distritos.length)} distritos.`;
+    const nota = (fuente === 'trep'
+        ? 'Integración oficial de cada Junta Municipal según el TREP; el D\'Hondt sobre los votos por lista da el mismo reparto en los '
+        : 'Integración oficial de cada Junta Municipal según el TSJE (archivo de electos D\'Hondt) en los ') + `${fmt.format(J.distritos.length)} distritos.`;
     if (d) {
         const orden = Object.keys(d.bancas.reparto).sort((a, b) => d.bancas.reparto[b] - d.bancas.reparto[a] || d.votos[b] - d.votos[a]);
         $('eyebrowBancas').textContent = `Distrito · ${d.departamento_nombre}`;
@@ -384,13 +521,15 @@ function renderBancas() {
         $('metaBancas').textContent = `${cantidad(d.bancas.total, 'banca', 'bancas')} · mayoría con ${fmt.format(Math.floor(d.bancas.total / 2) + 1)}`;
         apilada($('barraBancas'), 'Reparto', orden.map((s) => ({ clave: s, texto: s, color: d.listas[s].color, n: d.bancas.reparto[s] })), d.bancas.total,
             ['banca', 'bancas']);
-        $('listaBancas').replaceChildren(...orden.map((s) => filaResultado({ sigla: s.slice(0, 5), color: d.listas[s].color, nombre: d.listas[s].nombre,
+        const color = (s) => d.listas[s]?.color ?? colores.otro;
+        $('listaBancas').replaceChildren(...orden.map((s) => filaResultado({ sigla: s.slice(0, 5), color: color(s), nombre: d.listas[s]?.nombre ?? s,
             valor: cantidad(d.bancas.reparto[s], 'banca', 'bancas'), parte: d.bancas.reparto[s], total: d.bancas.total,
-            pie: `${fmt.format(d.votos[s])} votos (${pct.format(pctDe(d, s))} %)` })));
-        $('notaBancas').textContent = nota;
+            pie: d.votos[s] === undefined ? '' : `${fmt.format(d.votos[s])} votos (${pct.format(pctDe(d, s))} %)` })),
+            ...(electos ? listarElectos(electosDe(c, 'distrito', d.clave), orden, color) : []));
+        $('notaBancas').textContent = nota + (electos ? ' Debajo, las personas electas titulares según el TSJE.' : '');
         return;
     }
-    const t = agregar(J.distritos.filter(enFiltro), '2');
+    const t = agregar(J.distritos.filter(enFiltro), c);
     const pais = estado.departamento === null;
     const conBancas = t.grupos.filter((g) => g.bancas).sort((a, b) => b.bancas - a.bancas);
     $('eyebrowBancas').textContent = pais ? 'Todo el país · reparto oficial' : `${nombreDep(estado.departamento)} · reparto oficial`;
@@ -401,7 +540,52 @@ function renderBancas() {
     $('listaBancas').replaceChildren(...conBancas.map((g) => filaResultado({ sigla: textoSigla(g), color: g.color,
         nombre: g.clave === LOCALES ? NOMBRE_LOCALES : g.nombre, valor: cantidad(g.bancas, 'banca', 'bancas'), parte: g.bancas, total: t.bancas,
         pie: `En ${cantidad(g.distritos, 'distrito', 'distritos')}` })));
-    $('notaBancas').textContent = `${nota} Las alianzas y los movimientos locales van juntos.`;
+    $('notaBancas').textContent = `${nota} Las alianzas y los movimientos locales van juntos.${pais ? textoSexoElectos(c) : ''}`;
+}
+
+// Sexo de las personas electas titulares de un cargo en todo el país, solo sumado (decisión del usuario, ADR-042).
+function textoSexoElectos(cargo) {
+    const s = electos?.totales?.[cargo]?.titulares?.por_sexo;
+    if (!s) return '';
+    return ` Titulares electos en todo el país: ${cantidad(s.mujeres ?? 0, 'mujer', 'mujeres')} y ${cantidad(s.hombres ?? 0, 'hombre', 'hombres')}` +
+        `${s.sin_dato ? ` (${fmt.format(s.sin_dato)} sin dato)` : ''}, según el TSJE.`;
+}
+
+// Las bancas que se reparten en el país (Senado y Parlasur) o en cada departamento (Diputados y Junta departamental), según
+// el TSJE (electos D'Hondt, ADR-042): en el país, las del país o la suma de los departamentos; con un departamento o un
+// distrito elegido, las de su departamento, con los nombres de las personas electas titulares.
+function renderBancasFueraDelDistrito(c) {
+    if (conElectos() && !electos) cargarElectos();
+    const info = CARGOS[c];
+    const elegido = estado.elegido ? porCargo[c].porClave.get(estado.elegido) : null;
+    const dep = info.bancas === 'departamento' ? elegido?.departamento ?? estado.departamento : null;
+    const b = dep === null ? indice.bancas?.[c] : porDep.get(dep)?.bancas?.[c];
+    const datosDe = new Map();
+    for (const d of porCargo[c].distritos) for (const [s, x] of Object.entries(d.listas)) if (!datosDe.has(s)) datosDe.set(s, x);
+    const color = (s) => (datosDe.get(s)?.tipo === 'partido' ? colores.partidos?.[s] ?? datosDe.get(s).color : datosDe.has(s) ? colores.verdes[0] : colores.otro);
+    $('eyebrowBancas').textContent = `${dep === null ? 'Todo el país' : nombreDep(dep)} · reparto oficial`;
+    $('tituloBancas').textContent = `Bancas ${info.de}`;
+    if (!b) {
+        $('metaBancas').textContent = '';
+        $('barraBancas').replaceChildren();
+        $('listaBancas').replaceChildren();
+        $('notaBancas').textContent = `El archivo de electos del TSJE no trae las bancas ${info.de} ${dep === null ? 'de esta elección' : `de ${nombreDep(dep)}`}.`;
+        return;
+    }
+    const orden = Object.keys(b.reparto).sort((x, y) => b.reparto[y] - b.reparto[x] || x.localeCompare(y));
+    const departamentos = indice.departamentos.filter((x) => x.bancas?.[c]).length;
+    $('metaBancas').textContent = `${cantidad(b.total, 'banca', 'bancas')}${info.bancas === 'departamento' && dep === null ? ` en ${cantidad(departamentos, 'departamento', 'departamentos')}` : ''} · mayoría con ` +
+        `${fmt.format(Math.floor(b.total / 2) + 1)}`;
+    apilada($('barraBancas'), 'Reparto', orden.map((s) => ({ clave: s, texto: s, color: color(s), n: b.reparto[s] })), b.total, ['banca', 'bancas']);
+    const filas = orden.map((s) => filaResultado({ sigla: s.slice(0, 5), color: color(s), nombre: datosDe.get(s)?.nombre ?? s,
+        valor: cantidad(b.reparto[s], 'banca', 'bancas'), parte: b.reparto[s], total: b.total, pie: '' }));
+    const conNombres = electos && (info.bancas === 'nacional' || dep !== null);
+    const personas = conNombres ? electosDe(c, info.bancas === 'nacional' ? 'nacional' : 'departamento', info.bancas === 'nacional' ? null : String(dep)) : null;
+    $('listaBancas').replaceChildren(...filas, ...(personas ? listarElectos(personas, orden, color) : []));
+    $('notaBancas').textContent = `Integración oficial ${info.de} según el TSJE (archivo de electos D'Hondt)` +
+        (info.bancas === 'departamento' ? '; cada departamento reparte las suyas.' : '.') +
+        (info.bancas === 'departamento' && dep === null ? ' Elegí un departamento para ver sus bancas y las personas electas.' : conNombres ? ' Debajo, las personas electas titulares.' : '') +
+        (dep === null ? textoSexoElectos(c) : '');
 }
 
 // --- Panel: filtros (departamento, distrito y búsqueda) --------------------------------------------------------------
@@ -521,46 +705,84 @@ function itemRelleno(color, texto, extra = 'leyenda__muestra--escala') {
     return li;
 }
 
+// Pinta los distritos de la elección con fn y, en gris, los que no tienen resultados en ella (ADR-042: los creados
+// después, los que no tuvieron elección complementaria ese año o no tienen mesas del Consejo); devuelve cuántos son.
+let todas = [];              // Las claves de la geometría (los 263 distritos actuales).
+let nombreGeo = new Map();   // Su nombre, para los que no tienen resultados.
+let abarcanGeo = 0;          // Los distritos de entonces que abarcaban varios de hoy (ADR-043), con o sin resultados.
+function pintar(fn) {
+    const gris = paleta().sinDatos;
+    let sin = 0;
+    mapa.pintar(todas.length ? todas : claves, (clave) => {
+        if (porClave.has(clave)) return fn(clave);
+        sin += 1;
+        return { color: gris, atenuado: false };
+    });
+    return sin;
+}
+const textoSinResultados = () => ({ complementarias: `Sin elección complementaria en ${contexto.anio.anio}`, 'consejo-magistratura': 'Sin mesas de esta elección' }[contexto.eleccion.id]
+    ?? `Sin resultados ${CARGOS[estado.cargo].de} en ${contexto.anio.anio}`);
+// Por qué un distrito del mapa no tiene resultados del cargo: no lo elige (Asunción no elige Gobernador) o existía y no votó
+// en esa elección (ADR-043: los demás distritos de hoy van dentro del distrito de entonces).
+function motivoSinResultados(clave) {
+    const sin = (indice?.sin_resultados ?? []).find((x) => x.clave === clave);
+    if (sin) return sin.motivo;
+    if (indice?.distritos?.some((d) => d.clave === clave && d.cargos && Object.keys(d.cargos).length)) return `no elige ${CARGOS[estado.cargo].nombre.toLowerCase()}.`;
+    return null;
+}
+function itemSinResultados(leyenda, sin) {
+    if (sin) leyenda.append(itemRelleno(paleta().sinDatos, `${textoSinResultados()}: ${cantidad(sin, 'distrito', 'distritos')}`));
+}
+
 function pintarGanadora(leyenda) {
     const conteo = new Map();
-    mapa.pintar(claves, (clave) => {
+    const sin = pintar((clave) => {
         const d = porClave.get(clave);
         if (enFiltro(d)) {
             const g = grupoDe(d.gana, d.ganadora);
-            const c = conteo.get(g) ?? { n: 0, color: g === LOCALES ? colores.verdes[0] : d.gana.color, texto: g === LOCALES ? LOCAL_EN_LEYENDA : `${d.ganadora} más votada` };
+            const c = conteo.get(g) ?? { n: 0, color: g === LOCALES ? colores.verdes[0] : d.gana.color,
+                                         texto: g === LOCALES ? LOCAL_EN_LEYENDA : g === EMPATE ? 'Empate en el primer lugar' : `${d.ganadora} más votada` };
             c.n += 1;
             conteo.set(g, c);
         }
         return { color: d.gana.color, atenuado: !enFiltro(d) };
     });
     for (const c of [...conteo.values()].sort((a, b) => b.n - a.n)) leyenda.append(itemRelleno(c.color, `${c.texto}: ${cantidad(c.n, 'distrito', 'distritos')}`));
+    itemSinResultados(leyenda, sin);
     $('notaCapa').textContent = `Cada distrito, con el color de la lista más votada ${CARGOS[estado.cargo].de}: los partidos con su color y las alianzas y los ` +
-        `movimientos locales${estado.cargo === '1' ? ' (y las listas solo de Intendencia)' : ''} en verde (tonos distintos si un distrito tiene más de ` +
+        `movimientos locales${CARGOS[estado.cargo].clave === 'intendencia' ? ' (y las listas solo de Intendencia)' : ''} en verde (tonos distintos si un distrito tiene más de ` +
         'uno). Tocá un distrito para ver sus cifras.';
 }
 
 function pintarParticipacion(leyenda) {
     const valores = visibles().map(participacionDe).filter((v) => v !== null);
-    const { cortes, clase } = escala(valores);
+    const { cortes, clase } = escala(valores.length ? valores : [0]);
     const paso = (v) => Math.max(0, Math.min(4, clase(v)));
-    mapa.pintar(claves, (clave) => {
+    const sin = pintar((clave) => {
         const d = porClave.get(clave);
         const v = participacionDe(d);
         return { color: v === null ? null : mezclar(PARTICIPACION_COLOR, opacidadPaso(paso(v))), atenuado: !enFiltro(d) };
     });
-    for (let k = 0; k < cortes.length - 1; k++) leyenda.append(itemRelleno(mezclar(PARTICIPACION_COLOR, opacidadPaso(k)), `${pct.format(cortes[k])} a ${pct.format(cortes[k + 1])} %`));
-    $('notaCapa').textContent = 'Votos emitidos sobre electores habilitados de las mesas con acta (recuento agregado del padrón por mesa), por distrito, en ' +
-        'cinco tramos de igual ancho entre el menor y el mayor de los distritos a la vista. Tocá un distrito para ver sus cifras.';
+    if (valores.length) {
+        for (let k = 0; k < cortes.length - 1; k++) leyenda.append(itemRelleno(mezclar(PARTICIPACION_COLOR, opacidadPaso(k)), `${pct.format(cortes[k])} a ${pct.format(cortes[k + 1])} %`));
+    }
+    itemSinResultados(leyenda, sin);
+    $('notaCapa').textContent = (porMesa() && fuente === 'trep'
+        ? 'Votos emitidos sobre electores habilitados de las mesas con acta (recuento agregado del padrón por mesa), por distrito, en '
+        : 'Votos emitidos sobre electores habilitados (padrón del TSJE), por distrito, en ') +
+        'cinco tramos de igual ancho entre el menor y el mayor de los distritos a la vista. Tocá un distrito para ver sus cifras.' +
+        (valores.length ? '' : ' Esta elección no tiene electores por distrito.');
 }
 
 function pintarVentaja(leyenda) {
     const conteo = new Map();
-    mapa.pintar(claves, (clave) => {
+    const sin = pintar((clave) => {
         const d = porClave.get(clave);
         const k = tramo(d.ventaja ?? 0);
         if (enFiltro(d)) {
             const g = grupoDe(d.gana, d.ganadora);
-            const c = conteo.get(`${g}|${k}`) ?? { g, k, n: 0, color: g === LOCALES ? colores.verdes[0] : d.gana.color, sigla: g === LOCALES ? LOCAL_EN_LEYENDA : d.ganadora };
+            const c = conteo.get(`${g}|${k}`) ?? { g, k, n: 0, color: g === LOCALES ? colores.verdes[0] : d.gana.color,
+                                                    sigla: g === LOCALES ? LOCAL_EN_LEYENDA : g === EMPATE ? 'Empate' : d.ganadora };
             c.n += 1;
             conteo.set(`${g}|${k}`, c);
         }
@@ -569,8 +791,10 @@ function pintarVentaja(leyenda) {
     const total = new Map();
     for (const c of conteo.values()) total.set(c.g, (total.get(c.g) ?? 0) + c.n);
     for (const c of [...conteo.values()].sort((a, b) => total.get(b.g) - total.get(a.g) || b.k - a.k)) {
-        leyenda.append(itemRelleno(mezclar(c.color, opacidadPaso(c.k, 3)), `${c.sigla} primera ${TEXTO_TRAMO[c.k]}: ${cantidad(c.n, 'distrito', 'distritos')}`));
+        leyenda.append(itemRelleno(mezclar(c.color, opacidadPaso(c.k, 3)), c.g === EMPATE ? `Empate en el primer lugar: ${cantidad(c.n, 'distrito', 'distritos')}`
+            : `${c.sigla} primera ${TEXTO_TRAMO[c.k]}: ${cantidad(c.n, 'distrito', 'distritos')}`));
     }
+    itemSinResultados(leyenda, sin);
     $('notaCapa').textContent = `Ventaja = 100 × (votos del primero − votos del segundo) / votos a listas ${CARGOS[estado.cargo].de}, en puntos. Color de la lista que va primera ` +
         'en cada distrito, más intenso cuanto mayor la ventaja: menos de 10, de 10 a 25 y 25 puntos o más.';
 }
@@ -582,7 +806,7 @@ function pintarPartido(leyenda) {
     const paso = (v) => Math.max(0, Math.min(4, clase(v)));
     const gris = paleta().sinDatos;
     let sin = 0;
-    mapa.pintar(claves, (clave) => {
+    const sinResultados = pintar((clave) => {
         const d = porClave.get(clave);
         const v = pctDe(d, p.sigla);
         if (v === null && enFiltro(d)) sin += 1;
@@ -592,6 +816,7 @@ function pintarPartido(leyenda) {
         for (let k = 0; k < cortes.length - 1; k++) leyenda.append(itemRelleno(mezclar(p.color, opacidadPaso(k)), `${pct.format(cortes[k])} a ${pct.format(cortes[k + 1])} %`));
     }
     if (sin) leyenda.append(itemRelleno(gris, `Sin lista propia de ${p.sigla}: ${cantidad(sin, 'distrito', 'distritos')}`));
+    itemSinResultados(leyenda, sinResultados);
     $('notaCapa').textContent = `Votos de ${p.sigla} (${p.nombre}) sobre los votos a listas ${CARGOS[estado.cargo].de} de cada distrito, en cinco tramos de igual ancho. ` +
         'En gris, los distritos donde no presentó lista propia (puede ir dentro de una alianza).';
 }
@@ -599,7 +824,7 @@ function pintarPartido(leyenda) {
 // IPM por distrito (INE, Censo 2022), en quintiles de los distritos a la vista; sin dato, en gris.
 function pintarIpm(leyenda) {
     if (!ipm) {
-        mapa.pintar(claves, (clave) => ({ color: paleta().sinDatos, atenuado: !enFiltro(porClave.get(clave)) }));
+        pintar((clave) => ({ color: paleta().sinDatos, atenuado: !enFiltro(porClave.get(clave)) }));
         if (ipmFallo) $('notaCapa').textContent = 'No fue posible leer la pobreza multidimensional por distrito. Revisá la conexión o el servidor local.';
         else {
             $('notaCapa').textContent = 'Cargando la pobreza multidimensional por distrito…';
@@ -614,7 +839,7 @@ function pintarIpm(leyenda) {
     const conteo = new Array(5).fill(0);
     const gris = paleta().sinDatos;
     let sin = 0;
-    mapa.pintar(claves, (clave) => {
+    const sinResultados = pintar((clave) => {
         const d = porClave.get(clave);
         const v = ipmDe(d);
         if (v === null) {
@@ -631,10 +856,11 @@ function pintarIpm(leyenda) {
         }
     }
     if (sin) leyenda.append(itemRelleno(gris, `Sin dato: ${cantidad(sin, 'distrito', 'distritos')}`));
+    itemSinResultados(leyenda, sinResultados);
     $('notaCapa').textContent = `${ind.nombre}${EN_AREA[estado.area]}: ${ind.descripcion} Distritos en quintiles: cinco grupos con casi la misma ` +
         'cantidad de distritos a la vista (INE, Censo 2022). En gris, sin dato: Asunción (el INE publica su IPM por barrio, en su tablero)' +
         (estado.area === 'rural' ? ' y los distritos sin población rural' : '') + '. Es una comparación entre agregados: no muestra cómo votaron las ' +
-        'personas en situación de pobreza ni ningún otro grupo.';
+        'personas en situación de pobreza ni ningún otro grupo.' + (contexto.anio.geometria ? ` El IPM es del Censo 2022; los votos, de ${contexto.anio.anio}.` : '');
 }
 
 const PINTORES = { ganadora: pintarGanadora, participacion: pintarParticipacion, ventaja: pintarVentaja, partido: pintarPartido, ipm: pintarIpm };
@@ -649,6 +875,8 @@ function renderMapa() {
         : estado.capa === 'ipm' && ipm ? `${indicadorIpm().nombre} por distrito${EN_AREA[estado.area]}` : tituloCapa(estado.capa);
     PINTORES[estado.capa](leyenda);
     if (estado.departamento !== null) leyenda.append(el('li', 'leyenda__nota', `Fuera de ${nombreDep(estado.departamento)}, atenuados.`));
+    if (abarcanGeo) leyenda.append(el('li', 'leyenda__nota', `Los ${fmt.format(todas.length)} distritos de ${contexto.anio.anio}: ` +
+        `${cantidad(abarcanGeo, 'abarcaba', 'abarcaban')} lo que hoy son varios.`));
     leyenda.append(el('li', 'leyenda__nota', `Relleno al ${fmt.format(estado.opacidad)} %` +
         `${estado.ver.base ? ', con las rutas, los ríos y los arroyos de OpenStreetMap encima' : ''}.`));
     leyenda.append(itemLeyenda(null, 'Límite de departamento', 'leyenda__muestra--limite'));
@@ -657,6 +885,7 @@ function renderMapa() {
 
 function textoDistrito(clave) {
     const d = porClave.get(clave);
+    if (!d) return `${nombreGeo.get(clave) ?? clave}: ${motivoSinResultados(clave) ?? textoSinResultados().toLowerCase()}`;
     const base = `${d.nombre} (${d.departamento_nombre})`;
     if (estado.capa === 'participacion') {
         const v = participacionDe(d);
@@ -671,6 +900,7 @@ function textoDistrito(clave) {
         const v = ipmDe(d);
         return v === null ? `${base}: ${sinIpm(d)}` : `${base}: ${indicadorIpm().nombre}${EN_AREA[estado.area]} ${formatoIpm().format(v)} %`;
     }
+    if (d.ganadora === EMPATE) return `${base}: empate en el primer lugar`;
     return `${base}: ${d.ganadora} ${pct.format(d.pct_ganadora)} %${d.segunda ? ` · ventaja ${pct.format(d.ventaja)} puntos` : ''}`;
 }
 
@@ -700,8 +930,9 @@ function columnasTabla() {
         { id: 'participacion', titulo: 'Particip.' }];
     if (estado.capa === 'partido') columnas.push({ id: 'partido', titulo: `% ${estado.partido}` });
     if (estado.capa === 'ipm' && ipm) columnas.push({ id: 'ipm', titulo: `${indicadorIpm().nombre}${estado.area === 'total' ? '' : ` ${estado.area}`}` });
-    columnas.push({ id: 'mesas', titulo: 'Mesas' }, { id: 'electores', titulo: 'Electores' });
-    if (estado.cargo === '2') columnas.push({ id: 'bancas', titulo: 'Bancas' });
+    if (porMesa()) columnas.push({ id: 'mesas', titulo: 'Mesas' });
+    columnas.push({ id: 'electores', titulo: 'Electores' });
+    if (conBancasDeDistrito(estado.cargo)) columnas.push({ id: 'bancas', titulo: 'Bancas' });
     return columnas;
 }
 
@@ -709,7 +940,7 @@ function valorTabla(d, id) {
     switch (id) {
         case 'nombre': return d.nombre;
         case 'departamento': return d.departamento_nombre;
-        case 'ganadora': return d.ganadora;
+        case 'ganadora': return siglaGanadora(d);
         case 'pct': return d.pct_ganadora ?? -Infinity;
         case 'ventaja': return d.ventaja ?? -Infinity;
         case 'participacion': return participacionDe(d) ?? -Infinity;
@@ -769,7 +1000,7 @@ function renderTabla() {
             if (c.id === 'ganadora') {
                 const muestra = el('span', 'tabla__muestra');
                 muestra.style.background = d.gana.color;
-                td.append(muestra, d.ganadora);
+                td.append(muestra, siglaGanadora(d));
             } else if (c.id === 'departamento') td.textContent = d.departamento_nombre;
             else if (c.id === 'pct') td.textContent = d.pct_ganadora === null ? '—' : `${pct.format(d.pct_ganadora)} %`;
             else if (c.id === 'ventaja') td.textContent = d.segunda ? `${pct.format(d.ventaja)}` : 'única';
@@ -785,8 +1016,9 @@ function renderTabla() {
     }
     $('tabla').tBodies[0].replaceChildren(fragmento);
     $('notaTabla').textContent = `${cantidad(filas.length, 'distrito', 'distritos')}${estado.departamento === null ? '' : ` de ${nombreDep(estado.departamento)}`}. ` +
-        `Porcentajes y ventaja (en puntos) sobre los votos a listas ${CARGOS[estado.cargo].de}; participación sobre los electores de las mesas con acta. ` +
-        'Mesas: con acta / esperadas cuando falta alguna.' +
+        `Porcentajes y ventaja (en puntos) sobre los votos a listas ${CARGOS[estado.cargo].de}; ` +
+        (porMesa() ? 'participación sobre los electores de las mesas con acta. Mesas: con acta / esperadas cuando falta alguna.'
+            : 'participación sobre los electores habilitados del padrón del TSJE.') +
         (estado.capa === 'ipm' && ipm ? ` ${indicadorIpm().nombre}${EN_AREA[estado.area]}: INE, Censo 2022 («—», sin dato).` : '') +
         ' Tocá un distrito para verlo en el mapa.';
 }
@@ -795,10 +1027,10 @@ function metricaRanking() {
     const p = partidos.get(estado.partido);
     return {
         ganadora: { titulo: 'Distritos por porcentaje de la lista más votada', valor: (d) => d.pct_ganadora, color: (d) => d.gana.color,
-                    texto: (v, d) => `${pct.format(v)} % ${d.ganadora}` },
+                    texto: (v, d) => `${pct.format(v)} % ${siglaGanadora(d)}` },
         participacion: { titulo: 'Distritos por participación', valor: participacionDe, color: () => PARTICIPACION_COLOR, texto: (v) => `${pct.format(v)} %` },
         ventaja: { titulo: 'Distritos por ventaja del primero', valor: (d) => (d.segunda ? d.ventaja : null), color: (d) => d.gana.color,
-                   texto: (v, d) => `${pct.format(v)} pts ${d.ganadora}` },
+                   texto: (v, d) => `${pct.format(v)} pts ${siglaGanadora(d)}` },
         partido: { titulo: `Distritos por votos de ${p.sigla}`, valor: (d) => pctDe(d, p.sigla), color: () => p.color, texto: (v) => `${pct.format(v)} %` },
         ipm: ipm ? { titulo: `Distritos por ${EN_FRASE[estado.ipm]}${EN_AREA[estado.area]}`, valor: (d) => ipmDe(d), color: () => IPM_COLOR,
                      texto: (v) => `${formatoIpm().format(v)} %` }
@@ -869,15 +1101,17 @@ async function abrirFicha(d) {
         const li = el('li');
         const muestra = el('span', 'tabla__muestra');
         muestra.style.background = d.listas[s].color;
-        const candidato = estado.cargo === '1' ? d.listas[s].candidato : null;
+        const candidato = CARGOS[estado.cargo].tipo === 'uninominal' ? d.listas[s].candidato : null;
         li.append(muestra, el('strong', null, s), `${candidato ? ` ${candidato}` : ''} ${pct.format(pctDe(d, s))} % · ${fmt.format(d.votos[s])} votos`);
         cuerpo.append(li);
     }
     const v = participacionDe(d);
     const pobreza = estado.capa === 'ipm' && ipm ? ` · ${textoDistrito(d.clave).slice(`${d.nombre} (${d.departamento_nombre}): `.length)}` : '';
     $('fichaDetalle').textContent = d.clave === ASUNCION ? 'Abrir Asunción mesa por mesa' : 'Abrir el tablero';
+    const cobertura = porMesa() ? `${fmt.format(d.mesas.con_acta)} de ${fmt.format(d.mesas.esperadas)} mesas con acta` : d.fecha ? `Elección del ${fechaLarga(d.fecha)}` : 'Resultados por distrito';
+    if (d.abarca) cuerpo.append(el('li', 'ficha__nota', `En ${contexto.anio.anio} abarcaba también lo que hoy son ${otrosDeHoy(d)}.`));
     ficha.abrir({ eyebrow: `Distrito · ${d.departamento_nombre} · ${CARGOS[estado.cargo].nombre}`, titulo: d.nombre,
-                  meta: `${fmt.format(d.mesas.con_acta)} de ${fmt.format(d.mesas.esperadas)} mesas con acta${v === null ? '' : ` · participación ${pct.format(v)} %`}${pobreza}`,
+                  meta: `${cobertura}${v === null ? '' : ` · participación ${pct.format(v)} %`}${pobreza}`,
                   cuerpo, detalle: tableroDisponible(d.clave) ? () => location.assign(new URL(enlaceTablero(d.clave), location.href).href) : null }, 'pais');
 }
 
@@ -905,15 +1139,24 @@ async function contenidoFuente() {
     const caja = el('div', 'dialogo__contenido');
     const e = indice.eleccion;
     const t = agregar(distritos);
-    const faltan = distritos.filter((d) => d.mesas.esperadas > d.mesas.con_acta);
-    const corte = contexto.anio.fuentes?.trep?.corte;
+    const faltan = porMesa() ? distritos.filter((d) => d.mesas.esperadas > d.mesas.con_acta) : [];
+    // El TREP de municipales 2026 (con su corte y sus planillas) o el histórico del TSJE (ADR-042).
+    const trep2026 = fuente === 'trep' && contexto.eleccion.id === 'municipales';
+    const corte = contexto.anio.fuentes?.[fuente]?.corte;
+    const nombresCargos = Object.values(CARGOS).map((c) => c.nombre);
     caja.append(seccion('Resultados', listaDef([
         ['Fuente', e.fuente],
-        ['Corte', `${corte ? fechaLarga(corte) : fechaLarga(e.corte)}. ${e.corte_base}`],
+        trep2026 ? ['Corte', `${corte ? fechaLarga(corte) : fechaLarga(e.corte)}. ${e.corte_base}`]
+            : ['Elección', e.fechas?.length ? `Elecciones del ${e.fechas.map(fechaLarga).join(', ')}.` : `${fechaLarga(e.fecha ?? contexto.anio.fecha)}.${corte ? ` TREP: corte ${fechaLarga(corte)}.` : ''}`],
         ['Aviso', e.aviso],
-        ['Cargo', `${cargosDelPais().length > 1 ? 'Intendencia y Junta Municipal' : 'Junta Municipal'} en los ${fmt.format(distritos.length)} distritos; ` +
-                  `las cifras de esta vista son ${CARGOS[estado.cargo].de}.`],
-        ...(porCargo['1'] ? [['Intendencia', 'Planillas uninominales del TREP (Justicia Electoral): una fila por mesa y lista. Cada lista tiene una ' +
+        ['Cargo', `${nombresCargos.length > 1 ? `${nombresCargos.slice(0, -1).join(', ')} y ${nombresCargos.at(-1)}` : nombresCargos[0]} en ` +
+                  `${cantidad(distritos.length, 'distrito', 'distritos')}; las cifras de esta vista son ${CARGOS[estado.cargo].de}.`],
+        ...(!trep2026 ? [['Distritos', 'Cada distrito se dibuja como era en esa elección: con los límites del INE 2022, unidos donde abarcaba lo que hoy ' +
+                                       'son varios, según la ley que creó cada distrito nuevo (datos/historico/distritos_creacion.json; si salió de varios, va ' +
+                                       'con el que más electores perdió). Cada distrito del TSJE se une al de hoy por su código y su nombre ' +
+                                       '(datos/historico/correspondencia_distritos.json). En gris, los que no tienen resultados del cargo: no lo eligen o ' +
+                                       'existían y no votaron en esa elección.' + textoFueraDelMapa()]] : []),
+        ...(trep2026 && porCargo['1'] ? [['Intendencia', 'Planillas uninominales del TREP (Justicia Electoral): una fila por mesa y lista. Cada lista tiene una ' +
                                              'candidatura; su sigla y su nombre salen de la planilla del TSJE con los resultados de Intendencia por ' +
                                              'distrito, que coincide voto por voto con la uninominal.'],
                              ['Nombres', 'Los de las candidaturas a Intendencia salen del padrón electoral (nombres y apellidos), buscados por la ' +
@@ -938,12 +1181,20 @@ async function contenidoFuente() {
     }
     const cajaTabla = el('div', 'tabla-compacta__caja');
     cajaTabla.append(tablaFaltan);
-    caja.append(seccion('Cobertura', el('p', null, `${CARGOS[estado.cargo].nombre}: ${fmt.format(t.mesas)} de ${fmt.format(t.esperadas)} mesas con acta en ${fmt.format(t.distritos)} distritos; ` +
-        `${cantidad(t.esperadas - t.mesas, 'mesa', 'mesas')} sin acta en ${cantidad(faltan.length, 'distrito', 'distritos')}. Una mesa sin acta no se completa ni se estima.`),
-    ...(faltan.length ? [cajaTabla] : [])));
+    if (porMesa()) {
+        caja.append(seccion('Cobertura', el('p', null, `${CARGOS[estado.cargo].nombre}: ${fmt.format(t.mesas)} de ${fmt.format(t.esperadas)} mesas con acta en ${fmt.format(t.distritos)} distritos; ` +
+            `${cantidad(t.esperadas - t.mesas, 'mesa', 'mesas')} sin acta en ${cantidad(faltan.length, 'distrito', 'distritos')}. Una mesa sin acta no se completa ni se estima.`),
+        ...(faltan.length ? [cajaTabla] : [])));
+    } else {
+        caja.append(seccion('Cobertura', el('p', null, `${CARGOS[estado.cargo].nombre}: resultados por distrito en ${cantidad(t.distritos, 'distrito', 'distritos')}. ` +
+            'El TSJE no publica las mesas de esta elección: no hay tablero mesa por mesa.')));
+    }
     caja.append(seccion('Electores y límites', listaDef([
-        ['Electores', `Recuento agregado del padrón por mesa, sin datos de personas: ${fmt.format(t.padron)} electores en el padrón y ` +
-                      `${fmt.format(t.electores)} en las mesas con acta.`],
+        ['Electores', trep2026 ? `Recuento agregado del padrón por mesa, sin datos de personas: ${fmt.format(t.padron)} electores en el padrón y ` +
+                                 `${fmt.format(t.electores)} en las mesas con acta.`
+            : t.padron ? `Padrón por mesa del TSJE (estadísticas de padrón y participación; cantidades, sin datos de personas): ${fmt.format(t.padron)} electores ` +
+                         'en los distritos de esta vista.'
+                : 'La fuente no publica los electores de esta elección.'],
         ['Límites', 'INE, Cartografía digital del CNPV 2022 (límites referenciales), simplificados para el mapa del país; Licencia de Uso de Información Pública.'],
         ['Mapa base', 'Rutas, ríos, arroyos, espejos de agua y nombres de lugares de OpenStreetMap (© colaboradores de OpenStreetMap, ODbL 1.0), del build de ' +
                       'Protomaps del 08/10/2026, con más detalle al acercar; el navegador pide solo las partes a la vista. Se apaga en Capas.'],
@@ -952,10 +1203,12 @@ async function contenidoFuente() {
     ])));
     const enlace = el('a', null, 'nacional/procedencia.json');
     enlace.href = new URL('procedencia.json', carpetaNacional(contexto.eleccion.id, contexto.anio.anio)).href;
-    const procedencia = seccion('Procedencia (SHA-256)', el('p', null, 'Huellas de las planillas del TSJE, del catálogo del TREP y de la cartografía del INE: '), enlace);
+    const procedencia = seccion('Procedencia (SHA-256)', el('p', null, trep2026 ? 'Huellas de las planillas del TSJE, del catálogo del TREP y de la cartografía del INE: '
+        : 'Huellas de los archivos de datos abiertos del TSJE (datos.gov.py) con que se armaron estos datos: '), enlace);
     try {
         const p = await archivoNacional(contexto.eleccion.id, contexto.anio.anio, 'procedencia.json');
-        const items = [...Object.entries(p.fuentes?.planillas ?? {}),
+        // Municipales 2026: las planillas del TREP; el histórico (ADR-042): la lista de archivos del TSJE.
+        const items = [...(Array.isArray(p.fuentes) ? p.fuentes.map((f) => [f.archivo, f.sha256]) : Object.entries(p.fuentes?.planillas ?? {})),
                        ...(p.fuentes?.intendencia ? [[p.fuentes.intendencia.planilla, p.fuentes.intendencia.sha256]] : [])].map(([nombre, huella]) => {
             const codigo = el('code', 'huella', /^[0-9a-f]{64}$/.test(huella) ? huella : '—');
             return [nombre, codigo];
@@ -982,20 +1235,28 @@ async function contenidoFuente() {
 
 function contenidoMetodo() {
     const caja = el('div', 'dialogo__contenido');
+    const trep2026 = fuente === 'trep' && contexto.eleccion.id === 'municipales';
+    const nombres = Object.values(CARGOS).map((c) => c.nombre).join(', ');
     caja.append(seccion('Cifras de cada distrito', listaDef([
-        ['Lista más votada', 'La que tiene más votos a listas del cargo de la barra (Intendencia o Junta Municipal) en el distrito.'],
-        ['Intendencia', 'Una candidatura por lista y sin bancas. Las alianzas y los movimientos locales van en verde, como en la Junta.'],
-        ['Participación', 'Votos emitidos / electores habilitados de las mesas con acta (recuento del padrón por mesa).'],
+        ['Lista más votada', trep2026 ? 'La que tiene más votos a listas del cargo de la barra (Intendencia o Junta Municipal) en el distrito.'
+            : `La que tiene más votos a listas del cargo de la barra (${nombres}) en el distrito; con un empate en el primer lugar, en gris.`],
+        ...(CARGOS['1']?.clave === 'intendencia' ? [['Intendencia', 'Una candidatura por lista y sin bancas. Las alianzas y los movimientos locales van en verde, como en la Junta.']] : []),
+        ['Participación', trep2026 ? 'Votos emitidos / electores habilitados de las mesas con acta (recuento del padrón por mesa).'
+            : 'Votos emitidos del cargo / electores habilitados del distrito (padrón por mesa del TSJE).'],
         ['Ventaja', '100 × (votos del primero − votos del segundo) / votos a listas, en puntos.'],
         ['Votos de un partido', 'Sus votos sobre los votos a listas del distrito; sin lista propia, el distrito va en gris.'],
-        ['Bancas', 'La integración oficial de la Junta según el TREP; el D\'Hondt sobre los votos por lista da el mismo reparto en todos los distritos.'],
+        ['Bancas', trep2026 ? 'La integración oficial de la Junta según el TREP; el D\'Hondt sobre los votos por lista da el mismo reparto en todos los distritos.'
+            : 'La integración oficial según el TSJE (archivo de electos D\'Hondt): las juntas municipales por distrito; el Senado y el Parlasur en el país; ' +
+              'Diputados y la Junta departamental en cada departamento. Con los nombres de las personas electas; su sexo y su edad, solo sumados.'],
     ])));
     caja.append(seccion('El país y los departamentos', listaDef([
         ['Sumas', 'Votos, mesas, electores y bancas sumados distrito por distrito.'],
         ['Partidos y alianzas', 'Los partidos se suman por sigla. Las alianzas y los movimientos locales (cada uno de un solo distrito) van juntos; ' +
                                 'donde un partido va dentro de una alianza, sus votos son de la alianza.'],
         ['Colores', 'Los partidos con su color (ANR rojo, PLRA azul y un color fijo para cada uno de los demás); las alianzas y los movimientos ' +
-                    'locales en verde, con tonos distintos si un distrito tiene más de uno.'],
+                    'locales en verde, con tonos distintos si un distrito tiene más de uno.' +
+                    (trep2026 ? '' : ' En las elecciones anteriores, los partidos que no tienen color en 2026 van en gris, y las alianzas de entonces ' +
+                                     '(siglas unidas por «_», como PLRA_PEN) cuentan como alianzas.')],
         ['Tramos', 'Participación y votos de un partido: cinco tramos de igual ancho entre el menor y el mayor de los distritos a la vista.'],
     ])));
     caja.append(seccion('Pobreza multidimensional (IPM)', listaDef([
@@ -1005,7 +1266,7 @@ function contenidoMetodo() {
         ['Área', 'El total del distrito, o solo su área urbana o rural; un área sin población (los distritos solo urbanos no tienen rural) va sin dato.'],
         ['Quintiles', 'En el mapa, los distritos a la vista se agrupan en cinco grupos con casi la misma cantidad de distritos.'],
         ['Lectura', 'Es una comparación entre agregados: no muestra cómo votaron las personas en situación de pobreza ni ningún otro grupo. El IPM es ' +
-                    'del Censo 2022 y los votos, de 2026.'],
+                    `del Censo 2022 y los votos, de ${contexto.anio.anio}.`],
     ])));
     return caja;
 }
@@ -1082,13 +1343,15 @@ function actualizarEnlace() {
 // (TABLERO_DE_DISTRITO en false), distrito=<clave> abre el país con ese distrito elegido.
 function leerEnlace() {
     const p = new URLSearchParams(location.hash.slice(1));
-    // El cargo (ADR-024): el del hash si el país lo tiene; si no, el primero que declara el manifiesto (como la barra).
-    const disponibles = cargosDelPais();
-    usarCargo(cargoDe(disponibles.includes(p.get('cargo')) ? p.get('cargo') : p.get('cargo') === '1' || p.get('cargo') === '2'
-        ? CARGOS[p.get('cargo')].clave : disponibles[0]));
+    // El cargo (ADR-024): el del hash si el año lo tiene (por su nombre o, en los enlaces de antes, por su número); si no, el
+    // primero que declara el manifiesto para el país (como la barra).
+    usarCargo(datoDe(contexto.anio, p.get('cargo')) ?? cargoDe(cargosDelPais()[0]));
     const dep = p.get('departamento');
     estado.departamento = /^\d{1,2}$/.test(dep ?? '') && porDep.has(Number(dep)) ? Number(dep) : null;
-    const elegido = p.get('elegido') ?? (!TABLERO_DE_DISTRITO && p.get('distrito') !== ASUNCION ? p.get('distrito') : null);
+    // Sin tablero de distrito (TABLERO_DE_DISTRITO en false, o un año sin datos por mesa, ADR-042), distrito=<clave> abre el
+    // país con ese distrito elegido.
+    const distritoPedido = p.get('distrito');
+    const elegido = p.get('elegido') ?? (!porMesa() || (!TABLERO_DE_DISTRITO && distritoPedido !== ASUNCION) ? distritoPedido : null);
     estado.elegido = elegido && porClave.has(elegido) ? elegido : null;
     if (estado.elegido && estado.departamento !== null && !enFiltro(porClave.get(estado.elegido))) estado.departamento = porClave.get(estado.elegido).departamento;
     estado.capa = CAPAS.includes(p.get('mapa')) ? p.get('mapa') : 'ganadora';
@@ -1130,7 +1393,7 @@ function eventos() {
         // El cargo de la barra (ADR-024): las cifras de cada distrito pasan a las de ese cargo.
         if (origen === 'barra' && cambiadas.has('cargo')) {
             usarCargo(cargoDe(compartido.obtener('cargo')));
-            if (estado.orden?.id === 'bancas' && estado.cargo !== '2') estado.orden = null;
+            if (estado.orden?.id === 'bancas' && !conBancasDeDistrito(estado.cargo)) estado.orden = null;
             renderTodo();
             actualizarEnlace();
             return;
@@ -1277,19 +1540,30 @@ function abrirLeyendaSiCabe() {
     $('leyendaMapa').open = !panel.celular() && $('mapa').getBoundingClientRect().height >= 320;
 }
 
-// La llama inicio.js con el contexto (elección y año) y la lista de distritos.
-export async function iniciar({ contexto: ctx } = {}) {
+// La llama inicio.js con la fuente de la sección (TREP o Resultados oficiales), el contexto (elección y año) y la lista de
+// distritos.
+export async function iniciar({ fuente: deLaSeccion = 'trep', contexto: ctx } = {}) {
     const visor = $('visor');
     try {
         contexto = ctx;
+        fuente = deLaSeccion;
         const { eleccion, anio } = ctx;
-        const [datos, geoDistritos, geoDepartamentos, coloresNacionales] = await Promise.all([indiceNacional(eleccion.id, anio.anio),
+        armarCargos(anio, fuente);
+        const [datos, geoDistritos, geoDepartamentos, coloresNacionales] = await Promise.all([indiceNacional(eleccion.id, anio.anio, fuente),
             geoNacional(eleccion.id, anio.anio, 'distritos'), geoNacional(eleccion.id, anio.anio, 'departamentos'),
             archivoNacional(eleccion.id, anio.anio, 'colores.json')]);
         colores = coloresNacionales;
+        // Todos los distritos de la geometría (ADR-042): los que no tienen resultados en esta elección van en gris.
+        todas = geoDistritos.features.map((f) => f.properties.clave);
+        nombreGeo = new Map(geoDistritos.features.map((f) => [f.properties.clave, f.properties.nombre]));
+        abarcanGeo = geoDistritos.features.filter((f) => f.properties.abarca).length;
         preparar(datos);
-        $('tituloTablero').textContent = `${anio.fuentes?.trep?.nombre ?? 'TREP'} · ${eleccion.nombre} ${anio.anio} · ${anio.nacional?.nombre ?? 'Paraguay'}`;
+        $('tituloTablero').textContent = `${anio.fuentes?.[fuente]?.nombre ?? 'TREP'} · ${eleccion.nombre} ${anio.anio} · ${anio.nacional?.nombre ?? 'Paraguay'}`;
         if (datos.eleccion.aviso) $('avisoLegal').append(` ${datos.eleccion.aviso}`);
+        // Asunción mesa por mesa, si esta elección la tiene (ADR-042: no en los años sin datos por mesa ni en las complementarias).
+        $('enlaceAsuncion').hidden = !Object.values(porCargo).some((x) => x.porClave.has(ASUNCION)) || !porMesa();
+        const deAsuncion = Object.values(CARGOS).filter((c) => porCargo[c.dato]?.porClave.has(ASUNCION)).map((c) => c.etiqueta);
+        $('enlaceAsuncion').textContent = `Asunción mesa por mesa (${deAsuncion.join(', ').replace(/, ([^,]*)$/, ' y $1')})`;
         $('enlaceAsuncion').href = enlaceTablero(ASUNCION);
         // La leyenda y la atribución van superpuestas al mapa, también en pantalla completa.
         $('mapa').append($('leyendaMapa'), $('atribucionMapa'));
@@ -1298,6 +1572,7 @@ export async function iniciar({ contexto: ctx } = {}) {
         mapa = crearMapaPais({ distritos: geoDistritos, departamentos: geoDepartamentos },
             { distritos: distritos.map((d) => ({ clave: d.clave, nombre: d.nombre, centro: d.centro })), departamentos: indice.departamentos },
             $('mapa'), { etiqueta: `Mapa de Paraguay con los ${fmt.format(distritos.length)} distritos coloreados según la capa elegida`, atribucion: $('atribucionMapa'), pais,
+                         resultados: fuente === 'trep' ? 'TREP (Justicia Electoral)' : 'cómputo oficial (TSJE)',
                          margen: margenMapa, controles: { ampliarEnGrupo: true }, alTocar: tocarDistrito, texto: textoDistrito,
                          alCambiarTema: () => renderMapa() });
         panel = crearPanel({ alElegir: elegirPestana });

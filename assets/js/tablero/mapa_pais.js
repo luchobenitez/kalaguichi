@@ -60,9 +60,11 @@ export function crearMapaPais(geo, etiquetas, contenedor, opciones = {}) {
 
     const atribucion = opciones.atribucion ?? Object.assign(document.createElement('p'), { className: 'mapa__atribucion' });
     if (!opciones.atribucion) contenedor.append(atribucion);
-    atribucion.replaceChildren(enlaceOsm(), ' (ODbL) · Protomaps · Límites: INE (CNPV 2022) · Resultados: TREP (Justicia Electoral)');
+    // La fuente de los resultados (ADR-042): el TREP de 2026 o el cómputo oficial del TSJE del histórico.
+    const resultados = opciones.resultados ?? 'TREP (Justicia Electoral)';
+    atribucion.replaceChildren(enlaceOsm(), ` (ODbL) · Protomaps · Límites: INE (CNPV 2022) · Resultados: ${resultados}`);
     atribucion.title = 'Mapa base: rutas, ríos y arroyos de OpenStreetMap (ODbL), del build de Protomaps. Límites referenciales de los distritos ' +
-        'y los departamentos: INE, Cartografía digital del CNPV 2022, simplificados. Resultados preliminares del TREP (Justicia Electoral).';
+        `y los departamentos: INE, Cartografía digital del CNPV 2022, simplificados. Resultados: ${resultados}.`;
 
     const globo = document.createElement('div');
     globo.className = 'mapa__globo';

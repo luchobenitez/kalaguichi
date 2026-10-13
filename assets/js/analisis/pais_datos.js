@@ -3,11 +3,12 @@
 // pobreza multidimensional del INE por distrito (indicadores_distritos.json: H, A e
 // IPM en el total del distrito o en su área urbana o rural) y los colores de los partidos (colores.json). Asunción no tiene
 // IPM distrital (el INE lo publica por barrio): queda fuera de los gráficos, con el motivo en la nota. Sin HTML desde datos.
-import { indiceNacional, archivoNacional } from '../datos.js';
+import { indiceNacional, archivoNacional, normalizarIndice } from '../datos.js';
 import { el, pct, pct2 } from '../tablero/util.js';
 
 export const LOCALES = '~locales';
 export const NOMBRE_LOCALES = 'Alianzas y movimientos locales';
+export const EMPATE = '~empate';
 export const COMPONENTES = [['H', 'Incidencia'], ['A', 'Intensidad'], ['IPM', 'IPM']];
 export const AREAS = [['total', 'Total'], ['urbana', 'Urbana'], ['rural', 'Rural']];
 const EN_AREA = { total: '', urbana: ' (área urbana)', rural: ' (área rural)' };
@@ -15,31 +16,40 @@ export const PUNTO = { circulo: 'circle', rombo: 'rectRot', cuadrado: 'rect' };
 // Curvas por partido: hasta 8 tramos, con unos 15 distritos por tramo como mínimo.
 export const TRAMOS_PAIS = 8;
 export const DISTRITOS_POR_TRAMO = 15;
+// Las alianzas y los movimientos van juntos («locales») en las municipales y las complementarias (cada uno es de un
+// distrito); en las generales son nacionales o departamentales y van cada uno con su sigla (ADR-042).
+export const agrupaLocales = (eleccion) => ['municipales', 'complementarias'].includes(eleccion);
 
-export async function cargarPais(eleccion, anio) {
-    const [indice, ipm, colores] = await Promise.all([indiceNacional(eleccion, anio), archivoNacional(eleccion, anio, 'indicadores_distritos.json'),
+export async function cargarPais(eleccion, anio, fuente = null) {
+    const [indice, ipm, colores] = await Promise.all([indiceNacional(eleccion, anio, fuente), archivoNacional(eleccion, anio, 'indicadores_distritos.json'),
                                                       archivoNacional(eleccion, anio, 'colores.json')]);
-    return armarPais(indice, ipm, colores);
+    return armarPais(indice, ipm, colores, { agruparLocales: agrupaLocales(eleccion) });
 }
 
-// Los datos del país desde los tres archivos (también para las pruebas, sin fetch).
-export function armarPais(indice, ipm, colores) {
-    // La Junta: los campos de cada registro; la Intendencia: su bloque, con los mismos nombres.
-    const junta = indice.distritos.map((d) => ({ ...d, gana: d.listas[d.ganadora] }));
-    const intendencia = indice.distritos.filter((d) => d.intendencia).map((d) => {
-        const i = d.intendencia;
-        return { ...d, votos: i.votos, votos_listas: i.votos_listas, blancos: i.blancos, nulos: i.nulos, nocomputados: i.nocomputados, emitidos: i.emitidos,
-                 participacion: i.participacion, ganadora: i.ganadora, segunda: i.segunda, pct_ganadora: i.pct_ganadora, ventaja: i.ventaja, listas: i.listas,
-                 mesas: { esperadas: d.mesas.esperadas, con_acta: i.mesas.con_acta },
-                 electores: { padron: d.electores.padron, en_mesas_con_acta: i.electores_en_mesas_con_acta }, gana: i.listas[i.ganadora] };
-    });
+// Los datos del país desde los tres archivos (también para las pruebas, sin fetch). El índice, en la versión 2 (ADR-042:
+// un bloque por cargo en cada distrito; el de municipales 2026 se convierte): por cargo, un registro por distrito con los
+// mismos campos (votos, listas, ganadora…), los electores (los de las mesas con acta del TREP o el padrón del TSJE) y la
+// participación (votos emitidos sobre esos electores). Sin ganadora (un empate en el primer lugar), la lista ficticia del
+// empate en el gris de «otro».
+export function armarPais(original, ipm, colores, { agruparLocales = true } = {}) {
+    const indice = normalizarIndice(original);
     const porCargo = {};
-    for (const [cargo, distritos] of [['2', junta], ['1', intendencia]]) {
+    const cargos = [...new Set(indice.distritos.flatMap((d) => Object.keys(d.cargos ?? {})))].sort((a, b) => Number(a) - Number(b));
+    for (const cargo of cargos) {
+        const distritos = indice.distritos.filter((d) => d.cargos?.[cargo]).map((d) => {
+            const x = d.cargos[cargo];
+            const padron = d.electores?.padron ?? 0;
+            const enMesas = x.electores_en_mesas_con_acta ?? d.electores?.en_mesas_con_acta ?? padron;
+            return { ...d, ...x, nocomputados: x.nocomputados ?? 0, mesas: { esperadas: d.mesas?.esperadas ?? 0, con_acta: x.mesas ?? d.mesas?.con_acta ?? 0 },
+                     electores: { padron, en_mesas_con_acta: enMesas ?? 0 }, participacion: x.participacion ?? (enMesas ? x.emitidos / enMesas : null),
+                     bancas: x.bancas ?? { total: 0, reparto: {} }, ganadora: x.ganadora ?? EMPATE,
+                     gana: x.listas[x.ganadora] ?? { nombre: 'Empate en el primer lugar', color: colores.otro, tipo: 'empate', forma: 'cuadrado' } };
+        });
         if (!distritos.length) continue;
         const partidos = new Map();
         for (const d of distritos) {
             for (const [sigla, x] of Object.entries(d.listas)) {
-                if (x.tipo !== 'partido') continue;
+                if (x.tipo !== 'partido' && agruparLocales) continue;
                 const p = partidos.get(sigla) ?? { sigla, nombre: x.nombre, color: colores.partidos?.[sigla] ?? x.color, forma: x.forma, distritos: 0 };
                 p.distritos += 1;
                 partidos.set(sigla, p);
@@ -47,18 +57,24 @@ export function armarPais(indice, ipm, colores) {
         }
         porCargo[cargo] = { distritos, porClave: new Map(distritos.map((d) => [d.clave, d])), partidos };
     }
-    return { pais: true, indice, departamentos: indice.departamentos, porDep: new Map(indice.departamentos.map((d) => [d.codigo, d])), porCargo,
-             distritos: junta, porClave: porCargo['2'].porClave, partidos: porCargo['2'].partidos,
-             ipm, ipmPor: new Map(Object.entries(ipm.distritos)), colores };
+    // El cargo por omisión: la Junta Municipal en las municipales; si no, el primero.
+    const base = porCargo['2'] ? '2' : Object.keys(porCargo)[0];
+    // Los distritos de entonces que abarcaban varios de hoy (ADR-043) no tienen IPM: el del Censo 2022 es por distrito de hoy.
+    const abarcan = new Set(indice.distritos.filter((d) => d.abarca).map((d) => d.clave));
+    return { pais: true, agruparLocales, indice, departamentos: indice.departamentos, porDep: new Map(indice.departamentos.map((d) => [d.codigo, d])), porCargo,
+             distritos: porCargo[base].distritos, porClave: porCargo[base].porClave, partidos: porCargo[base].partidos,
+             ipm, ipmPor: new Map(Object.entries(ipm.distritos).filter(([clave]) => !abarcan.has(clave))), abarcan, colores };
 }
 
-// Grupo de una lista del distrito: su partido o, si es una alianza, un movimiento local o una lista solo de Intendencia
-// (cada uno de un solo distrito), todas ellas juntas, en verde. cargo: '1' Intendencia o '2' Junta.
+// Grupo de una lista del distrito: su partido o, en las municipales, si es una alianza, un movimiento local o una lista
+// solo de Intendencia (cada uno de un solo distrito), todas ellas juntas, en verde; en las generales, cada alianza con su
+// sigla. Un empate en el primer lugar, su propio grupo gris.
 export function grupoDe(datos, d, sigla = d.ganadora, cargo = '2') {
     const x = d.listas[sigla];
-    if (x.tipo === 'partido') {
+    if (!x) return { id: EMPATE, sigla: 'Empate', nombre: 'Empate en el primer lugar', color: datos.colores.otro, forma: 'cuadrado' };
+    if (x.tipo === 'partido' || datos.agruparLocales === false) {
         const p = (datos.porCargo?.[cargo]?.partidos ?? datos.partidos).get(sigla);
-        return { id: sigla, sigla, nombre: p.nombre, color: p.color, forma: p.forma };
+        return { id: sigla, sigla, nombre: p?.nombre ?? x.nombre, color: p?.color ?? x.color, forma: p?.forma ?? x.forma };
     }
     return { id: LOCALES, sigla: 'Locales', nombre: NOMBRE_LOCALES, color: datos.colores.verdes[0], forma: datos.colores.formas?.alianza ?? 'rombo' };
 }
@@ -109,6 +125,7 @@ export function valorIpm(datos, clave, k, area) {
 
 // Por qué un distrito no tiene el valor.
 export function sinIpm(datos, clave, area) {
+    if (datos.abarcan?.has(clave)) return 'abarcaba varios distritos de hoy';
     const x = datos.ipmPor.get(clave);
     if (!x) return 'IPM por barrio';
     return x.H[area] === null ? `sin población ${area}` : 'sin dato';
@@ -177,10 +194,13 @@ export const ipmAlEnlace = (estado) => ({ ipm: estado.ipm === 'H' ? null : estad
 
 // Los distritos que quedan fuera de un gráfico, en una frase: Asunción (IPM por barrio) y los que no tienen el dato del área.
 export function textoFuera(datos, distritos, area) {
-    const asuncion = distritos.some((d) => !datos.ipmPor.get(d.clave));
+    const asuncion = distritos.some((d) => !datos.ipmPor.get(d.clave) && !datos.abarcan?.has(d.clave));
+    const unidos = distritos.filter((d) => datos.abarcan?.has(d.clave)).length;
     const sinArea = distritos.filter((d) => datos.ipmPor.get(d.clave) && datos.ipmPor.get(d.clave).H[area] === null).length;
     const partes = [];
     if (asuncion) partes.push('Asunción, cuyo IPM el INE publica por barrio (lo usan los análisis de Asunción)');
+    if (unidos) partes.push(`${unidos === 1 ? 'un distrito de entonces' : `${unidos} distritos de entonces`} que abarcaba${unidos === 1 ? '' : 'n'} ` +
+                            'varios de hoy (el IPM del Censo 2022 es por distrito de hoy)');
     if (sinArea) partes.push(`${sinArea === 1 ? 'un distrito' : `${sinArea} distritos`} sin población ${area}`);
     return partes.length ? `Fuera del gráfico: ${partes.join(' y ')}.` : '';
 }

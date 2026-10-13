@@ -10,6 +10,7 @@ import { manifiesto, elegir, listaDistritos } from '../datos.js';
 import { ambitoDeAnalisis, ASUNCION } from '../ambito.js';
 import { cargarModelo } from '../tablero/modelo.js';
 import { crearFicha } from '../tablero/ficha.js';
+import { cargosDe, claveDe, datoDe } from '../cargos.js';
 import { $, el } from '../tablero/util.js';
 
 // requiere: lo que el distrito tiene que tener (ADR-022): Intendencia por mesa, el IPM por barrio (los dos, solo en
@@ -37,9 +38,12 @@ const CATALOGO = [
     { id: 'trep-oficial', titulo: 'TREP vs oficial', descripcion: 'Diferencias entre las dos fuentes, por mesa y por local.', requiere: 'oficial' },
 ];
 const MOTIVOS = { oficial: 'Disponible cuando se publique el cómputo oficial.', intendencia: 'Necesita Intendencia por mesa: solo Asunción.',
+                  trep: 'Compara el TREP con el cómputo oficial: esta elección no tiene TREP.',
+                  asuncion2026: 'Compara la lista 1 y la Alianza de Asunción en las municipales 2026.',
                   asuncion: 'Compara la lista 1 y la Alianza de Asunción con sus listas de la Junta: solo Asunción.',
                   ipm: 'Necesita el IPM por barrio del INE: solo Asunción (por distrito, en Paraguay).', margen: 'Este distrito tiene una sola lista en la Junta.',
-                  distrito: 'Es por mesa o local: elegí un distrito en la barra.', pais: 'Compara distritos: elegí Paraguay en la barra.' };
+                  distrito: 'Es por mesa o local: elegí un distrito en la barra.', pais: 'Compara distritos: elegí Paraguay en la barra.',
+                  sinMesas: 'Es por mesa o local: esta elección tiene resultados solo por distrito.' };
 const MODULOS = { 'voto-cruzado': () => import('./voto_cruzado.js'), margen: () => import('./margen.js'),
                   'participacion-ipm': () => import('./participacion_ipm.js'), 'ganador-ipm': () => import('./ganador_ipm.js'),
                   ranking: () => import('./ranking.js'),
@@ -56,9 +60,15 @@ let oficialPublicada = false;
 let enlaceListo = false;
 let turno = 0;
 
-// El cargo de la barra; donde no hay Intendencia, la Junta (ADR-022 y ADR-024). En el país, la Intendencia si el índice la trae.
-const cargo = () => (datos?.pais ? (compartido.obtener('cargo') === 'junta' || !datos.porCargo['1'] ? '2' : '1')
-    : compartido.obtener('cargo') === 'junta' || !datos?.listas['1'] ? '2' : '1');
+// El cargo de la barra (la clave de sus datos) si el ámbito lo tiene; si no, el primero (ADR-022, ADR-024 y ADR-042: en las
+// generales hay hasta seis cargos).
+const cargo = () => {
+    const disponibles = Object.keys(datos?.pais ? datos.porCargo : datos?.listas ?? {}).sort((a, b) => Number(a) - Number(b));
+    const pedido = datos ? datoDe(datos.contexto.anio, compartido.obtener('cargo')) : null;
+    return disponibles.includes(pedido) ? pedido : disponibles[0];
+};
+// La clave del hash del cargo.
+const cargoDelHash = () => claveDe(datos.contexto.anio, cargo()) ?? cargo();
 const lugar = () => datos.lugar.nombre;
 const esAsuncion = () => datos.lugar.clave === ASUNCION;
 const esPais = () => Boolean(datos?.pais);
@@ -68,11 +78,17 @@ function motivo(item) {
     if (esPais()) {
         if (item.pais || item.soloPais) return null;
         if (item.requiere === 'intendencia' || item.requiere === 'asuncion') return MOTIVOS[item.requiere];
-        return item.requiere === 'oficial' && !oficialPublicada ? MOTIVOS.oficial : MOTIVOS.distrito;
+        if (item.requiere === 'oficial' && !conTrep) return MOTIVOS.trep;
+        if (item.requiere === 'oficial' && !oficialPublicada) return MOTIVOS.oficial;
+        // Los años del histórico sin datos por mesa (ADR-042): elegir un distrito no alcanza.
+        return datos.contexto?.anio.nacional?.nivel === 'distrito' ? MOTIVOS.sinMesas : MOTIVOS.distrito;
     }
     if (item.soloPais) return MOTIVOS.pais;
-    const falta = { oficial: !oficialPublicada, intendencia: !datos?.listas['1'], asuncion: !esAsuncion() || !datos?.listas['1'], ipm: !datos?.conIpm,
-                    margen: !datos?.margen }[item.requiere];
+    // El voto cruzado compara grupos de listas de Asunción 2026 (intendente_junta.js): no existe en otras elecciones.
+    if (item.requiere === 'asuncion' && esAsuncion() && datos.contexto.anio.geometria) return MOTIVOS.asuncion2026;
+    if (item.requiere === 'oficial' && !conTrep) return MOTIVOS.trep;
+    const falta = { oficial: !oficialPublicada, intendencia: !datos?.listas['1'], asuncion: !esAsuncion() || !datos?.listas['1'] || !datos?.listas['2'],
+                    ipm: !datos?.conIpm, margen: !datos?.margen }[item.requiere];
     return falta ? MOTIVOS[item.requiere] : null;
 }
 const tituloDe = (item) => (esPais() && item.tituloPais) || item.titulo;
@@ -115,17 +131,17 @@ function filtroDelHash(p) {
 function parametrosEnlace() {
     const { eleccion, anio } = datos.contexto;
     if (esPais()) {
-        const p = new URLSearchParams({ eleccion: eleccion.id, anio: String(anio.anio), cargo: cargo() === '1' ? 'intendencia' : 'junta', ambito: 'pais',
+        const p = new URLSearchParams({ eleccion: eleccion.id, anio: String(anio.anio), cargo: cargoDelHash(), ambito: 'pais',
                                         analisis: estado.analisis });
         if (estado.filtro) p.set('departamento', estado.filtro.slice(1));
         for (const [clave, valor] of Object.entries(actual()?.modulo.estadoEnlace() ?? {})) if (valor !== null && valor !== undefined) p.set(clave, valor);
         return p;
     }
-    const p = new URLSearchParams({ eleccion: eleccion.id, anio: String(anio.anio), cargo: datos.listas['1'] ? compartido.obtener('cargo') ?? anio.cargos[0] : 'junta',
+    const p = new URLSearchParams({ eleccion: eleccion.id, anio: String(anio.anio), cargo: cargoDelHash(),
                                     analisis: estado.analisis });
     // Con datos nacionales (ADR-022), el distrito va en el enlace.
     if (anio.nacional) p.set('distrito', datos.lugar.clave);
-    if (ctxBase.fuente === 'oficial') p.set('fuente', 'oficial');
+    if (ctxBase.fuente === 'oficial' && conTrep) p.set('fuente', 'oficial');
     const v = estado.filtro;
     if (v.startsWith('m')) p.set('zona_municipal', v.slice(1));
     else if (v.startsWith('t')) p.set('zona', v.slice(1));
@@ -229,6 +245,11 @@ function construirFuente() {
             boton.disabled = true;
             boton.title = 'El cómputo oficial aún no fue publicado';
         }
+        // El histórico del TSJE (ADR-042) no tiene TREP: solo el cómputo oficial.
+        if (boton.dataset.fuente === 'trep' && !conTrep) {
+            boton.disabled = true;
+            boton.title = 'Esta elección no tiene TREP: solo el cómputo oficial del TSJE';
+        }
         boton.addEventListener('click', () => {
             if (esta || boton.disabled) return;
             // Otra fuente es otro conjunto de datos: se recarga con el mismo contexto.
@@ -239,8 +260,8 @@ function construirFuente() {
             location.reload();
         });
     }
-    $('notaFuente').textContent = oficialPublicada
-        ? `Datos: ${ctxBase.nombreFuente}, ${ctxBase.momentoFuente}.`
+    $('notaFuente').textContent = oficialPublicada || !conTrep
+        ? `Datos: ${ctxBase.nombreFuente}${ctxBase.momentoFuente ? `, ${ctxBase.momentoFuente}` : ''}.`
         : `El cómputo oficial aún no fue publicado: los análisis usan el TREP preliminar (${ctxBase.momentoFuente}).`;
 }
 
@@ -343,6 +364,8 @@ function eventos() {
 // nacionales, siempre Asunción.
 let claves = new Set([ASUNCION]);
 let conNacional = false;
+// El año tiene TREP (municipales 2026, Consejo de la Magistratura 2023); el histórico del TSJE, solo el cómputo oficial (ADR-042).
+let conTrep = true;
 function claveDelHash(p) {
     return conNacional ? ambitoDeAnalisis(`#${p}`, (c) => claves.has(c)).distrito : ASUNCION;
 }
@@ -352,6 +375,14 @@ const conFecha = (iso) => {
     return m ? `${m[3]}/${m[2]}/${m[1]}${m[4] ? ` ${m[4]}:${m[5]}` : ''}` : iso ?? '';
 };
 
+// «corte 04/10 23:48» del TREP, «cómputo dd/mm» del oficial o, en el histórico del TSJE (sin fecha de cómputo), «elección del
+// dd/mm/aaaa».
+function momentoDe(fuente, info, anio, corte) {
+    if (fuente === 'trep') return `corte ${conFecha(info.corte ?? corte)}`;
+    if (info.fecha) return `cómputo ${conFecha(info.fecha)}`;
+    return anio.fecha ? `elección del ${conFecha(anio.fecha)}` : '';
+}
+
 export async function iniciar() {
     const raiz = $('analisis');
     try {
@@ -359,16 +390,21 @@ export async function iniciar() {
         const pedido = { eleccion: p.get('eleccion'), anio: p.get('anio') };
         const { eleccion, anio } = elegir(await manifiesto(), pedido);
         oficialPublicada = anio.fuentes?.oficial?.estado === 'publicado';
-        // El distrito (ADR-022): los datos nacionales son del TREP; con el cómputo oficial, Asunción.
+        conTrep = Boolean(anio.fuentes?.trep);
+        // El distrito (ADR-022): los datos nacionales son de la fuente que el año declara (el TREP en 2026; el cómputo oficial
+        // en el histórico, ADR-042); el cómputo oficial de 2026, solo Asunción.
         const lista = anio.nacional ? await listaDistritos(eleccion.id, anio.anio).catch(() => null) : null;
         claves = new Set([ASUNCION, ...(lista?.distritos.map(([clave]) => clave) ?? [])]);
         conNacional = Boolean(lista);
-        if (conNacional && claveDelHash(p) === null) {
+        // Sin datos por mesa (el histórico por distrito, ADR-042), Análisis compara distritos: siempre el país.
+        const porMesa = (anio.nacional?.nivel ?? 'mesa') === 'mesa';
+        if (conNacional && (claveDelHash(p) === null || !porMesa)) {
             await iniciarPais(p, { eleccion, anio });
             return;
         }
         pedido.distrito = lista ? claveDelHash(p) : null;
-        const fuente = p.get('fuente') === 'oficial' && oficialPublicada && (!pedido.distrito || pedido.distrito === ASUNCION) ? 'oficial' : 'trep';
+        const oficialEnDistrito = anio.nacional?.fuentes?.includes('oficial') || !pedido.distrito || pedido.distrito === ASUNCION;
+        const fuente = !conTrep || (p.get('fuente') === 'oficial' && oficialPublicada && oficialEnDistrito) ? 'oficial' : 'trep';
         const cargado = await cargarModelo(pedido, fuente);
         if (!cargado.datos) throw new Error(`La fuente ${fuente} no está publicada.`);
         datos = cargado.datos;
@@ -379,8 +415,9 @@ export async function iniciar() {
         const info = anio.fuentes?.[fuente] ?? {};
         ficha = crearFicha();
         ctxBase = { datos, fuente, pedido, anio, ficha, nombreFuente: info.nombre ?? fuente,
-                    momentoFuente: `${fuente === 'trep' ? 'corte' : 'cómputo'} ${conFecha(info.corte ?? info.fecha ?? datos.resumen.eleccion.corte)}`,
+                    momentoFuente: momentoDe(fuente, info, anio, datos.resumen.eleccion.corte),
                     cargo, nombreCargo: () => datos.resumen.cargos[cargo()].nombre, filtro: () => estado.filtro, enFiltro, textoFiltro,
+                    uninominal: () => cargosDe(anio)[cargo()]?.tipo === 'uninominal', esIntendencia: () => claveDe(anio, cargo()) === 'intendencia',
                     textoFuente: () => `TSJE · ${ctxBase.nombreFuente}, ${ctxBase.momentoFuente}`, alCambiar: () => actualizarEnlace(), lugar };
         await armar(p);
     } catch (error) {
@@ -413,15 +450,19 @@ async function armar(p) {
 // TREP (los datos nacionales son de esa fuente).
 async function iniciarPais(p, { eleccion, anio }) {
     const { cargarPais } = await import('./pais_datos.js');
-    datos = await cargarPais(eleccion.id, anio.anio);
+    // La fuente de los datos nacionales: el TREP donde lo hay; si no, el cómputo oficial (ADR-042).
+    const fuente = anio.nacional?.fuentes?.includes('trep') ? 'trep' : 'oficial';
+    datos = await cargarPais(eleccion.id, anio.anio, fuente);
     datos.contexto = { eleccion, anio };
     datos.lugar = { clave: null, nombre: anio.nacional?.nombre ?? 'Paraguay', departamento: null };
     datos.listas = {};
-    const info = anio.fuentes?.trep ?? {};
+    const info = anio.fuentes?.[fuente] ?? {};
+    const nombres = cargosDe(anio);
     ficha = crearFicha();
-    ctxBase = { datos, fuente: 'trep', pedido: { eleccion: eleccion.id, anio: anio.anio, distrito: null }, anio, ficha, nombreFuente: info.nombre ?? 'TREP',
-                momentoFuente: `corte ${conFecha(info.corte ?? datos.indice.eleccion?.corte)}`, cargo, delCargo: () => datos.porCargo[cargo()],
-                nombreCargo: () => (cargo() === '1' ? anio.nombres_cargo?.intendencia ?? 'Intendencia' : anio.nombres_cargo?.junta ?? 'Junta Municipal'),
+    ctxBase = { datos, fuente, pedido: { eleccion: eleccion.id, anio: anio.anio, distrito: null }, anio, ficha, nombreFuente: info.nombre ?? fuente,
+                momentoFuente: momentoDe(fuente, info, anio, datos.indice.eleccion?.corte), cargo, delCargo: () => datos.porCargo[cargo()],
+                nombreCargo: () => nombres[cargo()]?.nombre ?? cargo(),
+                uninominal: () => nombres[cargo()]?.tipo === 'uninominal', esIntendencia: () => nombres[cargo()]?.clave === 'intendencia',
                 filtro: () => estado.filtro, enFiltro, textoFiltro,
                 textoFuente: () => `TSJE · ${ctxBase.nombreFuente}, ${ctxBase.momentoFuente}`, alCambiar: () => actualizarEnlace(), lugar };
     await armar(p);

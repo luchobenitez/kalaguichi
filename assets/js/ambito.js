@@ -42,19 +42,22 @@ export function ambitoDeAnalisis(hash = location.hash, existe = () => true) {
 }
 
 // Hash para abrir un ámbito desde otro: conserva la elección, el año (los del contexto, si se pasan; si no, los del hash)
-// y el cargo (Junta si el destino no tiene el pedido); el resto de las claves son de la vista que se deja.
+// y el cargo (si el destino no tiene el pedido, cargoPorOmision: la Junta en las municipales, el primer cargo del año en
+// las demás elecciones, ADR-042); el resto de las claves son de la vista que se deja.
 // conservar: claves de la vista que siguen (en Análisis, el análisis elegido). pais: sin distrito, marca el país
 // (ambito=pais), para que Análisis no lea el análisis conservado como un enlace de antes de Asunción. cargo: el de la vista
 // (la barra o el mapa); si no se pasa, el del hash (ADR-024: sin cargo en el hash, la vista puede estar en Intendencia).
 export function hashDe({ distrito = null, departamento = null } = {}, { cargoDisponible = (c) => c === 'junta', eleccion = null, anio = null, conservar = [],
-                                                                       pais = false, cargo: cargoVista = null } = {}) {
+                                                                       pais = false, cargo: cargoVista = null, cargoPorOmision = 'junta' } = {}) {
     const actual = new URLSearchParams(location.hash.slice(1));
     const p = new URLSearchParams();
     const contexto = { eleccion: eleccion ?? actual.get('eleccion'), anio: anio ?? actual.get('anio') };
     for (const k of ['eleccion', 'anio']) if (contexto[k]) p.set(k, String(contexto[k]));
     const pedido = cargoVista ?? actual.get('cargo');
-    const cargo = pedido === 'intendencia' || pedido === '1' ? 'intendencia' : 'junta';
-    p.set('cargo', cargoDisponible(cargo) ? cargo : 'junta');
+    // Los enlaces de antes traen el cargo por su número (1 Intendencia, 2 Junta).
+    const cargo = pedido === '1' ? 'intendencia' : pedido === '2' ? 'junta' : pedido;
+    const elegido = cargo && cargoDisponible(cargo) ? cargo : cargoPorOmision;
+    if (elegido) p.set('cargo', elegido);
     if (distrito) p.set('distrito', distrito);
     else {
         if (pais) p.set('ambito', 'pais');
