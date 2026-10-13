@@ -226,6 +226,39 @@ datos/visualizacion_financiera/municipalidad/historico/
 - La serie usa los valores publicados de cada año en guaraníes de ese año; la página los lleva a guaraníes de 2025 con los
   factores del manifiesto (diciembre para los saldos, el promedio del año para los flujos).
 
+## Promedios (ADR-046)
+
+Los datos de Análisis › Promedios: cada lista en la Junta Municipal (municipales 2001-2026) y en Diputados (generales
+2003-2023) por distrito de hoy, para el promedio de cada cargo antes y después de las listas desbloqueadas (Ley N.º
+6318/2019). Los genera `analisis_resultados/promedios/procesamiento/preparar.py` desde los índices por distrito de este
+mismo sitio (los de `nacional/distritos.json`; 2026, el TREP); la regla de los partidos está en
+`analisis_resultados/promedios/familias.json`.
+
+```text
+datos/promedios/promedios.json
+  umbral          % del padrón desde el que una alianza propia de un distrito va con su nombre (1)
+  ley             número, año, nombre, texto y fuente de la Ley 6318/2019
+  elecciones      [{id (m2001, g2003…), eleccion, anio, fecha, cargo (junta o diputados), nombre_cargo, periodo (antes o
+                  despues), fuente (oficial o trep), nombre_fuente, distritos; el TREP, con corte y mesas}]
+  familias        {id: {numero, sigla, nombre, color}}: los partidos con sus alianzas, los partidos sin familia (s:SIGLA),
+                  ~locales (las alianzas y los movimientos sin partido, juntos) y ~demas (las demás listas)
+  listas          {elección: {sigla: [nombre, número, tipo]}}: las listas que no son el partido mismo (alianzas, siglas viejas)
+  departamentos   [{codigo, nombre}]
+  distritos       [{clave, nombre, departamento, e: {elección: {p (padrón), v (emitidos), b (blancos), n (nulos),
+                  l: {familia: votos | [votos, "SIGLA+…"]}, abarca?} | {sin: motivo}}, propias?: {x1: {sigla, nombre, tipo,
+                  numeros: {elección: número}}}, creado?: {fecha, ley, principal, nombre_principal}}]
+  fuentes         los archivos leídos con su SHA-256; reglas: cuántas listas entraron por cada regla
+```
+
+- Una alianza cuenta para el partido cuyo número de lista lleva en esa elección (el que más lo usó en el departamento o en
+  el país); la Alianza Ganar de 2018 (lista 5), con el PLRA. Un partido que cambió de sigla o de número sigue en su familia
+  por el nombre (UNACE 10 → 7, Cruzada Nacional 999 → 911).
+- En cada distrito, las listas suman los votos a listas del índice; las alianzas y los movimientos sin partido que no llegan
+  al umbral van sumados en `x`. Un distrito que no existía en una elección no tiene esa clave; uno que existía y no votó
+  (eligió en complementarias), `sin`. `abarca`: los distritos de hoy que el de entonces incluía.
+- Diputados, sin el exterior (allí no se vota a Diputados). Los porcentajes y los promedios (simples, de las elecciones en
+  que la lista se presentó) los calcula la página.
+
 ## Esquema de cada fuente (`trep/` y `oficial/`)
 
 **`mesas.json`**: una fila por mesa con acta. Todos los vectores siguen el orden de `mesas`.

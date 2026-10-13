@@ -36,6 +36,12 @@ const CATALOGO = [
       descripcionPais: 'El porcentaje o la cantidad de votos de una lista en cada distrito; los que no superan un mínimo de electores, en gris.' },
     { id: 'ranking', titulo: 'Ranking por lista', descripcion: 'Locales y barrios según el voto de cada lista.', descripcionDistrito: 'Locales según el voto de cada lista de la Junta.' },
     { id: 'trep-oficial', titulo: 'TREP vs oficial', descripcion: 'Diferencias entre las dos fuentes, por mesa y por local.', requiere: 'oficial' },
+    // Promedios (ADR-046): la Junta Municipal y Diputados desde 2001 con todas las listas, y el promedio de una antes y
+    // después de las listas desbloqueadas; es del distrito o, en el país, de todo el país o del departamento del filtro (al
+    // final: no cambia el análisis que abre por omisión).
+    { id: 'promedios', titulo: 'Promedios', pais: true,
+      descripcion: 'Todas las listas, blancos, nulos y no votantes en la Junta Municipal y en Diputados desde 2001, con el promedio de una lista antes y después de las listas desbloqueadas (2019).',
+      descripcionPais: 'Todas las listas, blancos, nulos y no votantes en la Junta Municipal y en Diputados desde 2001, con el promedio de una lista antes y después de las listas desbloqueadas (2019).' },
 ];
 const MOTIVOS = { oficial: 'Disponible cuando se publique el cómputo oficial.', intendencia: 'Necesita Intendencia por mesa: solo Asunción.',
                   trep: 'Compara el TREP con el cómputo oficial: esta elección no tiene TREP.',
@@ -47,10 +53,11 @@ const MOTIVOS = { oficial: 'Disponible cuando se publique el cómputo oficial.',
 const MODULOS = { 'voto-cruzado': () => import('./voto_cruzado.js'), margen: () => import('./margen.js'),
                   'participacion-ipm': () => import('./participacion_ipm.js'), 'ganador-ipm': () => import('./ganador_ipm.js'),
                   ranking: () => import('./ranking.js'),
-                  'trep-oficial': () => import('./trep_oficial.js') };
+                  'trep-oficial': () => import('./trep_oficial.js'), promedios: () => import('./promedios.js') };
 const MODULOS_PAIS = { 'participacion-ipm': () => import('./pais_participacion.js'), 'ganador-ipm': () => import('./pais_ganador.js'),
                        'lista-ipm': () => import('./pais_lista.js'), distritos: () => import('./pais_distritos.js'),
-                       electores: () => import('./pais_electores.js'), 'votos-lista': () => import('./pais_votos_lista.js') };
+                       electores: () => import('./pais_electores.js'), 'votos-lista': () => import('./pais_votos_lista.js'),
+                       promedios: () => import('./promedios.js') };
 const FECHA = /^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2}))?/;
 
 const estado = { analisis: 'voto-cruzado', filtro: '' };

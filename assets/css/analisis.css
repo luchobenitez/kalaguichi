@@ -304,6 +304,152 @@
     border-radius: 1rem;
 }
 
+/* «Promedios» (ADR-046): dos gráficos (Junta Municipal y Diputados) con la leyenda común arriba, que elige la lista del
+   promedio. Los colores de la ley, de los años sin esa elección y de blancos, nulos, no votantes y otras listas, con
+   contraste en los dos temas (también los leen los gráficos). */
+:root {
+    --promedios-ley: #b91c1c;
+    --promedios-tenue: #cbd5e1;
+    --promedios-otras: #475569;
+    --promedios-blancos: #8f8f8f;
+    --promedios-nulos: #c8c8c8;
+    --promedios-novoto: #3a3a36;
+}
+
+html[data-theme="dark"] {
+    --promedios-ley: #f87171;
+    --promedios-tenue: #475569;
+    --promedios-otras: #cbd5e1;
+    --promedios-blancos: #94a3b8;
+    --promedios-nulos: #64748b;
+    --promedios-novoto: #e2e8f0;
+}
+
+.promedios__cabecera {
+    display: grid;
+    gap: .5rem;
+    margin-bottom: .75rem;
+}
+
+.promedios__subtitulo {
+    margin: 0;
+    color: var(--text-soft);
+    font-size: .875rem;
+}
+
+.promedios__leyenda {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .25rem .375rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.promedios__muestra {
+    display: inline-flex;
+    align-items: center;
+    gap: .375rem;
+    min-height: 2rem;
+    padding: .125rem .5rem;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    background: none;
+    color: var(--text-soft);
+    font: inherit;
+    font-size: .8125rem;
+    cursor: pointer;
+}
+
+.promedios__muestra:hover {
+    border-color: var(--border-strong);
+}
+
+.promedios__muestra[aria-pressed="true"] {
+    border-color: var(--text-soft);
+    color: var(--text);
+    font-weight: 700;
+}
+
+.promedios__muestra:focus-visible {
+    outline: 3px solid var(--orange-500);
+    outline-offset: 2px;
+}
+
+.promedios__marca {
+    display: inline-block;
+    flex: none;
+    width: .875rem;
+    height: .875rem;
+    border-radius: .2rem;
+    background: var(--color-serie, var(--text-muted));
+}
+
+.promedios__marca--rayas {
+    background: repeating-linear-gradient(135deg, var(--color-serie) 0 2px, color-mix(in srgb, var(--color-serie) 30%, transparent) 2px 5px);
+}
+
+.promedios__graficos {
+    display: grid;
+    gap: 1rem;
+    min-width: 0;
+}
+
+.promedios__cargo {
+    display: grid;
+    gap: .375rem;
+    min-width: 0;
+    padding: .75rem .875rem .5rem;
+    border: 1px solid var(--border);
+    border-radius: 1rem;
+}
+
+.promedios__cargo-titulo {
+    margin: 0;
+    font-size: 1.0625rem;
+    font-weight: 800;
+}
+
+/* El promedio de la lista elegida, en el rojo de la ley (como el ejemplo), con el color de la lista al lado. */
+.promedios__promedio {
+    display: flex;
+    align-items: center;
+    gap: .375rem;
+    margin: 0;
+    color: var(--promedios-ley);
+    font-size: .8125rem;
+    font-weight: 600;
+}
+
+.promedios__promedio::before {
+    content: "";
+    flex: none;
+    width: .75rem;
+    height: .75rem;
+    border-radius: .2rem;
+    background: var(--color-serie, transparent);
+}
+
+/* El gráfico se desplaza a lo ancho cuando no entra (celular): sin el borde ni el alto máximo de las tablas. */
+.promedios__desplazable.tabla-scroll {
+    max-height: none;
+    border: 0;
+    border-radius: 0;
+}
+
+.promedios__lienzo {
+    position: relative;
+    height: clamp(19rem, 46vh, 27rem);
+    min-width: 0;
+}
+
+@media (max-width: 640px) {
+    .promedios__lienzo {
+        min-width: 42rem;
+        height: 20rem;
+    }
+}
+
 .analisis__tabla {
     display: grid;
     gap: .5rem;

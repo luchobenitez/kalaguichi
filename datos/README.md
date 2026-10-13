@@ -108,6 +108,7 @@ propiedades con el espacio de nombres `kg:` (`https://kalaguichi.com/datos/READM
 | `trep-2026-distritos`: TREP 2026 · cada distrito, mesa por mesa | electoral | 1310 | 2026-10-04T23:48:02 |
 | `historico-pais`: Histórico electoral 1996-2025 · resultados oficiales por distrito | electoral | 223 | TSJE 1996-2025 |
 | `historico-distritos`: Histórico electoral 2003-2023 · cada distrito, mesa por mesa | electoral | 8886 | TSJE 1996-2025 |
+| `promedios-listas`: Promedios: cada lista en la Junta Municipal y en Diputados 2001-2026, por distrito | electoral | 1 | TSJE 2001-2026 (pr-1) |
 | `padron-2026-demografia`: Padrón 2026: electores por sexo y edad (conteos) | electoral | 3 | padron-2026 |
 | `ipm-2022`: Pobreza multidimensional (IPM) 2022 por distrito y por barrio de Asunción (INE) | social | 2 | CNPV 2022 |
 | `limites-2022`: Límites de los departamentos y los distritos de Paraguay (INE, CNPV 2022) | geoespacial | 264 | CNPV 2022 |
@@ -265,7 +266,7 @@ finanzas municipales y los límites en GeoJSON), con un archivo cada uno y la pl
   "vcard:hasURL": "https://github.com/luchobenitez/kalaguichi/issues"
  },
  "dct:license": "https://creativecommons.org/licenses/by-sa/4.0/",
- "dcat:version": "1a649e1d41f4",
+ "dcat:version": "6947b888de99",
  "dcat:dataset": [
   {
    "@id": "#trep-2026-asuncion",
@@ -544,7 +545,7 @@ Las carpetas publicadas hoy:
 <!-- generado:carpetas (tools/catalogo_datos.py) -->
 | Carpeta | Archivos | Peso |
 |---|---:|---:|
-| `(raíz de datos/)` | 2 | 79 KB |
+| `(raíz de datos/)` | 2 | 81 KB |
 | `complementarias/1996/nacional/` | 5 | 9 KB |
 | `complementarias/1997/nacional/` | 5 | 8 KB |
 | `complementarias/1997/nacional/geo/` | 1 | 396 KB |
@@ -679,12 +680,13 @@ Las carpetas publicadas hoy:
 | `municipales/2026/nacional/geo/` | 2 | 533 KB |
 | `municipales/2026/trep/` | 3 | 279 KB |
 | `padron_analisis/municipales-2026/padron-2026/` | 3 | 128 KB |
+| `promedios/` | 1 | 476 KB |
 | `visualizacion_financiera/municipalidad/2025/` | 5 | 148 KB |
 | `visualizacion_financiera/municipalidad/2025/detalle/` | 247 | 3,4 MB |
 | `visualizacion_financiera/municipalidad/2025/municipios/` | 247 | 4,1 MB |
 | `visualizacion_financiera/municipalidad/historico/` | 3 | 98 KB |
 | `visualizacion_financiera/municipalidad/historico/municipios/` | 263 | 5,5 MB |
-| **Total** (sin `catalog.json`, `huellas.json` ni `README.md`) | 11541 | 135,0 MB |
+| **Total** (sin `catalog.json`, `huellas.json` ni `README.md`) | 11542 | 135,5 MB |
 <!-- /generado:carpetas -->
 
 ### Nombres
